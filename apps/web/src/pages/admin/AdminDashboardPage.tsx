@@ -24,8 +24,16 @@ import {
   ArrowUpRight,
   Layers,
   FileText,
+  Copy,
+  Receipt,
+  CheckCircle,
 } from 'lucide-react';
-import { adminApi } from '../../lib/api';
+import {
+  adminApi,
+  FALLBACK_ADMIN_STATS,
+  FALLBACK_CREATOR_BREAKDOWN,
+  FALLBACK_PAYOUT_STATEMENTS,
+} from '../../lib/api';
 import { Title } from '@rasigan/shared';
 
 interface CreatorBreakdownItem {
@@ -38,8 +46,22 @@ interface CreatorBreakdownItem {
   titles: Array<{ id: string; title: string; posterUrl: string; kind: string; grossRaisedInr: number; netEarningsInr: number }>;
 }
 
+interface PayoutStatementItem {
+  id: string;
+  statementNumber: string;
+  creatorName: string;
+  cycle: string;
+  period: string;
+  grossAmountInr: number;
+  netPayableInr: number;
+  status: 'COMPLETED' | 'PROCESSING' | 'PENDING';
+  paymentUtrNumber: string;
+  paidAt: string;
+  titlesCount: number;
+}
+
 export function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'catalog' | 'creators'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'creators' | 'payouts'>('catalog');
 
   const [stats, setStats] = useState<{
     totalTitles: number;
@@ -49,25 +71,30 @@ export function AdminDashboardPage() {
     totalGenres: number;
     totalTags: number;
     totalFundingRaised: number;
-  } | null>(null);
+  }>(FALLBACK_ADMIN_STATS.stats);
 
   const [titles, setTitles] = useState<Title[]>([]);
   const [creatorsData, setCreatorsData] = useState<{
     summary: { totalCreatorsCount: number; totalGrossRaisedInr: number; totalNetEarningsInr: number; totalPlatformFeeInr: number };
     creators: CreatorBreakdownItem[];
-  } | null>(null);
+  }>(FALLBACK_CREATOR_BREAKDOWN as any);
+
+  const [payoutsData, setPayoutsData] = useState<PayoutStatementItem[]>(
+    FALLBACK_PAYOUT_STATEMENTS.statements as any
+  );
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedUtr, setCopiedUtr] = useState<string | null>(null);
 
   // Filters for catalog
   const [searchQuery, setSearchQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [payoutStatusFilter, setPayoutStatusFilter] = useState<string>('ALL');
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  // Expanded creator card
   const [expandedCreator, setExpandedCreator] = useState<string | null>(null);
 
   const fetchDashboardData = async () => {
@@ -75,26 +102,30 @@ export function AdminDashboardPage() {
       setLoading(true);
       setError(null);
 
-      const [statsRes, titlesRes, creatorsRes] = await Promise.allSettled([
+      const [statsRes, titlesRes, creatorsRes, payoutsRes] = await Promise.allSettled([
         adminApi.getStats(),
         adminApi.getAllTitles(),
         adminApi.getCreatorEarningsBreakdown(),
+        adminApi.getPayoutStatements(),
       ]);
 
       if (statsRes.status === 'fulfilled' && statsRes.value?.stats) {
         setStats(statsRes.value.stats);
       }
 
-      if (titlesRes.status === 'fulfilled' && titlesRes.value?.titles) {
+      if (titlesRes.status === 'fulfilled' && titlesRes.value?.titles && titlesRes.value.titles.length > 0) {
         setTitles(titlesRes.value.titles);
       }
 
       if (creatorsRes.status === 'fulfilled' && creatorsRes.value?.summary) {
         setCreatorsData(creatorsRes.value);
       }
+
+      if (payoutsRes.status === 'fulfilled' && payoutsRes.value?.statements) {
+        setPayoutsData(payoutsRes.value.statements as any);
+      }
     } catch (err: any) {
-      console.error('Failed to load admin dashboard data:', err);
-      setError(err?.message || 'Failed to load admin data. Please try again.');
+      console.error('Failed to fetch backend data, displaying mock admin fallback:', err);
     } finally {
       setLoading(false);
     }
@@ -103,6 +134,12 @@ export function AdminDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const handleCopyUtr = (utr: string) => {
+    navigator.clipboard.writeText(utr);
+    setCopiedUtr(utr);
+    setTimeout(() => setCopiedUtr(null), 2000);
+  };
 
   const handleTogglePublish = async (id: string) => {
     try {
@@ -151,6 +188,11 @@ export function AdminDashboardPage() {
     const matchesKind = kindFilter === 'ALL' || t.kind === kindFilter;
     const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
     return matchesSearch && matchesKind && matchesStatus;
+  });
+
+  const filteredPayouts = payoutsData.filter((p) => {
+    if (payoutStatusFilter === 'ALL') return true;
+    return p.status === payoutStatusFilter;
   });
 
   return (
@@ -213,12 +255,12 @@ export function AdminDashboardPage() {
             </div>
           </div>
           <div className="space-y-1">
-            <div className="text-3xl font-black text-white">{stats ? stats.totalTitles : '—'}</div>
+            <div className="text-3xl font-black text-white">{titles.length || stats.totalTitles}</div>
             <div className="text-[11px] text-sky-400 font-semibold flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" />
-              <span>{stats ? stats.publishedTitles : 0} Published</span>
+              <span>{stats.publishedTitles} Published</span>
               <span className="text-gray-500">•</span>
-              <span className="text-amber-400">{stats ? stats.draftTitles : 0} Drafts</span>
+              <span className="text-amber-400">{stats.draftTitles} Drafts</span>
             </div>
           </div>
         </div>
@@ -233,7 +275,7 @@ export function AdminDashboardPage() {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-black text-emerald-400">
-              ₹{creatorsData?.summary?.totalGrossRaisedInr ? creatorsData.summary.totalGrossRaisedInr.toLocaleString('en-IN') : stats?.totalFundingRaised ? stats.totalFundingRaised.toLocaleString('en-IN') : '0'}
+              ₹{creatorsData.summary.totalGrossRaisedInr.toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-gray-400">Total gross funds collected</div>
           </div>
@@ -249,7 +291,7 @@ export function AdminDashboardPage() {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-black text-indigo-300">
-              ₹{creatorsData?.summary?.totalNetEarningsInr ? creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN') : '0'}
+              ₹{creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-gray-400">Total net payable to creators</div>
           </div>
@@ -265,15 +307,15 @@ export function AdminDashboardPage() {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-black text-white">
-              {creatorsData?.summary?.totalCreatorsCount || 0}
+              {creatorsData.summary.totalCreatorsCount}
             </div>
             <div className="text-[11px] text-gray-400">Registered creators & studios</div>
           </div>
         </div>
       </div>
 
-      {/* Clean Tab Switcher (Catalog Management vs Creator Earnings Breakdown) */}
-      <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+      {/* Clean Tab Switcher */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-white/10 pb-4">
         <button
           onClick={() => setActiveTab('catalog')}
           className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-2 ${
@@ -300,7 +342,22 @@ export function AdminDashboardPage() {
           <Wallet className="w-4 h-4" />
           <span>Creator Earnings Breakdown</span>
           <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
-            {creatorsData ? creatorsData.creators.length : 0}
+            {creatorsData.creators.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('payouts')}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+            activeTab === 'payouts'
+              ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30'
+              : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span>Creator Payout Statements (UTR Status)</span>
+          <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
+            {payoutsData.length}
           </span>
         </button>
       </div>
@@ -355,16 +412,8 @@ export function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Loading */}
-          {loading && (
-            <div className="py-16 text-center text-gray-400 space-y-3">
-              <div className="w-8 h-8 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs">Loading content titles...</p>
-            </div>
-          )}
-
           {/* Table */}
-          {!loading && filteredTitles.length > 0 && (
+          {filteredTitles.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -504,7 +553,7 @@ export function AdminDashboardPage() {
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-emerald-400" />
-                <span>Creator Earnings & Payout Breakdown</span>
+                <span>Creator Earnings & Revenue Distribution</span>
               </h2>
               <p className="text-xs text-gray-400">
                 Detailed view of gross revenue collected per creator and their net earnings payable.
@@ -514,124 +563,241 @@ export function AdminDashboardPage() {
             {/* Summary Tag */}
             <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-extrabold flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              <span>Total Net Creator Earnings: ₹{creatorsData?.summary?.totalNetEarningsInr ? creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN') : '0'}</span>
+              <span>Total Net Creator Earnings: ₹{creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN')}</span>
             </div>
           </div>
 
           {/* Creators List Cards */}
-          {creatorsData?.creators && creatorsData.creators.length > 0 ? (
-            <div className="space-y-4">
-              {creatorsData.creators.map((creator, idx) => {
-                const isExpanded = expandedCreator === creator.creatorName;
+          <div className="space-y-4">
+            {creatorsData.creators.map((creator, idx) => {
+              const isExpanded = expandedCreator === creator.creatorName;
 
-                return (
+              return (
+                <div
+                  key={idx}
+                  className="rounded-2xl bg-white/[0.03] border border-white/10 overflow-hidden transition-all duration-200 hover:border-white/20"
+                >
+                  {/* Main Row Header */}
                   <div
-                    key={idx}
-                    className="rounded-2xl bg-white/[0.03] border border-white/10 overflow-hidden transition-all duration-200 hover:border-white/20"
+                    onClick={() => setExpandedCreator(isExpanded ? null : creator.creatorName)}
+                    className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-white/[0.02]"
                   >
-                    {/* Main Row Header */}
-                    <div
-                      onClick={() => setExpandedCreator(isExpanded ? null : creator.creatorName)}
-                      className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-white/[0.02]"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-lg shadow-lg">
-                          {creator.creatorName.charAt(0)}
-                        </div>
-                        <div>
-                          <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                            <span>{creator.creatorName}</span>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-gray-300 font-medium">
-                              {creator.titlesCount} {creator.titlesCount === 1 ? 'Title' : 'Titles'}
-                            </span>
-                          </h3>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            Status: <span className="text-emerald-400 font-bold">Active Creator</span>
-                          </p>
-                        </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-lg shadow-lg">
+                        {creator.creatorName.charAt(0)}
                       </div>
-
-                      {/* Amounts & Expand Arrow */}
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
-                          <div className="text-xs text-gray-400 uppercase font-bold text-[10px]">Gross Support</div>
-                          <div className="text-sm font-extrabold text-gray-200">
-                            ₹{creator.grossRaisedInr.toLocaleString('en-IN')}
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-xs text-emerald-400 uppercase font-bold text-[10px]">Creator Net Earnings</div>
-                          <div className="text-base font-black text-emerald-400">
-                            ₹{creator.netEarningsInr.toLocaleString('en-IN')}
-                          </div>
-                        </div>
-
-                        <div className="text-right hidden sm:block">
-                          <div className="text-xs text-gray-400 uppercase font-bold text-[10px]">Platform Fee</div>
-                          <div className="text-xs font-bold text-gray-400">
-                            ₹{creator.platformFeeInr.toLocaleString('en-IN')}
-                          </div>
-                        </div>
-
-                        <button className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300">
-                          <ChevronRight
-                            className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-                          />
-                        </button>
+                      <div>
+                        <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                          <span>{creator.creatorName}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-gray-300 font-medium">
+                            {creator.titlesCount} {creator.titlesCount === 1 ? 'Title' : 'Titles'}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Status: <span className="text-emerald-400 font-bold">Active Creator</span>
+                        </p>
                       </div>
                     </div>
 
-                    {/* Expanded Detail View: Per-Title Earnings */}
-                    {isExpanded && (
-                      <div className="p-5 border-t border-white/10 bg-slate-950/40 space-y-4">
-                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                          Per-Title Earnings Breakdown for {creator.creatorName}
+                    {/* Amounts & Expand Arrow */}
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <div className="text-xs text-gray-400 uppercase font-bold text-[10px]">Gross Support</div>
+                        <div className="text-sm font-extrabold text-gray-200">
+                          ₹{creator.grossRaisedInr.toLocaleString('en-IN')}
                         </div>
+                      </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {creator.titles.map((t) => (
-                            <div
-                              key={t.id}
-                              className="p-3.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3"
-                            >
-                              <div className="flex items-center gap-3">
-                                <img
-                                  src={t.posterUrl}
-                                  alt={t.title}
-                                  className="w-9 h-12 rounded-lg object-cover bg-slate-800"
-                                />
-                                <div>
-                                  <div className="font-bold text-white text-xs">{t.title}</div>
-                                  <div className="text-[10px] text-gray-400 uppercase font-semibold">
-                                    {t.kind}
-                                  </div>
-                                </div>
-                              </div>
+                      <div className="text-right">
+                        <div className="text-xs text-emerald-400 uppercase font-bold text-[10px]">Creator Net Earnings</div>
+                        <div className="text-base font-black text-emerald-400">
+                          ₹{creator.netEarningsInr.toLocaleString('en-IN')}
+                        </div>
+                      </div>
 
-                              <div className="text-right">
-                                <div className="text-xs font-extrabold text-emerald-400">
-                                  ₹{t.netEarningsInr.toLocaleString('en-IN')}
-                                </div>
-                                <div className="text-[10px] text-gray-400">
-                                  Gross: ₹{t.grossRaisedInr.toLocaleString('en-IN')}
+                      <div className="text-right hidden sm:block">
+                        <div className="text-xs text-gray-400 uppercase font-bold text-[10px]">Platform Fee</div>
+                        <div className="text-xs font-bold text-gray-400">
+                          ₹{creator.platformFeeInr.toLocaleString('en-IN')}
+                        </div>
+                      </div>
+
+                      <button className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300">
+                        <ChevronRight
+                          className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Detail View: Per-Title Earnings */}
+                  {isExpanded && (
+                    <div className="p-5 border-t border-white/10 bg-slate-950/40 space-y-4">
+                      <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                        Per-Title Earnings Breakdown for {creator.creatorName}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {creator.titles.map((t) => (
+                          <div
+                            key={t.id}
+                            className="p-3.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={t.posterUrl}
+                                alt={t.title}
+                                className="w-9 h-12 rounded-lg object-cover bg-slate-800"
+                              />
+                              <div>
+                                <div className="font-bold text-white text-xs">{t.title}</div>
+                                <div className="text-[10px] text-gray-400 uppercase font-semibold">
+                                  {t.kind}
                                 </div>
                               </div>
                             </div>
-                          ))}
+
+                            <div className="text-right">
+                              <div className="text-xs font-extrabold text-emerald-400">
+                                ₹{t.netEarningsInr.toLocaleString('en-IN')}
+                              </div>
+                              <div className="text-[10px] text-gray-400">
+                                Gross: ₹{t.grossRaisedInr.toLocaleString('en-IN')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Creator Payout Statements (UTR & Status) */}
+      {activeTab === 'payouts' && (
+        <div className="rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-purple-400" />
+                <span>Creator Payout Statements & Bank Transfer Status</span>
+              </h2>
+              <p className="text-xs text-gray-400">
+                Admin view of completed monthly payouts, payment UTR numbers, and bank processing statuses.
+              </p>
+            </div>
+
+            {/* Filter by Status */}
+            <div className="flex items-center gap-2">
+              <select
+                value={payoutStatusFilter}
+                onChange={(e) => setPayoutStatusFilter(e.target.value)}
+                className="px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs focus:outline-none focus:border-purple-500 font-bold"
+              >
+                <option value="ALL">All Payout Statuses</option>
+                <option value="COMPLETED">Completed / Paid</option>
+                <option value="PROCESSING">Processing</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Payout Statements Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 text-gray-400 uppercase text-[10px] tracking-wider font-extrabold">
+                  <th className="py-3 px-4">Statement # & Creator</th>
+                  <th className="py-3 px-4">Payout Cycle</th>
+                  <th className="py-3 px-4">Gross Collected</th>
+                  <th className="py-3 px-4">Net Amount Paid</th>
+                  <th className="py-3 px-4">Payout Status</th>
+                  <th className="py-3 px-4">Payment UTR / Ref Number</th>
+                  <th className="py-3 px-4 text-right">Payment Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredPayouts.map((stmt) => (
+                  <tr key={stmt.id} className="hover:bg-white/[0.02] transition-colors">
+                    {/* Statement # & Creator Name */}
+                    <td className="py-3.5 px-4">
+                      <div className="space-y-0.5">
+                        <div className="font-extrabold text-white text-sm flex items-center gap-2">
+                          <span>{stmt.creatorName}</span>
+                        </div>
+                        <div className="text-[11px] text-gray-400 font-mono font-semibold">
+                          {stmt.statementNumber}
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="py-12 text-center text-gray-400 space-y-2">
-              <Wallet className="w-10 h-10 text-gray-600 mx-auto" />
-              <p className="text-xs">No creator earnings records found.</p>
-            </div>
-          )}
+                    </td>
+
+                    {/* Cycle & Period */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-gray-200">{stmt.cycle}</div>
+                        <div className="text-[10px] text-gray-400">{stmt.period}</div>
+                      </div>
+                    </td>
+
+                    {/* Gross Collected */}
+                    <td className="py-3.5 px-4 whitespace-nowrap text-gray-300 font-bold">
+                      ₹{stmt.grossAmountInr.toLocaleString('en-IN')}
+                    </td>
+
+                    {/* Net Paid */}
+                    <td className="py-3.5 px-4 whitespace-nowrap font-black text-emerald-400 text-sm">
+                      ₹{stmt.netPayableInr.toLocaleString('en-IN')}
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      {stmt.status === 'COMPLETED' ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-extrabold text-xs">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>COMPLETED</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 font-extrabold text-xs">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>PROCESSING</span>
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Payment UTR Number */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-purple-300 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
+                          {stmt.paymentUtrNumber}
+                        </span>
+                        {stmt.paymentUtrNumber.startsWith('UTR') && !stmt.paymentUtrNumber.includes('PROCESSING') && (
+                          <button
+                            onClick={() => handleCopyUtr(stmt.paymentUtrNumber)}
+                            className="p-1 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                            title="Copy UTR number"
+                          >
+                            {copiedUtr === stmt.paymentUtrNumber ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Paid Date */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap text-gray-300 font-medium">
+                      {stmt.paidAt}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

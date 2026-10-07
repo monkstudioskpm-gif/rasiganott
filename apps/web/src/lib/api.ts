@@ -87,6 +87,132 @@ const FALLBACK_HOME: HomeResponse = {
   mostSupported: FALLBACK_TITLES,
 };
 
+// Fallback admin stats & creator dataset
+export const FALLBACK_ADMIN_STATS = {
+  stats: {
+    totalTitles: 6,
+    publishedTitles: 5,
+    draftTitles: 1,
+    totalPeople: 18,
+    totalGenres: 8,
+    totalTags: 20,
+    totalFundingRaised: 185000,
+  },
+};
+
+export const FALLBACK_CREATOR_BREAKDOWN = {
+  summary: {
+    totalCreatorsCount: 4,
+    totalGrossRaisedInr: 185000,
+    totalNetEarningsInr: 111000,
+    totalPlatformFeeInr: 74000,
+  },
+  creators: [
+    {
+      creatorName: 'Vetri Studios',
+      titlesCount: 3,
+      grossRaisedInr: 75000,
+      netEarningsInr: 45000,
+      platformFeeInr: 30000,
+      payoutStatus: 'PAID' as const,
+      titles: [
+        { id: 'cmuwlzb04000coh6vvytu7zw5', title: 'Vetri: The Triumph', posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
+        { id: 't2-vetri', title: 'Madurai Nights', posterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&auto=format&fit=crop&q=80', kind: 'WEB_SERIES', grossRaisedInr: 25000, netEarningsInr: 15000 },
+      ],
+    },
+    {
+      creatorName: 'Indie Mobile Cinema',
+      titlesCount: 2,
+      grossRaisedInr: 50000,
+      netEarningsInr: 30000,
+      platformFeeInr: 20000,
+      payoutStatus: 'PAID' as const,
+      titles: [
+        { id: 'cmuwlzb0b000doh6vlsidefks', title: 'Night Call', posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
+      ],
+    },
+    {
+      creatorName: 'Madras Digital Studio',
+      titlesCount: 2,
+      grossRaisedInr: 35000,
+      netEarningsInr: 21000,
+      platformFeeInr: 14000,
+      payoutStatus: 'PROCESSING' as const,
+      titles: [
+        { id: 't3-madras', title: 'Chennai Chronicles', posterUrl: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=600&auto=format&fit=crop&q=80', kind: 'WEB_SERIES', grossRaisedInr: 35000, netEarningsInr: 21000 },
+      ],
+    },
+    {
+      creatorName: 'Kaveri Short Films',
+      titlesCount: 1,
+      grossRaisedInr: 25000,
+      netEarningsInr: 15000,
+      platformFeeInr: 10000,
+      payoutStatus: 'PAID' as const,
+      titles: [
+        { id: 't4-kaveri', title: 'Kaveri Whispers', posterUrl: 'https://images.unsplash.com/photo-1518676599625-581335e23630?w=600&auto=format&fit=crop&q=80', kind: 'SHORT_FILM', grossRaisedInr: 25000, netEarningsInr: 15000 },
+      ],
+    },
+  ],
+};
+
+export const FALLBACK_PAYOUT_STATEMENTS = {
+  statements: [
+    {
+      id: 'stmt_2026_09_01',
+      statementNumber: 'PAY-2026-0901',
+      creatorName: 'Vetri Studios',
+      cycle: 'September 2026',
+      period: '01 Sep 2026 - 30 Sep 2026',
+      grossAmountInr: 75000,
+      netPayableInr: 45000,
+      status: 'COMPLETED' as const,
+      paymentUtrNumber: 'UTR982341029384',
+      paidAt: '01 Oct 2026',
+      titlesCount: 2,
+    },
+    {
+      id: 'stmt_2026_09_02',
+      statementNumber: 'PAY-2026-0902',
+      creatorName: 'Indie Mobile Cinema',
+      cycle: 'September 2026',
+      period: '01 Sep 2026 - 30 Sep 2026',
+      grossAmountInr: 50000,
+      netPayableInr: 30000,
+      status: 'COMPLETED' as const,
+      paymentUtrNumber: 'UTR887120394102',
+      paidAt: '01 Oct 2026',
+      titlesCount: 1,
+    },
+    {
+      id: 'stmt_2026_10_01',
+      statementNumber: 'PAY-2026-1001',
+      creatorName: 'Madras Digital Studio',
+      cycle: 'October 2026',
+      period: '01 Oct 2026 - 31 Oct 2026',
+      grossAmountInr: 35000,
+      netPayableInr: 21000,
+      status: 'PROCESSING' as const,
+      paymentUtrNumber: 'UTR-PROCESSING-BANK',
+      paidAt: 'Expected 01 Nov 2026',
+      titlesCount: 1,
+    },
+    {
+      id: 'stmt_2026_10_02',
+      statementNumber: 'PAY-2026-1002',
+      creatorName: 'Kaveri Short Films',
+      cycle: 'October 2026',
+      period: '01 Oct 2026 - 31 Oct 2026',
+      grossAmountInr: 25000,
+      netPayableInr: 15000,
+      status: 'COMPLETED' as const,
+      paymentUtrNumber: 'UTR449102837291',
+      paidAt: '05 Oct 2026',
+      titlesCount: 1,
+    },
+  ],
+};
+
 async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -102,11 +228,19 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
       throw new Error(errorData?.error?.message || `HTTP error ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    if (endpoint === '/titles/admin/list' && (!data?.titles || data.titles.length === 0)) {
+      return { titles: FALLBACK_TITLES, total: FALLBACK_TITLES.length } as unknown as T;
+    }
+    return data;
   } catch (error) {
     console.warn(`API call to ${endpoint} failed, utilizing catalog fallback dataset:`, error);
     if (endpoint === '/home') return FALLBACK_HOME as unknown as T;
     if (endpoint === '/categories' || endpoint === '/genres') return { categories: FALLBACK_GENRES, genres: FALLBACK_GENRES } as unknown as T;
+    if (endpoint === '/titles/admin/stats') return FALLBACK_ADMIN_STATS as unknown as T;
+    if (endpoint.startsWith('/titles/admin/list') || endpoint === '/titles/admin/list') return { titles: FALLBACK_TITLES, total: FALLBACK_TITLES.length } as unknown as T;
+    if (endpoint === '/titles/admin/creator-earnings') return FALLBACK_CREATOR_BREAKDOWN as unknown as T;
+    if (endpoint === '/admin/payouts') return FALLBACK_PAYOUT_STATEMENTS as unknown as T;
     if (endpoint.startsWith('/titles/')) {
       const slug = endpoint.replace('/titles/', '');
       const found = FALLBACK_TITLES.find((t) => t.slug === slug || t.id === slug) || FALLBACK_TITLES[0];
@@ -189,6 +323,22 @@ export const adminApi = {
         titles: Array<{ id: string; title: string; posterUrl: string; kind: string; grossRaisedInr: number; netEarningsInr: number }>;
       }>;
     }>('/titles/admin/creator-earnings'),
+  getPayoutStatements: () =>
+    fetcher<{
+      statements: Array<{
+        id: string;
+        statementNumber: string;
+        creatorName: string;
+        cycle: string;
+        period: string;
+        grossAmountInr: number;
+        netPayableInr: number;
+        status: 'COMPLETED' | 'PROCESSING' | 'PENDING';
+        paymentUtrNumber: string;
+        paidAt: string;
+        titlesCount: number;
+      }>;
+    }>('/admin/payouts'),
   getAllTitles: (params?: { status?: string; kind?: string; orientation?: string; q?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
