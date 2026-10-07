@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Play, Star, Info, ChevronRight, ChevronLeft, Film, Tv, Video, Sparkles, Smartphone, SlidersHorizontal, X, Check, ChevronUp } from 'lucide-react';
+import { Play, Star, Info, ChevronRight, ChevronLeft, SlidersHorizontal, X, Check, ChevronUp } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { Link, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
@@ -35,17 +35,13 @@ export function HomePage() {
     { name: 'DOCUMENTARY', slug: 'documentary', image: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=400&auto=format&fit=crop&q=80' },
   ];
 
+  // Professional Plain Text Category Buttons (Icons/Emojis removed)
   const categoryChips = [
-    { id: 'all', name: 'Home / All', icon: Sparkles },
-    { id: 'movies', name: 'Movies', icon: Film },
-    { id: 'web-series', name: 'Web Series', icon: Tv },
-    { id: 'short-films', name: 'Short Films', icon: Video },
-    { id: 'vertical', name: 'Vertical Reels', icon: Smartphone },
-    { id: 'action', name: 'Action', icon: Sparkles },
-    { id: 'thriller', name: 'Thriller', icon: Sparkles },
-    { id: 'romance', name: 'Romance', icon: Sparkles },
-    { id: 'comedy', name: 'Comedy', icon: Sparkles },
-    { id: 'horror', name: 'Horror', icon: Sparkles },
+    { id: 'all', name: 'Home' },
+    { id: 'movies', name: 'Movies' },
+    { id: 'web-series', name: 'Web Series' },
+    { id: 'short-films', name: 'Short Films' },
+    { id: 'vertical', name: 'Vertical' },
   ];
 
   const filterByCat = (titles: Title[]) => {
@@ -64,10 +60,7 @@ export function HomePage() {
     if (selectedCategory === 'vertical') {
       return titles.filter((t) => t.orientation === 'VERTICAL');
     }
-    return titles.filter((t) =>
-      t.categories?.some((c: any) => c.slug === selectedCategory || c.name.toLowerCase() === selectedCategory.toLowerCase()) ||
-      t.kind?.toLowerCase() === selectedCategory.toLowerCase()
-    );
+    return titles;
   };
 
   const filteredFeatured = filterByCat(featured.length > 0 ? featured : allTitles);
@@ -129,7 +122,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-10 pb-16 max-w-7xl mx-auto px-2 sm:px-4">
-      {/* 1. Main Top Hero Feature Banner with Touch Swipe Support & Raised Arrow Controls */}
+      {/* 1. Main Top Hero Feature Banner with Elevated Control Arrows (Positioned at top-4 sm:top-6) */}
       {heroItem && (
         <section className="space-y-3">
           <div
@@ -149,19 +142,19 @@ export function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#07080e]/95 via-[#07080e]/40 to-transparent"></div>
             </div>
 
-            {/* Left & Right Carousel Arrow Buttons - Positioned higher up (top-[38%]) to never overlap bottom title text */}
+            {/* Carousel Control Arrows — Positioned high up at top-4 sm:top-6 to NEVER disturb bottom title content */}
             {filteredFeatured.length > 1 && (
               <>
                 <button
                   onClick={handlePrevHero}
-                  className="absolute left-3 sm:left-6 top-[38%] -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
+                  className="absolute left-4 sm:left-6 top-4 sm:top-6 z-30 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
                   title="Previous Slide"
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
                 <button
                   onClick={handleNextHero}
-                  className="absolute right-3 sm:right-6 top-[38%] -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
+                  className="absolute right-4 sm:right-6 top-4 sm:top-6 z-30 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
                   title="Next Slide"
                 >
                   <ChevronRight className="w-6 h-6" />
@@ -232,25 +225,23 @@ export function HomePage() {
         </section>
       )}
 
-      {/* 2. Desktop & Mobile Category Selection Header Bar (POSITIONED AFTER THE BANNER) */}
-      <section className="space-y-3 pt-2">
+      {/* 2. Sleek Professional Category Selection Chips Bar (Positioned Below Main Banner) */}
+      <section className="space-y-3 pt-1">
         {/* Desktop Chips (hidden on mobile) */}
         <div className="hidden sm:flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
           {categoryChips.map((chip) => {
             const isActive = selectedCategory === chip.id;
-            const Icon = chip.icon;
             return (
               <button
                 key={chip.id}
                 onClick={() => setSelectedCategory(chip.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 ${
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
                   isActive
                     ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30'
                     : 'bg-white/[0.04] text-gray-400 hover:text-white hover:bg-white/[0.08] border border-white/5'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                <span>{chip.name}</span>
+                {chip.name}
               </button>
             );
           })}
@@ -315,7 +306,6 @@ export function HomePage() {
             <div className="grid grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto no-scrollbar py-1">
               {categoryChips.map((chip) => {
                 const isActive = selectedCategory === chip.id;
-                const Icon = chip.icon;
                 return (
                   <button
                     key={chip.id}
@@ -323,17 +313,13 @@ export function HomePage() {
                       setSelectedCategory(chip.id);
                       setShowCategoryDrawer(false);
                     }}
-                    className={`p-3 rounded-2xl border text-left flex items-center justify-between text-xs font-bold transition-all duration-200 ${
+                    className={`p-3.5 rounded-2xl border text-center text-xs font-bold transition-all duration-200 flex items-center justify-between ${
                       isActive
                         ? 'bg-sky-500/25 border-sky-400 text-sky-300 shadow-md shadow-sky-500/20'
                         : 'bg-white/[0.04] border-white/10 hover:bg-white/[0.08] text-gray-300'
                     }`}
                   >
-                    <div className="flex items-center gap-2 truncate">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-sky-400' : 'text-gray-400'}`} />
-                      <span className="truncate">{chip.name}</span>
-                    </div>
-
+                    <span>{chip.name}</span>
                     {isActive && <Check className="w-4 h-4 text-sky-400 flex-none ml-1" />}
                   </button>
                 );
@@ -346,9 +332,6 @@ export function HomePage() {
       {/* 3. Empty State if category filter yields no results */}
       {hasNoContent && (
         <section className="py-16 px-6 rounded-3xl glass-panel border border-white/10 text-center space-y-4 max-w-lg mx-auto my-8">
-          <div className="w-16 h-16 rounded-full bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center mx-auto shadow-lg shadow-sky-500/20">
-            <Film className="w-8 h-8" />
-          </div>
           <h3 className="text-xl font-black text-white">No videos in "{activeCategoryObj.name}"</h3>
           <p className="text-xs text-gray-400 leading-relaxed">
             There are currently no items matching this category. Tap below to view all content.
@@ -585,7 +568,7 @@ export function HomePage() {
                 <div className="relative aspect-poster rounded-2xl overflow-hidden glass-card transition-all duration-300 group-hover:scale-[1.03] shadow-xl border border-white/10">
                   <img src={title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
                   <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-black/70 border border-white/10 text-[10px] font-bold text-amber-400 flex items-center gap-1 backdrop-blur-md">
-                    <Star className="w-3 h-3 fill-current" /> {title.editorRating ? title.editorRating.toFixed(1) : '8.7'}
+                    <Star className="w-3.5 h-3.5 fill-current" /> {title.editorRating ? title.editorRating.toFixed(1) : '8.7'}
                   </div>
                 </div>
 
