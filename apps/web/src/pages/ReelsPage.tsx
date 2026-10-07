@@ -75,7 +75,7 @@ export function ReelsPage() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="aspect-[9/16] max-h-[82vh] w-full max-w-sm mx-auto overflow-y-scroll snap-y snap-mandatory no-scrollbar rounded-3xl border border-white/10 glass-panel shadow-2xl relative my-2"
+        className="w-full h-[calc(100vh-4.5rem)] md:max-w-md md:h-[84vh] md:my-3 mx-auto overflow-y-scroll snap-y snap-mandatory no-scrollbar rounded-none md:rounded-3xl border-0 md:border md:border-white/10 glass-panel shadow-2xl relative"
       >
         {displayTitles.map((title, idx) => (
           <ReelsItem
@@ -115,6 +115,8 @@ function ReelsItem({
     videoRef,
     isPlaying,
     isMuted,
+    play,
+    pause,
     togglePlay,
     toggleMute,
   } = useVideoEngine({
@@ -126,9 +128,12 @@ function ReelsItem({
 
   useEffect(() => {
     if (isActive) {
-      window.dispatchEvent(new CustomEvent('playerStateChange', { detail: { isPlaying } }));
+      play();
+      window.dispatchEvent(new CustomEvent('playerStateChange', { detail: { isPlaying: true } }));
+    } else {
+      pause();
     }
-  }, [isActive, isPlaying]);
+  }, [isActive, play, pause]);
 
   const episodes = title.seasons?.[0]?.episodes || [];
 

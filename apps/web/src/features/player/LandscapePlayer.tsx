@@ -81,18 +81,34 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
 
   const handleFullscreenToggle = async () => {
     if (!playerContainerRef.current) return;
-    if (!document.fullscreenElement) {
+    const elem = playerContainerRef.current as any;
+    const doc = document as any;
+
+    if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
       try {
-        await playerContainerRef.current.requestFullscreen();
-        if (screen.orientation && 'lock' in screen.orientation) {
-          await (screen.orientation as any).lock('landscape').catch(() => {});
+        if (elem.requestFullscreen) {
+          await elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          await elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+          await elem.msRequestFullscreen();
+        }
+
+        // Lock screen orientation to landscape on mobile
+        const orientation = screen.orientation || (screen as any).mozOrientation || (screen as any).msOrientation;
+        if (orientation && 'lock' in orientation) {
+          await (orientation as any).lock('landscape').catch((err: any) => console.log('Orientation lock:', err));
         }
       } catch (e) {
         console.warn('Fullscreen error:', e);
       }
     } else {
-      if (document.exitFullscreen) {
-        await document.exitFullscreen().catch(() => {});
+      if (doc.exitFullscreen) {
+        await doc.exitFullscreen().catch(() => {});
+      } else if (doc.webkitExitFullscreen) {
+        await doc.webkitExitFullscreen().catch(() => {});
+      } else if (doc.msExitFullscreen) {
+        await doc.msExitFullscreen().catch(() => {});
       }
       if (screen.orientation && 'unlock' in screen.orientation) {
         (screen.orientation as any).unlock();
