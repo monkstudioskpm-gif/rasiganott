@@ -20,7 +20,7 @@ export function WatchPage() {
       if (found) return { title: found };
       // Fallback: fetch home to find title
       const homeRes = await api.getHome();
-      const homeFound = homeRes.trending.find((t) => t.id === titleId || t.slug === titleId);
+      const homeFound = homeRes.trending.find((t: any) => t.id === titleId || t.slug === titleId);
       return { title: homeFound || res.titles[0] };
     },
     enabled: !!titleId,
@@ -61,7 +61,7 @@ export function WatchPage() {
 
   if (!isTrailer && title.kind === 'WEB_SERIES' && episodeId && title.seasons) {
     for (const season of title.seasons) {
-      const ep = season.episodes?.find((e) => e.id === episodeId);
+      const ep = season.episodes?.find((e: any) => e.id === episodeId);
       if (ep) {
         playingVideoUrl = ep.videoUrl;
         subtitleLabel = `S${season.number} E${ep.number} • ${ep.name}`;

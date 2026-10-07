@@ -11,6 +11,10 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@rasigan/shared": ["packages/shared/src/index.ts"]
+    }
   }
 }

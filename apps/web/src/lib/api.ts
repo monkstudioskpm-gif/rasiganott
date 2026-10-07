@@ -201,7 +201,7 @@ const FALLBACK_HOME: HomeResponse = {
   featured: FALLBACK_TITLES.filter((t) => t.isFeatured),
   categories: FALLBACK_CATEGORIES.map((cat) => ({
     ...cat,
-    titles: FALLBACK_TITLES.filter((t) => t.categories?.some((c) => c.slug === cat.slug)),
+    titles: FALLBACK_TITLES.filter((t) => t.categories?.some((c: any) => c.slug === cat.slug)),
   })).filter((cat) => cat.titles.length > 0),
   trending: FALLBACK_TITLES,
   newReleases: FALLBACK_TITLES,

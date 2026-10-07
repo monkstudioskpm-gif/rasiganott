@@ -97,7 +97,7 @@ export function TitleDetailPage() {
   }
 
   const trailerUrl = title.trailerUrl || title.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-  const selectedSeason = title.seasons?.find((s) => s.number === selectedSeasonNumber) || title.seasons?.[0];
+  const selectedSeason = title.seasons?.find((s: any) => s.number === selectedSeasonNumber) || title.seasons?.[0];
 
   const handleWatchClick = (episodeId?: string, isTrailer = false) => {
     if (title.orientation === 'VERTICAL') {
@@ -183,7 +183,7 @@ export function TitleDetailPage() {
 
           {/* Metadata Chips Row */}
           <div className="flex flex-wrap items-center gap-2">
-            {title.categories?.map((cat) => (
+            {title.categories?.map((cat: any) => (
               <span key={cat.id} className="px-2.5 py-1 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-200">
                 {cat.name}
               </span>
@@ -248,7 +248,7 @@ export function TitleDetailPage() {
           <div className="space-y-3 pt-2">
             <h3 className="text-base font-bold text-white tracking-tight">Cast</h3>
             <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
-              {castList.map((actor, idx) => (
+              {castList.map((actor: string, idx: number) => (
                 <div key={idx} className="flex flex-col items-center gap-1.5 text-center flex-none w-16">
                   <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/15 bg-dark-card shadow-md">
                     <img src={getCastAvatar(idx)} alt={actor} className="w-full h-full object-cover" />
@@ -270,7 +270,7 @@ export function TitleDetailPage() {
                     onChange={(e) => setSelectedSeasonNumber(parseInt(e.target.value, 10))}
                     className="px-3 py-1.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs font-bold focus:outline-none"
                   >
-                    {title.seasons.map((s) => (
+                    {title.seasons.map((s: any) => (
                       <option key={s.id} value={s.number}>
                         Season {s.number}
                       </option>
@@ -280,7 +280,7 @@ export function TitleDetailPage() {
               </div>
 
               <div className="space-y-2.5">
-                {selectedSeason?.episodes?.map((ep) => (
+                {selectedSeason?.episodes?.map((ep: any) => (
                   <div
                     key={ep.id}
                     onClick={() => handleWatchClick(ep.id)}
@@ -322,7 +322,7 @@ export function TitleDetailPage() {
               </div>
 
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                {recommendedTitles.slice(0, 5).map((item) => (
+                {recommendedTitles.slice(0, 5).map((item: any) => (
                   <Link
                     key={item.id}
                     to={`/title/${item.slug}`}

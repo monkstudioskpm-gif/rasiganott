@@ -58,7 +58,7 @@ export function HomePage() {
     if (selectedCategory === 'web-series') return titles.filter((t) => t.kind === 'WEB_SERIES');
     if (selectedCategory === 'short-films') return titles.filter((t) => t.kind === 'SHORT_FILM');
     if (selectedCategory === 'vertical') return titles.filter((t) => t.orientation === 'VERTICAL');
-    return titles.filter((t) => t.categories?.some((c) => c.slug === selectedCategory));
+    return titles.filter((t) => t.categories?.some((c: any) => c.slug === selectedCategory));
   };
 
   if (isLoading) {
@@ -144,7 +144,7 @@ export function HomePage() {
                   {heroItem.year || 2025}
                 </span>
                 <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-sky-300">
-                  {heroItem.categories?.map((c) => c.name).join(', ') || 'Action'}
+                  {heroItem.categories?.map((c: any) => c.name).join(', ') || 'Action'}
                 </span>
               </div>
 
@@ -170,7 +170,7 @@ export function HomePage() {
           {/* Carousel Dots */}
           {featured.length > 0 && (
             <div className="flex justify-center items-center gap-1.5 pt-1">
-              {featured.map((_, idx) => (
+              {featured.map((_: unknown, idx: number) => (
                 <button
                   key={idx}
                   onClick={() => setHeroIndex(idx)}
@@ -263,7 +263,7 @@ export function HomePage() {
         </div>
 
         <div className="flex gap-6 overflow-x-auto no-scrollbar pb-4 px-2">
-          {allTitles.slice(0, 10).map((title, index) => (
+          {allTitles.slice(0, 10).map((title: Title, index: number) => (
             <Link
               key={title.id}
               to={`/title/${title.slug}`}
@@ -338,7 +338,7 @@ export function HomePage() {
         </div>
 
         <div className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar pb-3 px-1">
-          {newReleases.filter((t) => t.kind === 'WEB_SERIES' || t.kind === 'MOVIE').map((title) => (
+          {newReleases.filter((t) => t.kind === 'WEB_SERIES' || t.kind === 'MOVIE').map((title: Title) => (
             <Link
               key={title.id}
               to={`/title/${title.slug}`}
@@ -372,7 +372,7 @@ export function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-          {popularTitles.slice(0, 10).map((title) => (
+          {popularTitles.slice(0, 10).map((title: Title) => (
             <Link
               key={title.id}
               to={`/title/${title.slug}`}

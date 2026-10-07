@@ -83,7 +83,7 @@ export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSel
 
           {/* ZETTA Style Metadata Badges Row */}
           <div className="flex flex-wrap items-center gap-2">
-            {title.categories?.map((cat) => (
+            {title.categories?.map((cat: any) => (
               <span key={cat.id} className="px-3 py-1.5 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-200">
                 {cat.name}
               </span>
@@ -111,7 +111,7 @@ export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSel
           <div className="space-y-3">
             <h3 className="text-base font-bold text-white tracking-tight">Cast</h3>
             <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
-              {castList.map((actor, idx) => (
+              {castList.map((actor: string, idx: number) => (
                 <div key={idx} className="flex flex-col items-center gap-1.5 text-center flex-none w-16">
                   <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/15 bg-dark-card shadow-md">
                     <img src={getCastAvatar(idx)} alt={actor} className="w-full h-full object-cover" />
