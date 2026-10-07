@@ -4,7 +4,6 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 const MUX_HLS = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
 const BBB_MP4 = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-const SINTEL_MP4 = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4';
 
 // Fallback catalog dataset to ensure 100% zero downtime & instant loading
 const FALLBACK_TITLES: Title[] = [
@@ -327,10 +326,10 @@ export const adminApi = {
     try {
       const res = await fetcher<{ statements: any[] }>('/admin/payouts');
       if (res?.statements && res.statements.length > 0) return res;
-    } catch (e) {}
+    } catch {}
     const stored = localStorage.getItem('rasigan_payout_statements');
     if (stored) {
-      try { return { statements: JSON.parse(stored) }; } catch (e) {}
+      try { return { statements: JSON.parse(stored) }; } catch {}
     }
     return FALLBACK_PAYOUT_STATEMENTS;
   },
@@ -358,7 +357,7 @@ export const adminApi = {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-    } catch (e) {}
+    } catch {}
 
     return { success: true, statements };
   },
@@ -388,7 +387,7 @@ export const creatorApi = {
     try {
       const res = await fetcher<any>('/creator/payouts');
       if (res?.statements) return res;
-    } catch (e) {}
+    } catch {}
 
     const stored = localStorage.getItem('rasigan_payout_statements');
     if (stored) {
@@ -404,7 +403,7 @@ export const creatorApi = {
           referenceUtr: s.paymentUtrNumber,
         }));
         return { statements };
-      } catch (e) {}
+      } catch {}
     }
 
     return {

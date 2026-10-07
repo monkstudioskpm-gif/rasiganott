@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../lib/api';
-import { User, Search, Plus, Trash2, Edit, Merge, AlertTriangle, ExternalLink, Loader2, CheckCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { User, Search, Plus, Trash2, Edit, Merge, AlertTriangle, Loader2 } from 'lucide-react';
+
+interface PersonItem {
+  id: string;
+  name: string;
+  nameKey?: string;
+  photoUrl?: string | null;
+  bio?: string | null;
+  titlesCount?: number;
+  appearsIn?: Array<{ id: string; title: string; roles?: string[] }>;
+  _count?: { cast: number; crew: number };
+}
 
 export function AdminPeoplePage() {
   const queryClient = useQueryClient();
@@ -14,7 +24,7 @@ export function AdminPeoplePage() {
 
   // Edit / Add Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<any>(null);
+  const [editingPerson, setEditingPerson] = useState<PersonItem | null>(null);
   const [formName, setFormName] = useState('');
   const [formPhotoUrl, setFormPhotoUrl] = useState('');
   const [formBio, setFormBio] = useState('');
@@ -23,11 +33,11 @@ export function AdminPeoplePage() {
 
   // Merge Modal State
   const [isMergeOpen, setIsMergeOpen] = useState(false);
-  const [sourcePerson, setSourcePerson] = useState<any>(null);
+  const [sourcePerson, setSourcePerson] = useState<PersonItem | null>(null);
   const [targetPersonId, setTargetPersonId] = useState('');
 
   // Delete Prompt Modal State
-  const [deletePrompt, setDeletePrompt] = useState<{ person: any; count: number } | null>(null);
+  const [deletePrompt, setDeletePrompt] = useState<{ person: PersonItem; count: number } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-people', search, filter, sort, page],
@@ -47,7 +57,7 @@ export function AdminPeoplePage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = async (person: any) => {
+  const handleOpenEdit = async (person: PersonItem) => {
     try {
       const detailed = await adminApi.getPersonById(person.id);
       const p = detailed.person;
@@ -84,8 +94,8 @@ export function AdminPeoplePage() {
         });
       }
     },
-    onSuccess: (res: any) => {
-      if (res?.isDuplicateMatch && !allowDuplicate) {
+    onSuccess: (res: { isDuplicateMatch?: boolean; person?: { name: string } }) => {
+      if (res?.isDuplicateMatch && !allowDuplicate && res.person) {
         setDuplicateWarning(`A person with name "${res.person.name}" already exists in database.`);
         return;
       }
@@ -102,18 +112,21 @@ export function AdminPeoplePage() {
       queryClient.invalidateQueries({ queryKey: ['admin-people'] });
       setDeletePrompt(null);
     },
-    onError: (err: any, variables) => {
+    onError: (err: Error, variables) => {
       if (err.message?.includes('Used in')) {
         const countMatch = err.message.match(/Used in (\d+)/);
         const count = countMatch ? parseInt(countMatch[1], 10) : 1;
-        const target = people.find((p: any) => p.id === variables.id);
-        setDeletePrompt({ person: target, count });
+        const target = people.find((p: PersonItem) => p.id === variables.id);
+        if (target) {
+          setDeletePrompt({ person: target, count });
+        }
       }
     },
   });
 
   const mergeMutation = useMutation({
     mutationFn: async () => {
+      if (!sourcePerson) return;
       return adminApi.mergePerson(sourcePerson.id, targetPersonId);
     },
     onSuccess: () => {
@@ -350,7 +363,7 @@ export function AdminPeoplePage() {
                 <div className="space-y-2 pt-2 border-t border-white/10">
                   <label className="text-xs font-bold text-gray-300">Appears In ({editingPerson.appearsIn.length} titles)</label>
                   <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
-                    {editingPerson.appearsIn.map((item: any, idx: number) => (
+                    {editingPerson.appearsIn.map((item: { title: string; roles?: string[] }, idx: number) => (
                       <div key={idx} className="p-2 rounded-xl bg-white/5 flex items-center justify-between text-xs">
                         <span className="text-white font-medium truncate">{item.title}</span>
                         <span className="text-[10px] text-sky-400">{item.roles?.join(', ')}</span>
@@ -428,8 +441,8 @@ export function AdminPeoplePage() {
               >
                 <option value="">-- Choose person --</option>
                 {people
-                  .filter((p: any) => p.id !== sourcePerson.id)
-                  .map((p: any) => (
+                  .filter((p: PersonItem) => p.id !== sourcePerson.id)
+                  .map((p: PersonItem) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.titlesCount || 0} titles)
                     </option>

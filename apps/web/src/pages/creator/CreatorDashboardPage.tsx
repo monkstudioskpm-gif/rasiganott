@@ -1,7 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { creatorApi } from '../../lib/api';
 import { CreatorEarningsSummaryDto, CreatorPayoutStatementDto } from '@rasigan/shared';
-import { DollarSign, TrendingUp, Users, Clock, Eye, CheckCircle2, AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
+
+interface SupporterItem {
+  id: string;
+  supporterName: string;
+  amountInr: number;
+  date: string;
+}
 
 export function CreatorDashboardPage() {
   const { data: summary, isLoading: isLoadingSummary } = useQuery<CreatorEarningsSummaryDto>({
@@ -14,7 +21,7 @@ export function CreatorDashboardPage() {
     queryFn: creatorApi.getPayouts,
   });
 
-  const { data: supportersData, isLoading: isLoadingSupporters } = useQuery<{ supporters: any[] }>({
+  const { data: supportersData, isLoading: isLoadingSupporters } = useQuery<{ supporters: SupporterItem[] }>({
     queryKey: ['creator-supporters'],
     queryFn: creatorApi.getSupporters,
   });

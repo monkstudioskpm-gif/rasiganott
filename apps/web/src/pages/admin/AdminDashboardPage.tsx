@@ -16,14 +16,9 @@ import {
   Tv,
   Smartphone,
   Check,
-  AlertCircle,
   TrendingUp,
-  DollarSign,
   ChevronRight,
-  ShieldAlert,
-  ArrowUpRight,
   Layers,
-  FileText,
   Copy,
   Receipt,
   CheckCircle,
@@ -80,10 +75,13 @@ export function AdminDashboardPage() {
   const [creatorsData, setCreatorsData] = useState<{
     summary: { totalCreatorsCount: number; totalGrossRaisedInr: number; totalNetEarningsInr: number; totalPlatformFeeInr: number };
     creators: CreatorBreakdownItem[];
-  }>(FALLBACK_CREATOR_BREAKDOWN as any);
+  }>(FALLBACK_CREATOR_BREAKDOWN as unknown as {
+    summary: { totalCreatorsCount: number; totalGrossRaisedInr: number; totalNetEarningsInr: number; totalPlatformFeeInr: number };
+    creators: CreatorBreakdownItem[];
+  });
 
   const [payoutsData, setPayoutsData] = useState<PayoutStatementItem[]>(
-    FALLBACK_PAYOUT_STATEMENTS.statements as any
+    FALLBACK_PAYOUT_STATEMENTS.statements as unknown as PayoutStatementItem[]
   );
 
   const [loading, setLoading] = useState(true);
@@ -128,14 +126,18 @@ export function AdminDashboardPage() {
       }
 
       if (creatorsRes.status === 'fulfilled' && creatorsRes.value?.summary) {
-        setCreatorsData(creatorsRes.value);
+        setCreatorsData(creatorsRes.value as unknown as {
+          summary: { totalCreatorsCount: number; totalGrossRaisedInr: number; totalNetEarningsInr: number; totalPlatformFeeInr: number };
+          creators: CreatorBreakdownItem[];
+        });
       }
 
       if (payoutsRes.status === 'fulfilled' && payoutsRes.value?.statements) {
-        setPayoutsData(payoutsRes.value.statements as any);
+        setPayoutsData(payoutsRes.value.statements as unknown as PayoutStatementItem[]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch backend data, displaying mock admin fallback:', err);
+      setError('Could not connect to server. Showing cached offline data.');
     } finally {
       setLoading(false);
     }
@@ -190,7 +192,8 @@ export function AdminDashboardPage() {
       );
 
       setSelectedPayout(null);
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error('Failed to save payout:', err);
       alert('Failed to save payout status.');
     } finally {
       setIsSubmittingPayout(false);
@@ -202,7 +205,7 @@ export function AdminDashboardPage() {
       setTogglingId(id);
       const res = await adminApi.togglePublishTitle(id);
       setTitles((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, status: res.status as any } : t))
+        prev.map((t) => (t.id === id ? { ...t, status: res.status as 'PUBLISHED' | 'DRAFT' } : t))
       );
       if (stats) {
         setStats({
@@ -211,7 +214,8 @@ export function AdminDashboardPage() {
           draftTitles: res.status === 'DRAFT' ? stats.draftTitles + 1 : stats.draftTitles - 1,
         });
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error('Failed to toggle status:', err);
       alert('Failed to update title status.');
     } finally {
       setTogglingId(null);
@@ -229,7 +233,8 @@ export function AdminDashboardPage() {
       if (stats) {
         setStats({ ...stats, totalTitles: stats.totalTitles - 1 });
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error('Failed to delete title:', err);
       alert('Failed to delete title.');
     } finally {
       setDeletingId(null);
@@ -253,6 +258,18 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto px-2 sm:px-4">
+      {loading && (
+        <div className="w-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-between animate-pulse">
+          <span>Connecting to Supabase database...</span>
+          <div className="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+      {error && (
+        <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold px-4 py-2 rounded-xl">
+          {error}
+        </div>
+      )}
+
       {/* Top Header Banner - Clean Minimalist Dark Glassmorphism */}
       <div className="relative rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950/90 border border-white/10 p-6 md:p-8 backdrop-blur-2xl shadow-2xl overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />

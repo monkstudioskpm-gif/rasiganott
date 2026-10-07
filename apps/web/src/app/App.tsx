@@ -30,7 +30,6 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const location = useLocation();
-  const isReels = location.pathname === '/reels';
   const isWatch = location.pathname.startsWith('/watch');
 
   return (

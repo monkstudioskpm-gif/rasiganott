@@ -3,11 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../lib/api';
 import { Plus, Trash2, Edit, Loader2, Tag as TagIcon } from 'lucide-react';
 
+interface GenreItem {
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder?: number;
+}
+
 export function AdminGenresPage() {
   const queryClient = useQueryClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingGenre, setEditingGenre] = useState<any>(null);
+  const [editingGenre, setEditingGenre] = useState<GenreItem | null>(null);
   const [name, setName] = useState('');
   const [sortOrder, setSortOrder] = useState('0');
 
@@ -16,7 +23,7 @@ export function AdminGenresPage() {
     queryFn: adminApi.getGenres,
   });
 
-  const genres = data?.genres || [];
+  const genres: GenreItem[] = data?.genres || [];
 
   const handleOpenAdd = () => {
     setEditingGenre(null);
@@ -25,7 +32,7 @@ export function AdminGenresPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (g: any) => {
+  const handleOpenEdit = (g: GenreItem) => {
     setEditingGenre(g);
     setName(g.name);
     setSortOrder(g.sortOrder?.toString() || '0');
@@ -75,7 +82,7 @@ export function AdminGenresPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {genres.map((g: any) => (
+          {genres.map((g: GenreItem) => (
             <div key={g.id} className="glass-card p-4 rounded-2xl flex items-center justify-between gap-3 border border-white/10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">

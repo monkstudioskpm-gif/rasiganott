@@ -1,11 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../lib/api';
-import {
-  Play, Save, Check, X, Plus, Trash2, Move, AlertTriangle, Eye, Video, Film,
-  Loader2, CheckCircle2, AlertCircle, Copy, Sparkles, Layers, Tv
-} from 'lucide-react';
+import { Check, X, Plus, Trash2, Eye, Loader2, Tv } from 'lucide-react';
 
 export function AdminContentFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -71,10 +68,6 @@ export function AdminContentFormPage() {
       ],
     },
   ]);
-
-  // Bulk Add Episodes Modal
-  const [isBulkOpen, setIsBulkOpen] = useState(false);
-  const [bulkLinks, setBulkLinks] = useState('');
 
   // Inline Genre Create Modal
   const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
@@ -246,27 +239,6 @@ export function AdminContentFormPage() {
     setSeasons(newSeasons);
   };
 
-  const handleBulkAddLinks = (seasonIdx: number) => {
-    const lines = bulkLinks.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('http'));
-    if (lines.length === 0) return;
-    const newSeasons = [...seasons];
-    const s = newSeasons[seasonIdx];
-    lines.forEach((url, i) => {
-      const epNum = s.episodes.length + 1;
-      s.episodes.push({
-        number: epNum,
-        name: `Episode ${epNum}`,
-        description: '',
-        videoUrl: url,
-        durationMin: '30',
-        thumbnailUrl: '',
-      });
-    });
-    setSeasons(newSeasons);
-    setBulkLinks('');
-    setIsBulkOpen(false);
-  };
-
   // Save Title Mutation
   const saveMutation = useMutation({
     mutationFn: async (targetStatus: 'DRAFT' | 'PUBLISHED') => {
@@ -318,11 +290,21 @@ export function AdminContentFormPage() {
           <h1 className="text-2xl font-black text-white">{isEdit ? `Edit Title: ${title || id}` : 'Add New Content'}</h1>
           <p className="text-xs text-gray-400">Add or modify content titles with instant cast auto-save, test URLs, and episode builder.</p>
         </div>
-        {lastAutosaved && (
-          <span className="text-[11px] font-mono text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5" /> Autosaved at {lastAutosaved}
+        <div className="flex items-center gap-2">
+          <span className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+            Status: {status}
           </span>
-        )}
+          {hasUnsavedChanges && (
+            <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">
+              Unsaved draft changes
+            </span>
+          )}
+          {lastAutosaved && (
+            <span className="text-[11px] font-mono text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5" /> Autosaved at {lastAutosaved}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Main Grid: Form Left (Scrolling), Live Preview Right */}
@@ -403,13 +385,6 @@ export function AdminContentFormPage() {
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <Tv className="w-5 h-5 text-sky-400" /> 4. Episodes Builder
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsBulkOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-sky-300 font-semibold"
-                >
-                  Bulk Paste Links
-                </button>
               </div>
 
               {seasons.map((season, sIdx) => (
