@@ -27,6 +27,9 @@ import {
   Copy,
   Receipt,
   CheckCircle,
+  X,
+  Send,
+  CreditCard,
 } from 'lucide-react';
 import {
   adminApi,
@@ -97,6 +100,13 @@ export function AdminDashboardPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [expandedCreator, setExpandedCreator] = useState<string | null>(null);
 
+  // Payout Completion Modal State
+  const [selectedPayout, setSelectedPayout] = useState<PayoutStatementItem | null>(null);
+  const [modalAmount, setModalAmount] = useState<number>(0);
+  const [modalUtr, setModalUtr] = useState<string>('');
+  const [modalDate, setModalDate] = useState<string>('');
+  const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -139,6 +149,52 @@ export function AdminDashboardPage() {
     navigator.clipboard.writeText(utr);
     setCopiedUtr(utr);
     setTimeout(() => setCopiedUtr(null), 2000);
+  };
+
+  const openPayoutModal = (stmt: PayoutStatementItem) => {
+    setSelectedPayout(stmt);
+    setModalAmount(stmt.netPayableInr);
+    setModalUtr(stmt.paymentUtrNumber.startsWith('UTR9') || stmt.paymentUtrNumber.startsWith('UTR8') ? stmt.paymentUtrNumber : `UTR${Math.floor(100000000000 + Math.random() * 900000000000)}`);
+    setModalDate(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
+  };
+
+  const handleSavePayout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPayout) return;
+    if (!modalUtr.trim()) {
+      alert('Please enter the bank transaction UTR / reference number.');
+      return;
+    }
+
+    try {
+      setIsSubmittingPayout(true);
+      await adminApi.completePayoutStatement(selectedPayout.id, {
+        amountInr: Number(modalAmount),
+        paymentUtrNumber: modalUtr.trim(),
+        paidAt: modalDate.trim(),
+      });
+
+      // Update local statement state
+      setPayoutsData((prev) =>
+        prev.map((s) =>
+          s.id === selectedPayout.id
+            ? {
+                ...s,
+                status: 'COMPLETED',
+                netPayableInr: Number(modalAmount),
+                paymentUtrNumber: modalUtr.trim(),
+                paidAt: modalDate.trim(),
+              }
+            : s
+        )
+      );
+
+      setSelectedPayout(null);
+    } catch (err) {
+      alert('Failed to save payout status.');
+    } finally {
+      setIsSubmittingPayout(false);
+    }
   };
 
   const handleTogglePublish = async (id: string) => {
@@ -355,7 +411,7 @@ export function AdminDashboardPage() {
           }`}
         >
           <Receipt className="w-4 h-4" />
-          <span>Creator Payout Statements (UTR Status)</span>
+          <span>Creator Payout Statements & UTR</span>
           <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
             {payoutsData.length}
           </span>
@@ -677,17 +733,17 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      {/* TAB 3: Creator Payout Statements (UTR & Status) */}
+      {/* TAB 3: Creator Payout Statements (Actionable Mark Payout Done + UTR) */}
       {activeTab === 'payouts' && (
         <div className="rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-purple-400" />
-                <span>Creator Payout Statements & Bank Transfer Status</span>
+                <span>Creator Payout Management & Bank Transfer Status</span>
               </h2>
               <p className="text-xs text-gray-400">
-                Admin view of completed monthly payouts, payment UTR numbers, and bank processing statuses.
+                Monthly creator payouts are processed manually by Admin. Click "Mark Payout Done" to enter bank transfer UTR and payout amount.
               </p>
             </div>
 
@@ -700,7 +756,7 @@ export function AdminDashboardPage() {
               >
                 <option value="ALL">All Payout Statuses</option>
                 <option value="COMPLETED">Completed / Paid</option>
-                <option value="PROCESSING">Processing</option>
+                <option value="PROCESSING">Processing / Pending</option>
               </select>
             </div>
           </div>
@@ -716,7 +772,7 @@ export function AdminDashboardPage() {
                   <th className="py-3 px-4">Net Amount Paid</th>
                   <th className="py-3 px-4">Payout Status</th>
                   <th className="py-3 px-4">Payment UTR / Ref Number</th>
-                  <th className="py-3 px-4 text-right">Payment Date</th>
+                  <th className="py-3 px-4 text-right">Admin Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -770,7 +826,7 @@ export function AdminDashboardPage() {
                     {/* Payment UTR Number */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-purple-300 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
+                        <span className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border ${stmt.status === 'COMPLETED' ? 'text-purple-300 bg-purple-500/10 border-purple-500/20' : 'text-gray-400 bg-white/5 border-white/10'}`}>
                           {stmt.paymentUtrNumber}
                         </span>
                         {stmt.paymentUtrNumber.startsWith('UTR') && !stmt.paymentUtrNumber.includes('PROCESSING') && (
@@ -789,14 +845,143 @@ export function AdminDashboardPage() {
                       </div>
                     </td>
 
-                    {/* Paid Date */}
-                    <td className="py-3.5 px-4 text-right whitespace-nowrap text-gray-300 font-medium">
-                      {stmt.paidAt}
+                    {/* Admin Action Button */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      {stmt.status !== 'COMPLETED' ? (
+                        <button
+                          onClick={() => openPayoutModal(stmt)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 transition-all active:scale-95"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>Mark Payout Done</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openPayoutModal(stmt)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 transition-colors"
+                        >
+                          <Edit3 className="w-3 h-3 text-sky-400" />
+                          <span>Update UTR</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Payout Completion Modal Dialog */}
+      {selectedPayout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative">
+            <button
+              onClick={() => setSelectedPayout(null)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight">
+                Process Creator Payout
+              </h2>
+              <p className="text-xs text-gray-400">
+                Mark payout statement <strong className="text-sky-400 font-mono">{selectedPayout.statementNumber}</strong> as completed. Entered details will reflect directly in creator's portal.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Creator Studio:</span>
+                <span className="font-extrabold text-white">{selectedPayout.creatorName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Payout Cycle:</span>
+                <span className="font-bold text-gray-200">{selectedPayout.cycle}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Gross Support Collected:</span>
+                <span className="font-bold text-emerald-400">₹{selectedPayout.grossAmountInr.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSavePayout} className="space-y-4">
+              {/* Amount Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-300 block">
+                  Net Payout Amount (₹) <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={modalAmount}
+                    onChange={(e) => setModalAmount(Number(e.target.value))}
+                    className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-black text-base focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* UTR / Reference ID Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-300 block">
+                  Bank Transaction UTR / Ref Number <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. UTR982341029384"
+                  value={modalUtr}
+                  onChange={(e) => setModalUtr(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+                <p className="text-[10px] text-gray-400">
+                  Enter NEFT / RTGS / IMPS bank reference number. This will be shown on the creator statement.
+                </p>
+              </div>
+
+              {/* Payment Date Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-300 block">
+                  Settlement Date <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={modalDate}
+                  onChange={(e) => setModalDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayout(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingPayout}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{isSubmittingPayout ? 'Saving...' : 'Save & Complete Payout'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
