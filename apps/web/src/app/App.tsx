@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ProtectedRoute } from '../components/AdminGuard';
 import { HomePage } from '../pages/HomePage';
 import { TitleDetailPage } from '../pages/TitleDetailPage';
 import { WatchPage } from '../pages/WatchPage';
@@ -34,8 +35,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-dark-bg text-gray-100">
-      {!isReels && !isWatch && <Header />}
-      <main className={isReels || isWatch ? 'flex-1 w-full' : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
+      {!isWatch && <Header />}
+      <main className={isWatch ? 'flex-1 w-full' : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/title/:slug" element={<TitleDetailPage />} />
@@ -47,14 +48,70 @@ function AppContent() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/creator" element={<CreatorDashboardPage />} />
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="/admin/titles" element={<AdminDashboardPage />} />
-          <Route path="/admin/people" element={<AdminPeoplePage />} />
-          <Route path="/people" element={<AdminPeoplePage />} />
-          <Route path="/admin/genres" element={<AdminGenresPage />} />
-          <Route path="/admin/titles/new" element={<AdminContentFormPage />} />
-          <Route path="/admin/titles/:id/edit" element={<AdminContentFormPage />} />
+          <Route
+            path="/creator"
+            element={
+              <ProtectedRoute requiredRole="CREATOR">
+                <CreatorDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/titles"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/people"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminPeoplePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/people"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminPeoplePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/genres"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminGenresPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/titles/new"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminContentFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/titles/:id/edit"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminContentFormPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="*"
             element={
