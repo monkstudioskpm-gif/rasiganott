@@ -1,0 +1,346 @@
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Check, Loader2, ChevronRight } from 'lucide-react';
+import { Title } from '@rasigan/shared';
+import { SupportModal } from '../components/SupportModal';
+
+export function TitleDetailPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+
+  const [isMuted, setIsMuted] = useState(true);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState(1);
+
+  const { data: homeData } = useQuery({
+    queryKey: ['home'],
+    queryFn: api.getHome,
+  });
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['title', slug],
+    queryFn: () => api.getTitleBySlug(slug || ''),
+    enabled: !!slug,
+  });
+
+  const title: Title | undefined = data?.title;
+  const recommendedTitles = homeData?.trending || [];
+
+  // Check if saved to Watchlist
+  useEffect(() => {
+    if (title) {
+      const watchlist = JSON.parse(localStorage.getItem('rasigan_watchlist') || '[]');
+      setIsSaved(watchlist.some((item: any) => item.id === title.id));
+    }
+  }, [title]);
+
+  const handleToggleSave = () => {
+    if (!title) return;
+    const watchlist = JSON.parse(localStorage.getItem('rasigan_watchlist') || '[]');
+    let updated;
+    if (isSaved) {
+      updated = watchlist.filter((item: any) => item.id !== title.id);
+      setIsSaved(false);
+    } else {
+      updated = [
+        {
+          id: title.id,
+          slug: title.slug,
+          title: title.title,
+          posterUrl: title.posterUrl,
+          kind: title.kind,
+          language: title.language,
+          year: title.year,
+          addedAt: new Date().toISOString(),
+        },
+        ...watchlist,
+      ];
+      setIsSaved(true);
+    }
+    localStorage.setItem('rasigan_watchlist', JSON.stringify(updated));
+  };
+
+  const castList = title?.castNames && title.castNames.length > 0 ? title.castNames : ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj', 'Vijay Sethupathi'];
+
+  const getCastAvatar = (index: number) => {
+    const avatars = [
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
+    ];
+    return avatars[index % avatars.length];
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[75vh] flex flex-col items-center justify-center gap-4 text-center p-6">
+        <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
+        <p className="text-gray-400 text-sm font-semibold">Loading title details...</p>
+      </div>
+    );
+  }
+
+  if (isError || !title) {
+    return (
+      <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <h2 className="text-2xl font-bold text-white">Title Not Found</h2>
+        <p className="text-gray-400 text-sm max-w-md">{error?.message || 'The requested title could not be found.'}</p>
+        <Link to="/" className="px-6 py-3 bg-sky-500 text-white rounded-xl font-bold text-sm">
+          Return to Catalog
+        </Link>
+      </div>
+    );
+  }
+
+  const trailerUrl = title.trailerUrl || title.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  const selectedSeason = title.seasons?.find((s) => s.number === selectedSeasonNumber) || title.seasons?.[0];
+
+  const handleWatchClick = (episodeId?: string, isTrailer = false) => {
+    if (title.orientation === 'VERTICAL') {
+      navigate(`/reels?titleId=${title.id}`);
+      return;
+    }
+    if (isTrailer) {
+      navigate(`/watch/${title.id}?type=trailer`);
+    } else if (title.kind === 'WEB_SERIES' && episodeId) {
+      navigate(`/watch/${title.id}/${episodeId}`);
+    } else {
+      navigate(`/watch/${title.id}`);
+    }
+  };
+
+  return (
+    <div className="py-4 md:py-8 px-2 sm:px-4 max-w-2xl mx-auto space-y-6 pb-24 md:pb-12">
+      {/* Razorpay Creator Support Modal */}
+      <SupportModal title={title} isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} />
+
+      {/* Main Container Card (Exact ZETTA Middle Phone Screen Design) */}
+      <div className="bg-[#0b0d15] border border-white/10 rounded-3xl overflow-hidden shadow-2xl space-y-6 text-gray-100">
+        {/* 1. Backdrop Video Header with Autoplay Video Trailer & Back Arrow (No manual play button) */}
+        <div className="relative h-72 sm:h-96 w-full overflow-hidden">
+          {/* Autoplay Video Banner */}
+          <video
+            src={trailerUrl}
+            autoPlay
+            muted={isMuted}
+            loop
+            playsInline
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d15] via-[#0b0d15]/40 to-transparent"></div>
+          <div className="absolute inset-0 bg-black/20"></div>
+
+          {/* Top Floating Controls (Back Arrow, Content ID Pill, Sound Toggle) */}
+          <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
+            <button
+              onClick={() => navigate(-1)}
+              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-md"
+              title="Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            {/* Database Content ID Badge overlay on top of video */}
+            <div className="px-2.5 py-1 rounded-xl bg-black/70 border border-white/20 backdrop-blur-md text-[10px] font-mono text-gray-300 font-medium shadow-lg max-w-[180px] truncate" title={`Content ID: ${title.id}`}>
+              ID: {title.id}
+            </div>
+
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-md"
+              title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
+            >
+              {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-sky-400" />}
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Content Details Section (Exact ZETTA Layout) */}
+        <div className="p-6 sm:p-8 space-y-6 -mt-8 relative z-10">
+          {/* Title Header & Favorite Heart Button */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">{title.title}</h1>
+              {title.tagline && <p className="text-xs sm:text-sm text-rose-300 italic font-medium pt-1">{title.tagline}</p>}
+            </div>
+
+            <button
+              onClick={handleToggleSave}
+              className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors flex-none shadow-md ${
+                isSaved
+                  ? 'bg-rose-600/30 border-rose-500 text-rose-400'
+                  : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-gray-300 hover:text-rose-400'
+              }`}
+              title={isSaved ? 'Saved to Watchlist' : 'Save for Later'}
+            >
+              <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+            </button>
+          </div>
+
+          {/* Metadata Chips Row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {title.categories?.map((cat) => (
+              <span key={cat.id} className="px-2.5 py-1 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-200">
+                {cat.name}
+              </span>
+            ))}
+            {title.durationMin && (
+              <span className="px-2.5 py-1 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-300 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-gray-400" /> {title.durationMin}M
+              </span>
+            )}
+            <span className="px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/40 text-xs font-bold text-amber-300 flex items-center gap-1">
+              <Star className="w-3.5 h-3.5 fill-current text-amber-400" /> {title.editorRating ? title.editorRating.toFixed(1) : '9.1'}
+            </span>
+          </div>
+
+          {/* Three Aligned Action Buttons Row */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {/* Button 1: Watch Now (Blue Theme) */}
+            <button
+              onClick={() => handleWatchClick(selectedSeason?.episodes?.[0]?.id)}
+              className="h-10 px-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs transition-all shadow-md shadow-blue-600/35 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Watch Now</span>
+            </button>
+
+            {/* Button 2: Watch Trailer */}
+            <button
+              onClick={() => handleWatchClick(undefined, true)}
+              className="h-10 px-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white font-bold text-xs border border-white/15 transition-all active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
+            >
+              <Film className="w-3.5 h-3.5 text-sky-400" />
+              <span>Trailer</span>
+            </button>
+
+            {/* Button 3: Support Creator (₹) or Save */}
+            {title.fundingEnabled ? (
+              <button
+                onClick={() => setIsSupportOpen(true)}
+                className="h-10 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-bold text-xs transition-all shadow-md shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
+              >
+                <IndianRupee className="w-3.5 h-3.5" />
+                <span>Support</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleToggleSave}
+                className="h-10 px-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-gray-200 font-bold text-xs border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
+              >
+                <Heart className={`w-3.5 h-3.5 ${isSaved ? 'text-rose-500 fill-current' : ''}`} />
+                <span>{isSaved ? 'Saved' : 'Save'}</span>
+              </button>
+            )}
+          </div>
+
+          {/* About Section (ZETTA Style) */}
+          <div className="space-y-2 pt-2">
+            <h3 className="text-base font-bold text-white tracking-tight">About</h3>
+            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-normal">{title.description}</p>
+          </div>
+
+          {/* Cast Section (Circular Avatars matching ZETTA Mockup) */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-base font-bold text-white tracking-tight">Cast</h3>
+            <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
+              {castList.map((actor, idx) => (
+                <div key={idx} className="flex flex-col items-center gap-1.5 text-center flex-none w-16">
+                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/15 bg-dark-card shadow-md">
+                    <img src={getCastAvatar(idx)} alt={actor} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-[11px] text-gray-300 font-medium line-clamp-2 leading-tight">{actor}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Web Series Episodes List (if Web Series) */}
+          {title.kind === 'WEB_SERIES' && title.seasons && title.seasons.length > 0 && (
+            <div className="space-y-4 pt-2 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-white tracking-tight">Episodes</h3>
+                {title.seasons.length > 1 && (
+                  <select
+                    value={selectedSeasonNumber}
+                    onChange={(e) => setSelectedSeasonNumber(parseInt(e.target.value, 10))}
+                    className="px-3 py-1.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs font-bold focus:outline-none"
+                  >
+                    {title.seasons.map((s) => (
+                      <option key={s.id} value={s.number}>
+                        Season {s.number}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="space-y-2.5">
+                {selectedSeason?.episodes?.map((ep) => (
+                  <div
+                    key={ep.id}
+                    onClick={() => handleWatchClick(ep.id)}
+                    className="glass-card p-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-rose-400/50 transition-all group gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-20 h-14 flex-none rounded-xl overflow-hidden bg-dark-card relative border border-white/10">
+                        <img src={ep.thumbnailUrl || title.posterUrl} alt={ep.name} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-5 h-5 fill-current text-white" />
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 space-y-0.5">
+                        <h4 className="font-bold text-xs text-white truncate group-hover:text-rose-400 transition-colors">
+                          E{ep.number} • {ep.name}
+                        </h4>
+                        <p className="text-[10px] text-gray-400 line-clamp-1">{ep.durationMin} mins</p>
+                      </div>
+                    </div>
+
+                    <button className="px-3 py-1.5 rounded-xl bg-rose-600/30 text-rose-300 border border-rose-500/40 text-[11px] font-bold hover:bg-rose-600 hover:text-white transition-colors flex-none">
+                      Play
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommended For You Section (Matching ZETTA Mockup) */}
+          {recommendedTitles.length > 0 && (
+            <div className="space-y-3 pt-2 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-white tracking-tight">Recommended for you</h3>
+                <Link to="/browse/movies" className="text-xs font-semibold text-rose-400 hover:text-rose-300">
+                  See all
+                </Link>
+              </div>
+
+              <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                {recommendedTitles.slice(0, 5).map((item) => (
+                  <Link
+                    key={item.id}
+                    to={`/title/${item.slug}`}
+                    className="flex-none w-28 space-y-1 block group"
+                  >
+                    <div className="aspect-poster rounded-2xl overflow-hidden glass-card group-hover:scale-105 transition-transform shadow-md">
+                      <img src={item.posterUrl} alt={item.title} className="w-full h-full object-cover" />
+                    </div>
+                    <p className="text-xs font-semibold text-gray-200 truncate group-hover:text-rose-400 transition-colors">
+                      {item.title}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

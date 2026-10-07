@@ -1,0 +1,12 @@
+# Agent Rules — Rasigan OTT v2
+- SPEC.md is the single source of truth. Do not add features not in the spec.
+- Build one phase at a time. Stop after the phase and report against its acceptance checklist.
+- TypeScript strict. No `any` unless commented why. No unused code.
+- Never use Supabase, Firebase, or any BaaS. Auth = Google Identity Services + own JWT cookie.
+- Never hardcode secrets. Read from env. Razorpay secret and webhook secret are server-only.
+- Every list/page must have loading, empty, and error states.
+- Video playback must go through useVideoEngine; destroy hls.js on unmount.
+- No video upload UI anywhere. Video/image fields are URL inputs only.
+- Cast and crew are plain text only; no profile pages or routes.
+- Before finishing a task run: npm run lint, npm run typecheck, npm run build, and fix all errors.
+- Write small, focused commits/changes; do not refactor unrelated files.

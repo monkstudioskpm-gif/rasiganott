@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Kind {
+  MOVIE
+  SHORT_FILM
+  WEB_SERIES
+}
+
+enum Orientation {
+  LANDSCAPE
+  VERTICAL
+}
+
+enum Status {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum StreamType {
+  HLS
+  MP4
+  DASH
+}
+
+enum PayStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+
+  watchlist WatchlistItem[]
+  likes     Reaction[]
+  progress  WatchProgress[]
+  fundings  Funding[]
+}
+
+model Category {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  slug      String          @unique
+  sortOrder Int             @default(0)
+  isActive  Boolean         @default(true)
+  titles    TitleCategory[]
+}
+
+model Title {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  kind        Kind
+  orientation Orientation
+  status      Status      @default(DRAFT)
+
+  title        String
+  tagline      String?
+  description  String
+  language     String   @default("Tamil")
+  year         Int?
+  ageRating    String?
+  durationMin  Int?
+  editorRating Decimal?
+
+  posterUrl  String
+  bannerUrl  String?
+  trailerUrl String?
+
+  videoUrl    String?
+  streamType  StreamType?
+  subtitles   String      @default("[]")
+  audioTracks String      @default("[]")
+
+  castNames   String  @default("[]")
+  crewCredits String  @default("[]")
+  creatorName String?
+
+  isFeatured     Boolean   @default(false)
+  fundingEnabled Boolean   @default(true)
+  fundingGoal    Int?
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  categories TitleCategory[]
+  seasons    Season[]
+  watchlisted WatchlistItem[]
+  reactions  Reaction[]
+  progress   WatchProgress[]
+  fundings   Funding[]
+
+  @@index([kind, orientation, status])
+}
+
+model TitleCategory {
+  titleId    String
+  categoryId String
+  title      Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([titleId, categoryId])
+}
+
+model Season {
+  id       String    @id @default(cuid())
+  titleId  String
+  number   Int
+  name     String?
+  title    Title     @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@unique([titleId, number])
+}
+
+model Episode {
+  id              String          @id @default(cuid())
+  seasonId        String
+  number          Int
+  name            String
+  description     String?
+  thumbnailUrl    String?
+  durationMin     Int?
+  videoUrl        String
+  streamType      StreamType
+  subtitles       String          @default("[]")
+  audioTracks     String          @default("[]")
+  introStartSec   Int?
+  introEndSec     Int?
+  creditsStartSec Int?
+  status          Status          @default(PUBLISHED)
+  publishedAt     DateTime?
+  season          Season          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  progress        WatchProgress[]
+
+  @@unique([seasonId, number])
+}
+
+model WatchlistItem {
+  userId  String
+  titleId String
+  addedAt DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, titleId])
+}
+
+model Reaction {
+  userId  String
+  titleId String
+  value   Int
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   Title  @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, titleId])
+}
+
+model WatchProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  titleId     String
+  episodeId   String?
+  positionSec Int
+  durationSec Int
+  completed   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episode     Episode? @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, titleId, episodeId])
+}
+
+model Funding {
+  id                String    @id @default(cuid())
+  userId            String
+  titleId           String
+  amountInr         Int
+  razorpayOrderId   String    @unique
+  razorpayPaymentId String?   @unique
+  status            PayStatus @default(CREATED)
+  message           String?
+  isAnonymous       Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  paidAt            DateTime?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title             Title     @relation(fields: [titleId], references: [id], onDelete: Cascade)
+}
