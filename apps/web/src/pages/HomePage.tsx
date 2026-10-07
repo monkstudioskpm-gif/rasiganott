@@ -12,6 +12,10 @@ export function HomePage() {
   const [heroIndex, setHeroIndex] = useState<number>(0);
   const [showCategoryDrawer, setShowCategoryDrawer] = useState<boolean>(false);
 
+  // Mobile Touch Swipe States for Hero Banner Carousel
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ['home'],
     queryFn: api.getHome,
@@ -77,16 +81,38 @@ export function HomePage() {
 
   const activeCategoryObj = categoryChips.find((c) => c.id === selectedCategory) || categoryChips[0];
 
-  const handlePrevHero = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handlePrevHero = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (filteredFeatured.length === 0) return;
     setHeroIndex((prev) => (prev === 0 ? filteredFeatured.length - 1 : prev - 1));
   };
 
-  const handleNextHero = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleNextHero = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (filteredFeatured.length === 0) return;
     setHeroIndex((prev) => (prev === filteredFeatured.length - 1 ? 0 : prev + 1));
+  };
+
+  // Touch handlers for mobile swipe gesture on Hero Banner
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return;
+    const distance = touchStartX - touchEndX;
+    const minSwipeDistance = 35;
+
+    if (distance > minSwipeDistance) {
+      handleNextHero();
+    } else if (distance < -minSwipeDistance) {
+      handlePrevHero();
+    }
   };
 
   if (isLoading) {
@@ -103,8 +129,111 @@ export function HomePage() {
 
   return (
     <div className="space-y-10 pb-16 max-w-7xl mx-auto px-2 sm:px-4">
-      {/* 1. Desktop & Mobile Category Selection Header Bar */}
-      <section className="space-y-3">
+      {/* 1. Main Top Hero Feature Banner with Touch Swipe Support & Raised Arrow Controls */}
+      {heroItem && (
+        <section className="space-y-3">
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="relative min-h-[50vh] sm:min-h-[60vh] rounded-3xl overflow-hidden glass-panel border border-white/10 shadow-2xl group flex items-end select-none touch-pan-y"
+          >
+            {/* Background Artwork */}
+            <div className="absolute inset-0">
+              <img
+                src={heroItem.bannerUrl || heroItem.posterUrl}
+                alt={heroItem.title}
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#07080e] via-[#07080e]/50 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#07080e]/95 via-[#07080e]/40 to-transparent"></div>
+            </div>
+
+            {/* Left & Right Carousel Arrow Buttons - Positioned higher up (top-[38%]) to never overlap bottom title text */}
+            {filteredFeatured.length > 1 && (
+              <>
+                <button
+                  onClick={handlePrevHero}
+                  className="absolute left-3 sm:left-6 top-[38%] -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
+                  title="Previous Slide"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={handleNextHero}
+                  className="absolute right-3 sm:right-6 top-[38%] -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
+                  title="Next Slide"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+
+            {/* Hero Overlay Content */}
+            <div className="relative z-10 p-6 sm:p-12 space-y-4 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-xl bg-sky-500/20 border border-sky-400/40 text-xs font-extrabold text-sky-300 uppercase tracking-wider">
+                  Featured {activeCategoryObj.name}
+                </span>
+              </div>
+
+              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-md">{heroItem.title}</h1>
+
+              <p className="text-xs sm:text-sm text-gray-300 line-clamp-3 leading-relaxed font-normal">
+                {heroItem.description}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/40 text-xs font-bold text-amber-300 flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-current text-amber-400" /> IMDb {heroItem.editorRating ? heroItem.editorRating.toFixed(1) : '9.1'}
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-gray-200">
+                  {heroItem.year || 2025}
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-sky-300">
+                  {heroItem.categories?.map((c: any) => c.name).join(', ') || heroItem.kind}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => navigate(`/watch/${heroItem.id}`)}
+                  className="px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-sky-500/30 flex items-center gap-2 active:scale-95"
+                >
+                  <Play className="w-4 h-4 fill-current" /> Play Now
+                </button>
+
+                <button
+                  onClick={() => navigate(`/title/${heroItem.slug}`)}
+                  className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm border border-white/15 transition-all flex items-center gap-2 active:scale-95 backdrop-blur-md"
+                >
+                  <Info className="w-4 h-4 text-sky-400" /> Details
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Carousel Dots */}
+          {filteredFeatured.length > 1 && (
+            <div className="flex justify-center items-center gap-1.5 pt-1">
+              {filteredFeatured.map((_: unknown, idx: number) => (
+                <button
+                  key={idx}
+                  onClick={() => setHeroIndex(idx)}
+                  className={`transition-all duration-300 ${
+                    idx === heroIndex % filteredFeatured.length
+                      ? 'w-6 h-2 rounded-full bg-sky-500'
+                      : 'w-2 h-2 rounded-full bg-white/30 hover:bg-white/60'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 2. Desktop & Mobile Category Selection Header Bar (POSITIONED AFTER THE BANNER) */}
+      <section className="space-y-3 pt-2">
         {/* Desktop Chips (hidden on mobile) */}
         <div className="hidden sm:flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
           {categoryChips.map((chip) => {
@@ -214,84 +343,6 @@ export function HomePage() {
         </div>
       )}
 
-      {/* 2. Main Top Hero Feature Banner */}
-      {heroItem && (
-        <section className="space-y-3">
-          <div className="relative min-h-[50vh] sm:min-h-[60vh] rounded-3xl overflow-hidden glass-panel border border-white/10 shadow-2xl group flex items-end">
-            <div className="absolute inset-0">
-              <img
-                src={heroItem.bannerUrl || heroItem.posterUrl}
-                alt={heroItem.title}
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#07080e] via-[#07080e]/50 to-transparent"></div>
-              <div className="absolute inset-0 bg-gradient-to-r from-[#07080e]/95 via-[#07080e]/40 to-transparent"></div>
-            </div>
-
-            {filteredFeatured.length > 1 && (
-              <>
-                <button
-                  onClick={handlePrevHero}
-                  className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
-                  title="Previous"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={handleNextHero}
-                  className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-xl"
-                  title="Next"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </>
-            )}
-
-            <div className="relative z-10 p-6 sm:p-12 space-y-4 max-w-2xl">
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-xl bg-sky-500/20 border border-sky-400/40 text-xs font-extrabold text-sky-300 uppercase tracking-wider">
-                  Featured {activeCategoryObj.name}
-                </span>
-              </div>
-
-              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">{heroItem.title}</h1>
-
-              <p className="text-xs sm:text-sm text-gray-300 line-clamp-3 leading-relaxed font-normal">
-                {heroItem.description}
-              </p>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/40 text-xs font-bold text-amber-300 flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5 fill-current text-amber-400" /> IMDb {heroItem.editorRating ? heroItem.editorRating.toFixed(1) : '9.1'}
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-gray-200">
-                  {heroItem.year || 2025}
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-sky-300">
-                  {heroItem.categories?.map((c: any) => c.name).join(', ') || heroItem.kind}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  onClick={() => navigate(`/watch/${heroItem.id}`)}
-                  className="px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-sky-500/30 flex items-center gap-2 active:scale-95"
-                >
-                  <Play className="w-4 h-4 fill-current" /> Play Now
-                </button>
-
-                <button
-                  onClick={() => navigate(`/title/${heroItem.slug}`)}
-                  className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm border border-white/15 transition-all flex items-center gap-2 active:scale-95 backdrop-blur-md"
-                >
-                  <Info className="w-4 h-4 text-sky-400" /> Details
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* 3. Empty State if category filter yields no results */}
       {hasNoContent && (
         <section className="py-16 px-6 rounded-3xl glass-panel border border-white/10 text-center space-y-4 max-w-lg mx-auto my-8">
@@ -314,11 +365,17 @@ export function HomePage() {
       {/* 4. "Popular On Rasigan" Row */}
       {popularFiltered.length > 0 && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-extrabold text-white tracking-tight">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-tight leading-snug min-w-0 pr-2">
               Popular {isCategoryFiltered ? activeCategoryObj.name : 'On Rasigan'}
             </h3>
-            <span className="text-xs text-gray-400 font-semibold">{popularFiltered.length} titles</span>
+            <Link
+              to={`/browse/${selectedCategory === 'all' ? 'movies' : selectedCategory}`}
+              className="text-xs font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 whitespace-nowrap flex-none shrink-0 self-center border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 rounded-xl transition-all hover:bg-sky-500/20 active:scale-95"
+            >
+              <span>Explore all</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-3 px-1">
@@ -356,8 +413,8 @@ export function HomePage() {
       {/* 5. Genres Quick-Select Grid */}
       {!isCategoryFiltered && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-extrabold text-white tracking-tight">Browse Genres</h3>
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-tight leading-snug">Browse Genres</h3>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
@@ -382,10 +439,17 @@ export function HomePage() {
       {/* 6. Top 10 Ranked Row */}
       {top10Filtered.length > 0 && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-extrabold text-white tracking-tight">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-tight leading-snug min-w-0 pr-2">
               Top 10 {isCategoryFiltered ? activeCategoryObj.name : 'Titles'}
             </h3>
+            <Link
+              to={`/browse/${selectedCategory === 'all' ? 'movies' : selectedCategory}`}
+              className="text-xs font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 whitespace-nowrap flex-none shrink-0 self-center border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 rounded-xl transition-all hover:bg-sky-500/20 active:scale-95"
+            >
+              <span>Explore all</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           <div className="flex gap-6 overflow-x-auto no-scrollbar pb-4 px-2">
@@ -456,10 +520,17 @@ export function HomePage() {
       {/* 8. Web Series / Series Selection Row */}
       {seriesFiltered.length > 0 && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-extrabold text-white tracking-tight">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-tight leading-snug min-w-0 pr-2">
               {isCategoryFiltered ? `${activeCategoryObj.name} Selection` : 'Unrivaled Selection of Series'}
             </h3>
+            <Link
+              to="/browse/web-series"
+              className="text-xs font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 whitespace-nowrap flex-none shrink-0 self-center border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 rounded-xl transition-all hover:bg-sky-500/20 active:scale-95"
+            >
+              <span>Explore all</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           <div className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar pb-3 px-1">
@@ -491,10 +562,17 @@ export function HomePage() {
       {/* 9. Personalized Recommendations Grid */}
       {recommendationsFiltered.length > 0 && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-extrabold text-white tracking-tight">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-tight leading-snug min-w-0 pr-2">
               Recommended {isCategoryFiltered ? activeCategoryObj.name : 'For You'}
             </h3>
+            <Link
+              to="/browse/movies"
+              className="text-xs font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 whitespace-nowrap flex-none shrink-0 self-center border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 rounded-xl transition-all hover:bg-sky-500/20 active:scale-95"
+            >
+              <span>Explore all</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
