@@ -49,7 +49,7 @@ export function Header() {
           })}
         </nav>
 
-        {/* Actions (ZETTA Style Search Icon & Sign In) */}
+        {/* Actions (ZETTA Style Search Icon, Admin/Creator shortcuts & Sign In) */}
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             to="/search"
@@ -57,6 +57,30 @@ export function Header() {
             title="Search movies, series..."
           >
             <Search className="w-5 h-5 text-gray-200" />
+          </Link>
+
+          <Link
+            to="/creator"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all"
+            title="Creator Dashboard"
+          >
+            Earnings
+          </Link>
+
+          <Link
+            to="/admin/people"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
+            title="Cast & Crew Admin"
+          >
+            Cast & Crew
+          </Link>
+
+          <Link
+            to="/admin/titles/new"
+            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/30 text-xs font-bold transition-all"
+            title="Add Content Form"
+          >
+            ＋ Content
           </Link>
 
           <Link

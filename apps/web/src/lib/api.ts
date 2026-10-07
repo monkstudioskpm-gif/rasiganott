@@ -1,4 +1,4 @@
-import { HomeResponse, Category, Title } from '@rasigan/shared';
+import { HomeResponse, Genre, Category, Title } from '@rasigan/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
@@ -29,14 +29,12 @@ const FALLBACK_TITLES: Title[] = [
     streamType: 'HLS',
     subtitles: [],
     audioTracks: [],
-    castNames: ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj'],
-    crewCredits: [{ role: 'Director', name: 'Karthik Subbaraj' }, { role: 'Music', name: 'Anirudh Ravichander' }],
     creatorName: 'Vetri Studios',
     isFeatured: true,
     fundingEnabled: true,
     fundingGoal: 500000,
     fundingRaised: 0,
-    categories: [{ id: 'cat-1', name: 'Action', slug: 'action', sortOrder: 1, isActive: true }, { id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true }],
+    genres: [{ id: 'cat-1', name: 'Action', slug: 'action', sortOrder: 1, isActive: true }, { id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true }],
   },
   {
     id: 'cmuwlzb0b000doh6vlsidefks',
@@ -59,136 +57,16 @@ const FALLBACK_TITLES: Title[] = [
     streamType: 'MP4',
     subtitles: [],
     audioTracks: [],
-    castNames: ['Vijay Sethupathi', 'Aditi Rao'],
-    crewCredits: [{ role: 'Director', name: 'Lokesh Kanagaraj' }],
     creatorName: 'Indie Mobile Cinema',
     isFeatured: true,
     fundingEnabled: true,
     fundingGoal: 200000,
     fundingRaised: 0,
-    categories: [{ id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true }],
-  },
-  {
-    id: 'cmuwlz-cyber-chennai',
-    slug: 'cyber-chennai-2099',
-    kind: 'MOVIE',
-    orientation: 'LANDSCAPE',
-    status: 'PUBLISHED',
-    title: 'Cyber Chennai 2099',
-    tagline: 'Neon rain over OMR',
-    description: 'A groundbreaking Tamil futuristic neo-noir sci-fi action thriller set in a cyberpunk metropolis.',
-    language: 'Tamil',
-    year: 2025,
-    ageRating: 'U/A',
-    durationMin: 142,
-    editorRating: 9.3,
-    posterUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
-    bannerUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1600&auto=format&fit=crop&q=80',
-    trailerUrl: MUX_HLS,
-    videoUrl: MUX_HLS,
-    streamType: 'HLS',
-    subtitles: [],
-    audioTracks: [],
-    castNames: ['Vikram', 'Samantha', 'Fahadh Faasil'],
-    crewCredits: [{ role: 'Director', name: 'Atlee' }],
-    creatorName: 'Future Vision Media',
-    isFeatured: true,
-    fundingEnabled: true,
-    fundingGoal: 800000,
-    fundingRaised: 0,
-    categories: [{ id: 'cat-sci-fi', name: 'Sci-Fi', slug: 'sci-fi', sortOrder: 9, isActive: true }, { id: 'cat-1', name: 'Action', slug: 'action', sortOrder: 1, isActive: true }],
-  },
-  {
-    id: 'cmuwlzb0j000eoh6v0cfs1wwg',
-    slug: 'kaadhal-kavithai-short',
-    kind: 'SHORT_FILM',
-    orientation: 'LANDSCAPE',
-    status: 'PUBLISHED',
-    title: 'Kaadhal Kavithai',
-    tagline: 'Love written in rain',
-    description: 'A heartwarming short film capturing a chance meeting at a Chennai bus stop.',
-    language: 'Tamil',
-    year: 2024,
-    ageRating: 'U',
-    durationMin: 22,
-    editorRating: 9.4,
-    posterUrl: 'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=600&auto=format&fit=crop&q=80',
-    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
-    trailerUrl: MUX_HLS,
-    videoUrl: MUX_HLS,
-    streamType: 'HLS',
-    subtitles: [],
-    audioTracks: [],
-    castNames: ['Gautham Ram', 'Priya Bhavani'],
-    crewCredits: [{ role: 'Director', name: 'Halitha Shameem' }],
-    creatorName: 'Raindrop Stories',
-    isFeatured: false,
-    fundingEnabled: true,
-    fundingGoal: 100000,
-    fundingRaised: 0,
-    categories: [{ id: 'cat-romance', name: 'Romance', slug: 'romance', sortOrder: 5, isActive: true }],
-  },
-  {
-    id: 'cmuwlzb0p000foh6vaw5i1bjy',
-    slug: 'filter-coffee-vertical-short',
-    kind: 'SHORT_FILM',
-    orientation: 'VERTICAL',
-    status: 'PUBLISHED',
-    title: 'Filter Coffee',
-    tagline: 'Strong, sweet, and short',
-    description: 'A comical short film on morning routines in a traditional South Indian household.',
-    language: 'Tamil',
-    year: 2024,
-    ageRating: 'U',
-    durationMin: 12,
-    editorRating: 8.5,
-    posterUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
-    bannerUrl: null,
-    trailerUrl: SINTEL_MP4,
-    videoUrl: SINTEL_MP4,
-    streamType: 'MP4',
-    subtitles: [],
-    audioTracks: [],
-    castNames: ['RJ Balaji', 'Urvashee'],
-    crewCredits: [{ role: 'Director', name: 'Balaji Mohan' }],
-    creatorName: 'Filter Coffee Originals',
-    isFeatured: false,
-    fundingEnabled: true,
-    fundingGoal: 50000,
-    categories: [{ id: 'cat-comedy', name: 'Comedy', slug: 'comedy', sortOrder: 4, isActive: true }],
-  },
-  {
-    id: 'cmuwlzb0x000goh6vo9egfopy',
-    slug: 'chennai-chronicles-series',
-    kind: 'WEB_SERIES',
-    orientation: 'LANDSCAPE',
-    status: 'PUBLISHED',
-    title: 'Chennai Chronicles',
-    tagline: 'City of dreams and shadows',
-    description: 'An episodic drama following four young tech workers navigating life in modern Nungambakkam.',
-    language: 'Tamil',
-    year: 2024,
-    ageRating: 'U/A',
-    durationMin: null,
-    editorRating: 9.2,
-    posterUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80',
-    bannerUrl: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1600&auto=format&fit=crop&q=80',
-    trailerUrl: MUX_HLS,
-    videoUrl: null,
-    streamType: null,
-    subtitles: [],
-    audioTracks: [],
-    castNames: ['Kavin', 'Amritha Aiyer'],
-    crewCredits: [{ role: 'Creator', name: 'Nelson Dilipkumar' }],
-    creatorName: 'Madras Digital Productions',
-    isFeatured: true,
-    fundingEnabled: true,
-    fundingGoal: 1000000,
-    categories: [{ id: 'cat-2', name: 'Drama', slug: 'drama', sortOrder: 2, isActive: true }],
+    genres: [{ id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true }],
   },
 ];
 
-const FALLBACK_CATEGORIES: Category[] = [
+const FALLBACK_GENRES: Genre[] = [
   { id: 'cat-1', name: 'Action', slug: 'action', sortOrder: 1, isActive: true },
   { id: 'cat-2', name: 'Drama', slug: 'drama', sortOrder: 2, isActive: true },
   { id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true },
@@ -199,9 +77,9 @@ const FALLBACK_CATEGORIES: Category[] = [
 
 const FALLBACK_HOME: HomeResponse = {
   featured: FALLBACK_TITLES.filter((t) => t.isFeatured),
-  categories: FALLBACK_CATEGORIES.map((cat) => ({
+  genres: FALLBACK_GENRES.map((cat) => ({
     ...cat,
-    titles: FALLBACK_TITLES.filter((t) => t.categories?.some((c: any) => c.slug === cat.slug)),
+    titles: FALLBACK_TITLES.filter((t) => t.genres?.some((c: any) => c.slug === cat.slug)),
   })).filter((cat) => cat.titles.length > 0),
   trending: FALLBACK_TITLES,
   newReleases: FALLBACK_TITLES,
@@ -228,7 +106,7 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   } catch (error) {
     console.warn(`API call to ${endpoint} failed, utilizing catalog fallback dataset:`, error);
     if (endpoint === '/home') return FALLBACK_HOME as unknown as T;
-    if (endpoint === '/categories') return { categories: FALLBACK_CATEGORIES } as unknown as T;
+    if (endpoint === '/categories' || endpoint === '/genres') return { categories: FALLBACK_GENRES, genres: FALLBACK_GENRES } as unknown as T;
     if (endpoint.startsWith('/titles/')) {
       const slug = endpoint.replace('/titles/', '');
       const found = FALLBACK_TITLES.find((t) => t.slug === slug || t.id === slug) || FALLBACK_TITLES[0];
@@ -241,10 +119,72 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   getHome: () => fetcher<HomeResponse>('/home'),
-  getCategories: () => fetcher<{ categories: Category[] }>('/categories'),
+  getGenres: () => fetcher<{ genres: Genre[]; categories: Category[] }>('/genres'),
+  getCategories: () => fetcher<{ categories: Category[]; genres: Genre[] }>('/genres'),
   getTitles: (params?: Record<string, string>) => {
     const query = new URLSearchParams(params).toString();
     return fetcher<{ titles: Title[]; pagination: { page: number; totalPages: number } }>(`/titles${query ? `?${query}` : ''}`);
   },
   getTitleBySlug: (slug: string) => fetcher<{ title: Title }>(`/titles/${slug}`),
+};
+
+export const adminApi = {
+  // People (Cast & Crew)
+  getPeople: (params?: { q?: string; filter?: string; sort?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return fetcher<{ people: any[]; pagination: { page: number; totalPages: number; total: number } }>(`/admin/people${query ? `?${query}` : ''}`);
+  },
+  suggestPeople: (q: string, limit = 8) =>
+    fetcher<{ people: { id: string; name: string; nameKey: string; photoUrl?: string | null; bio?: string | null; titlesCount: number }[] }>(`/admin/people/suggest?q=${encodeURIComponent(q)}&limit=${limit}`),
+  getPersonById: (id: string) => fetcher<{ person: any }>(`/admin/people/${id}`),
+  createPerson: (data: { name: string; photoUrl?: string | null; bio?: string | null; allowDuplicate?: boolean }) =>
+    fetcher<{ person: any; isDuplicateMatch?: boolean }>('/admin/people', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePerson: (id: string, data: { name?: string; photoUrl?: string | null; bio?: string | null }) =>
+    fetcher<{ person: any }>(`/admin/people/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deletePerson: (id: string, force = false) =>
+    fetcher<{ success: boolean; deletedId?: string }>(`/admin/people/${id}${force ? '?force=true' : ''}`, {
+      method: 'DELETE',
+    }),
+  mergePerson: (id: string, intoId: string) =>
+    fetcher<{ success: boolean; mergedId: string; intoId: string }>(`/admin/people/${id}/merge`, {
+      method: 'POST',
+      body: JSON.stringify({ intoId }),
+    }),
+
+  // Genres & Tags
+  getGenres: () => fetcher<{ genres: any[] }>('/admin/genres'),
+  createGenre: (data: { name: string; sortOrder?: number }) =>
+    fetcher<{ genre: any }>('/admin/genres', { method: 'POST', body: JSON.stringify(data) }),
+  updateGenre: (id: string, data: { name?: string; sortOrder?: number; isActive?: boolean }) =>
+    fetcher<{ genre: any }>(`/admin/genres/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteGenre: (id: string) => fetcher<{ success: boolean }>(`/admin/genres/${id}`, { method: 'DELETE' }),
+  suggestTags: (q: string) => fetcher<{ tags: string[] }>(`/admin/tags/suggest?q=${encodeURIComponent(q)}`),
+
+  // Video Validation Tool
+  validateVideoUrl: (url: string) =>
+    fetcher<{ isValid: boolean; streamType?: string; reachable?: boolean; durationSec?: number; qualities?: string[]; audioTracks?: string[]; subtitles?: string[]; message?: string; error?: string }>('/admin/validate-video-url', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+
+  // Title Management
+  getTitleById: (id: string) => fetcher<{ title: Title }>(`/titles/admin/${id}`),
+  createTitle: (payload: any) =>
+    fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(payload) }),
+  updateTitle: (id: string, payload: any) =>
+    fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteTitle: (id: string) =>
+    fetcher<{ success: boolean }>(`/titles/admin/${id}`, { method: 'DELETE' }),
+};
+
+export const creatorApi = {
+  getEarnings: () => fetcher<any>('/creator/earnings'),
+  getPayouts: () => fetcher<any>('/creator/payouts'),
+  getSupporters: () => fetcher<any>('/creator/supporters'),
 };

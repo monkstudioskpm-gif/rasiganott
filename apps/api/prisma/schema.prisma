@@ -57,13 +57,86 @@ model User {
   fundings  Funding[]
 }
 
-model Category {
-  id        String          @id @default(cuid())
-  name      String          @unique
-  slug      String          @unique
-  sortOrder Int             @default(0)
-  isActive  Boolean         @default(true)
-  titles    TitleCategory[]
+enum CrewRole {
+  DIRECTOR
+  PRODUCER
+  WRITER
+  CINEMATOGRAPHER
+  EDITOR
+  MUSIC_DIRECTOR
+  LYRICIST
+  CHOREOGRAPHER
+  OTHER
+}
+
+model Person {
+  id        String      @id @default(cuid())
+  name      String
+  nameKey   String
+  photoUrl  String?
+  bio       String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  cast      TitleCast[]
+  crew      TitleCrew[]
+
+  @@index([nameKey])
+}
+
+model TitleCast {
+  titleId       String
+  personId      String
+  order         Int     @default(0)
+  characterName String?
+  title         Title   @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  person        Person  @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  @@id([titleId, personId])
+}
+
+model TitleCrew {
+  id         String   @id @default(cuid())
+  titleId    String
+  personId   String
+  role       CrewRole
+  customRole String?
+  title      Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  @@unique([titleId, personId, role])
+}
+
+model Genre {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  slug      String       @unique
+  sortOrder Int          @default(0)
+  isActive  Boolean      @default(true)
+  titles    TitleGenre[]
+}
+
+model TitleGenre {
+  titleId String
+  genreId String
+  title   Title  @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  genre   Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([titleId, genreId])
+}
+
+model Tag {
+  id     String     @id @default(cuid())
+  name   String     @unique
+  titles TitleTag[]
+}
+
+model TitleTag {
+  titleId String
+  tagId   String
+  title   Title  @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([titleId, tagId])
 }
 
 model Title {
@@ -91,8 +164,7 @@ model Title {
   subtitles   String      @default("[]")
   audioTracks String      @default("[]")
 
-  castNames   String  @default("[]")
-  crewCredits String  @default("[]")
+  creatorId   String?
   creatorName String?
 
   isFeatured     Boolean   @default(false)
@@ -102,23 +174,17 @@ model Title {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  categories TitleCategory[]
-  seasons    Season[]
+  genres      TitleGenre[]
+  tags        TitleTag[]
+  cast        TitleCast[]
+  crew        TitleCrew[]
+  seasons     Season[]
   watchlisted WatchlistItem[]
-  reactions  Reaction[]
-  progress   WatchProgress[]
-  fundings   Funding[]
+  reactions   Reaction[]
+  progress    WatchProgress[]
+  fundings    Funding[]
 
   @@index([kind, orientation, status])
-}
-
-model TitleCategory {
-  titleId    String
-  categoryId String
-  title      Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([titleId, categoryId])
 }
 
 model Season {

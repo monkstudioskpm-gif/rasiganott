@@ -12,6 +12,10 @@ import { CategoryPage } from '../pages/CategoryPage';
 import { SearchPage } from '../pages/SearchPage';
 import { LibraryPage } from '../pages/LibraryPage';
 import { LoginPage } from '../pages/LoginPage';
+import { AdminPeoplePage } from '../pages/admin/AdminPeoplePage';
+import { AdminGenresPage } from '../pages/admin/AdminGenresPage';
+import { AdminContentFormPage } from '../pages/admin/AdminContentFormPage';
+import { CreatorDashboardPage } from '../pages/creator/CreatorDashboardPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +46,12 @@ function AppContent() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/creator" element={<CreatorDashboardPage />} />
+          <Route path="/admin/people" element={<AdminPeoplePage />} />
+          <Route path="/people" element={<AdminPeoplePage />} />
+          <Route path="/admin/genres" element={<AdminGenresPage />} />
+          <Route path="/admin/titles/new" element={<AdminContentFormPage />} />
+          <Route path="/admin/titles/:id/edit" element={<AdminContentFormPage />} />
           <Route
             path="*"
             element={

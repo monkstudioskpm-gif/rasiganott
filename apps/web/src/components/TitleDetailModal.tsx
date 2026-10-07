@@ -21,7 +21,7 @@ export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSel
   const selectedSeason = seasons.find((s) => s.number === selectedSeasonNumber) || seasons[0];
 
   // Generate cast avatar placeholders if images not provided
-  const castList = title.castNames && title.castNames.length > 0 ? title.castNames : ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj', 'Vijay Sethupathi'];
+  const castList = title.cast && title.cast.length > 0 ? title.cast.map(c => c.person?.name || 'Cast Member') : ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj', 'Vijay Sethupathi'];
 
   const getCastAvatar = (index: number) => {
     const avatars = [

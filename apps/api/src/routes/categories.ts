@@ -7,12 +7,12 @@ const prisma = new PrismaClient();
 // GET /api/categories
 router.get('/', async (_req, res, next) => {
   try {
-    const categories = await prisma.category.findMany({
+    const genres = await prisma.genre.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
     });
 
-    res.json({ categories });
+    res.json({ categories: genres, genres });
   } catch (err) {
     next(err);
   }

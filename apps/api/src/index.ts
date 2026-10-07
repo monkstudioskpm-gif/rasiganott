@@ -4,7 +4,10 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import homeRouter from './routes/home.js';
 import titlesRouter from './routes/titles.js';
-import categoriesRouter from './routes/categories.js';
+import genresRouter from './routes/genres.js';
+import peopleRouter from './routes/people.js';
+import tagsRouter from './routes/tags.js';
+import creatorRouter from './routes/creator.js';
 
 dotenv.config();
 
@@ -16,7 +19,7 @@ const helmetFn = helmet as unknown as (options?: object) => express.RequestHandl
 app.use(helmetFn({ crossOriginResourcePolicy: false }));
 app.use(
   cors({
-    origin: true, // Allow any dev client origin (localhost:5180, localhost:5173, etc.)
+    origin: true,
     credentials: true,
   })
 );
@@ -30,7 +33,12 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // Routes
 app.use('/api/home', homeRouter);
 app.use('/api/titles', titlesRouter);
-app.use('/api/categories', categoriesRouter);
+app.use('/api/genres', genresRouter);
+app.use('/api/categories', genresRouter); // legacy alias for Genre
+app.use('/api/admin/genres', genresRouter);
+app.use('/api/admin/people', peopleRouter);
+app.use('/api/admin/tags', tagsRouter);
+app.use('/api/creator', creatorRouter);
 
 // 404 Handler
 app.use('/api/*', (_req: Request, res: Response) => {
@@ -49,8 +57,10 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Rasigan API backend running at http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Rasigan API backend running at http://localhost:${port}`);
+  });
+}
 
 export default app;

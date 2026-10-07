@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { parseTitleJsonFields } from './titles.js';
+import { formatTitleResponse } from './titles.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -8,18 +8,21 @@ const prisma = new PrismaClient();
 // GET /api/home
 router.get('/', async (_req, res, next) => {
   try {
-    const [featured, categories, newReleases, topRated, trending] = await Promise.all([
+    const [featured, genres, newReleases, topRated, trending] = await Promise.all([
       // Featured titles
       prisma.title.findMany({
         where: { status: 'PUBLISHED', isFeatured: true },
         take: 5,
         include: {
-          categories: { include: { category: true } },
+          genres: { include: { genre: true } },
+          tags: { include: { tag: true } },
+          cast: { include: { person: true } },
+          crew: { include: { person: true } },
         },
       }),
 
-      // Active categories with published titles
-      prisma.category.findMany({
+      // Active genres with published titles
+      prisma.genre.findMany({
         where: { isActive: true },
         orderBy: { sortOrder: 'asc' },
         include: {
@@ -29,7 +32,10 @@ router.get('/', async (_req, res, next) => {
             include: {
               title: {
                 include: {
-                  categories: { include: { category: true } },
+                  genres: { include: { genre: true } },
+                  tags: { include: { tag: true } },
+                  cast: { include: { person: true } },
+                  crew: { include: { person: true } },
                 },
               },
             },
@@ -43,7 +49,10 @@ router.get('/', async (_req, res, next) => {
         orderBy: { publishedAt: 'desc' },
         take: 10,
         include: {
-          categories: { include: { category: true } },
+          genres: { include: { genre: true } },
+          tags: { include: { tag: true } },
+          cast: { include: { person: true } },
+          crew: { include: { person: true } },
         },
       }),
 
@@ -53,7 +62,10 @@ router.get('/', async (_req, res, next) => {
         orderBy: { editorRating: 'desc' },
         take: 10,
         include: {
-          categories: { include: { category: true } },
+          genres: { include: { genre: true } },
+          tags: { include: { tag: true } },
+          cast: { include: { person: true } },
+          crew: { include: { person: true } },
         },
       }),
 
@@ -63,30 +75,34 @@ router.get('/', async (_req, res, next) => {
         orderBy: { createdAt: 'desc' },
         take: 10,
         include: {
-          categories: { include: { category: true } },
+          genres: { include: { genre: true } },
+          tags: { include: { tag: true } },
+          cast: { include: { person: true } },
+          crew: { include: { person: true } },
         },
       }),
     ]);
 
-    const formattedFeatured = featured.map(parseTitleJsonFields);
-    const formattedNewReleases = newReleases.map(parseTitleJsonFields);
-    const formattedTopRated = topRated.map(parseTitleJsonFields);
-    const formattedTrending = trending.map(parseTitleJsonFields);
+    const formattedFeatured = featured.map(formatTitleResponse);
+    const formattedNewReleases = newReleases.map(formatTitleResponse);
+    const formattedTopRated = topRated.map(formatTitleResponse);
+    const formattedTrending = trending.map(formatTitleResponse);
 
-    const formattedCategories = categories
-      .map((cat) => ({
-        id: cat.id,
-        name: cat.name,
-        slug: cat.slug,
-        sortOrder: cat.sortOrder,
-        isActive: cat.isActive,
-        titles: cat.titles.map((tc) => parseTitleJsonFields(tc.title)),
+    const formattedGenres = genres
+      .map((g) => ({
+        id: g.id,
+        name: g.name,
+        slug: g.slug,
+        sortOrder: g.sortOrder,
+        isActive: g.isActive,
+        titles: g.titles.map((tg) => formatTitleResponse(tg.title)),
       }))
-      .filter((cat) => cat.titles.length > 0);
+      .filter((g) => g.titles.length > 0);
 
     res.json({
       featured: formattedFeatured,
-      categories: formattedCategories,
+      genres: formattedGenres,
+      categories: formattedGenres, // fallback key for legacy UI consumers
       trending: formattedTrending,
       newReleases: formattedNewReleases,
       topRated: formattedTopRated,

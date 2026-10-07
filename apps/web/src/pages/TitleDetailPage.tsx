@@ -15,6 +15,7 @@ export function TitleDetailPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState(1);
+  const [selectedPerson, setSelectedPerson] = useState<any>(null);
 
   const { data: homeData } = useQuery({
     queryKey: ['home'],
@@ -64,7 +65,7 @@ export function TitleDetailPage() {
     localStorage.setItem('rasigan_watchlist', JSON.stringify(updated));
   };
 
-  const castList = title?.castNames && title.castNames.length > 0 ? title.castNames : ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj', 'Vijay Sethupathi'];
+  const castList = title?.cast && title.cast.length > 0 ? title.cast.map((c: any) => c.person?.name || 'Cast Member') : ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj', 'Vijay Sethupathi'];
 
   const getCastAvatar = (index: number) => {
     const avatars = [
@@ -246,20 +247,86 @@ export function TitleDetailPage() {
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-normal">{title.description}</p>
           </div>
 
-          {/* Cast Section (Circular Avatars matching ZETTA Mockup) */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-base font-bold text-white tracking-tight">Cast</h3>
-            <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
-              {castList.map((actor: string, idx: number) => (
-                <div key={idx} className="flex flex-col items-center gap-1.5 text-center flex-none w-16">
-                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/15 bg-dark-card shadow-md">
-                    <img src={getCastAvatar(idx)} alt={actor} className="w-full h-full object-cover" />
+          {/* Cast Section (Avatar + Name Chips with Bio Popovers - Addendum B3.3) */}
+          {((title?.cast && title.cast.length > 0) || castList.length > 0) && (
+            <div className="space-y-3 pt-2">
+              <h3 className="text-base font-bold text-white tracking-tight">Cast</h3>
+              <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+                {(title?.cast && title.cast.length > 0 ? title.cast : castList.map((name: string, idx: number) => ({
+                  personId: `c-${idx}`,
+                  characterName: null,
+                  person: { id: `c-${idx}`, name, photoUrl: getCastAvatar(idx), bio: `${name} plays a major role in this production.` }
+                }))).map((c: any, idx: number) => {
+                  const person = c.person || { name: c.name || `Cast ${idx+1}`, photoUrl: getCastAvatar(idx), bio: null };
+                  return (
+                    <div
+                      key={c.personId || idx}
+                      onClick={() => setSelectedPerson(selectedPerson?.id === person.id ? null : person)}
+                      className="relative flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 cursor-pointer flex-none transition-all active:scale-95 group"
+                    >
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-dark-card flex-none">
+                        {person.photoUrl ? (
+                          <img src={person.photoUrl} alt={person.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-sky-900/50 text-sky-300 font-bold text-xs flex items-center justify-center">
+                            {person.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-left leading-tight">
+                        <p className="text-xs font-semibold text-white group-hover:text-sky-300">{person.name}</p>
+                        {c.characterName && <p className="text-[10px] text-gray-400">as {c.characterName}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bio Popover Modal / Overlay */}
+              {selectedPerson && (
+                <div className="mt-3 p-4 rounded-2xl bg-[#141724] border border-sky-500/30 text-left space-y-2 relative shadow-xl animate-in fade-in slide-in-from-top-2">
+                  <button
+                    onClick={() => setSelectedPerson(null)}
+                    className="absolute top-2 right-2 text-gray-400 hover:text-white text-xs px-2 py-1 bg-white/10 rounded-lg"
+                  >
+                    ✕
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-sky-400 flex-none">
+                      {selectedPerson.photoUrl ? (
+                        <img src={selectedPerson.photoUrl} alt={selectedPerson.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-sky-800 text-sky-200 font-bold text-sm flex items-center justify-center">
+                          {selectedPerson.name.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-white">{selectedPerson.name}</h4>
+                      <p className="text-[10px] text-sky-400 font-semibold">Cast Member</p>
+                    </div>
                   </div>
-                  <span className="text-[11px] text-gray-300 font-medium line-clamp-2 leading-tight">{actor}</span>
+                  <p className="text-xs text-gray-300 leading-relaxed font-normal">
+                    {selectedPerson.bio || 'No short bio available for this cast member.'}
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Crew Section */}
+          {title?.crew && title.crew.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <h3 className="text-base font-bold text-white tracking-tight">Crew</h3>
+              <div className="flex flex-wrap gap-2">
+                {title.crew.map((cr: any, idx: number) => (
+                  <span key={idx} className="px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-gray-300">
+                    <strong className="text-gray-100">{cr.role === 'OTHER' ? (cr.customRole || 'Crew') : cr.role}:</strong> {cr.person?.name || 'Unknown'}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Web Series Episodes List (if Web Series) */}
           {title.kind === 'WEB_SERIES' && (

@@ -38,6 +38,20 @@ export const AudioTrackSchema = z.object({
 });
 export type AudioTrack = z.infer<typeof AudioTrackSchema>;
 
+export const CrewRoleEnum = z.enum([
+  'DIRECTOR',
+  'PRODUCER',
+  'WRITER',
+  'CINEMATOGRAPHER',
+  'EDITOR',
+  'MUSIC_DIRECTOR',
+  'LYRICIST',
+  'CHOREOGRAPHER',
+  'OTHER',
+]);
+export type CrewRole = z.infer<typeof CrewRoleEnum>;
+
+// Deprecated CrewCreditSchema kept for safety if needed
 export const CrewCreditSchema = z.object({
   role: z.string(),
   name: z.string(),
@@ -45,16 +59,69 @@ export const CrewCreditSchema = z.object({
 export type CrewCredit = z.infer<typeof CrewCreditSchema>;
 
 // ==========================================
-// Category
+// Person (Cast & Crew Member)
 // ==========================================
-export const CategorySchema = z.object({
+export const PersonSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  nameKey: z.string(),
+  photoUrl: z.string().url().nullable().optional(),
+  bio: z.string().nullable().optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
+  titlesCount: z.number().int().optional(),
+  rolesUsed: z.array(z.string()).optional(),
+  appearsIn: z.array(z.object({
+    titleId: z.string(),
+    title: z.string(),
+    role: z.string(),
+  })).optional(),
+});
+export type Person = z.infer<typeof PersonSchema>;
+
+export const TitleCastSchema = z.object({
+  titleId: z.string(),
+  personId: z.string(),
+  order: z.number().int().default(0),
+  characterName: z.string().nullable().optional(),
+  person: PersonSchema.optional(),
+});
+export type TitleCast = z.infer<typeof TitleCastSchema>;
+
+export const TitleCrewSchema = z.object({
+  id: z.string().optional(),
+  titleId: z.string(),
+  personId: z.string(),
+  role: CrewRoleEnum,
+  customRole: z.string().nullable().optional(),
+  person: PersonSchema.optional(),
+});
+export type TitleCrew = z.infer<typeof TitleCrewSchema>;
+
+// ==========================================
+// Genre (replaces old Category)
+// ==========================================
+export const GenreSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
-export type Category = z.infer<typeof CategorySchema>;
+export type Genre = z.infer<typeof GenreSchema>;
+
+// Alias for Category for backward compatibility
+export const CategorySchema = GenreSchema;
+export type Category = Genre;
+
+// ==========================================
+// Tag
+// ==========================================
+export const TagSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type Tag = z.infer<typeof TagSchema>;
 
 // ==========================================
 // Episode
@@ -119,8 +186,7 @@ export const TitleSchema = z.object({
   subtitles: z.array(SubtitleTrackSchema).default([]),
   audioTracks: z.array(AudioTrackSchema).default([]),
 
-  castNames: z.array(z.string()).default([]),
-  crewCredits: z.array(CrewCreditSchema).default([]),
+  creatorId: z.string().nullable().optional(),
   creatorName: z.string().nullable().optional(),
 
   isFeatured: z.boolean().default(false),
@@ -132,7 +198,11 @@ export const TitleSchema = z.object({
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),
 
-  categories: z.array(CategorySchema).optional(),
+  genres: z.array(GenreSchema).optional(),
+  tags: z.array(TagSchema).optional(),
+  cast: z.array(TitleCastSchema).optional(),
+  crew: z.array(TitleCrewSchema).optional(),
+  categories: z.array(GenreSchema).optional(), // legacy alias
   seasons: z.array(SeasonSchema).optional(),
 });
 export type Title = z.infer<typeof TitleSchema>;
@@ -152,15 +222,53 @@ export const UserSchema = z.object({
 export type User = z.infer<typeof UserSchema>;
 
 // ==========================================
+// Creator DTOs (B1. Creator Earnings Visibility)
+// STRICT: DO NOT INCLUE creatorShareBps, grossPaise, platformSharePaise, etc.
+// ==========================================
+export interface CreatorTitleEarningsDto {
+  titleId: string;
+  title: string;
+  posterUrl: string;
+  viewsCount: number;
+  watchTimeMinutes: number;
+  supportersCount: number;
+  earningsInr: number;
+}
+
+export interface CreatorEarningsSummaryDto {
+  earningsInr: number;
+  pendingPayoutInr: number;
+  paidSoFarInr: number;
+  titles: CreatorTitleEarningsDto[];
+}
+
+export interface CreatorPayoutStatementDto {
+  id: string;
+  cycle: string;
+  period: string;
+  earningsInr: number;
+  adjustmentsInr: number;
+  netPayableInr: number;
+  status: string;
+  referenceUtr?: string;
+  titles: {
+    titleId: string;
+    title: string;
+    earningsInr: number;
+  }[];
+}
+
+// ==========================================
 // API DTOs & Responses
 // ==========================================
-export interface CategoryWithTitles extends Category {
+export interface GenreWithTitles extends Genre {
   titles: Title[];
 }
 
 export interface HomeResponse {
   featured: Title[];
-  categories: CategoryWithTitles[];
+  genres: GenreWithTitles[];
+  categories?: GenreWithTitles[]; // legacy fallback key
   trending: Title[];
   newReleases: Title[];
   topRated: Title[];
