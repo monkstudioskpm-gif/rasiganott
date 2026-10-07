@@ -12,7 +12,8 @@ const app = express();
 const port = process.env.PORT || 4000;
 
 // Security & Middleware
-app.use(helmet({ crossOriginResourcePolicy: false }));
+const helmetFn = helmet as unknown as (options?: object) => express.RequestHandler;
+app.use(helmetFn({ crossOriginResourcePolicy: false }));
 app.use(
   cors({
     origin: true, // Allow any dev client origin (localhost:5180, localhost:5173, etc.)
