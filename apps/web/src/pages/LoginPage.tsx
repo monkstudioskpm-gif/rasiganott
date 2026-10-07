@@ -1,4 +1,4 @@
-import { Sparkles, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 export function LoginPage() {
   return (

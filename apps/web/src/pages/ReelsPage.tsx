@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { Heart, Share2, Play, Pause, Loader2, IndianRupee, Tv, Check, Film, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { Share2, Play, Loader2, IndianRupee, Tv, Film, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
 import { useVideoEngine } from '../features/player/useVideoEngine';
+import { getSeasonsForTitle } from '../lib/seasons';
 
 export function ReelsPage() {
   const [searchParams] = useSearchParams();
@@ -95,8 +96,8 @@ export function ReelsPage() {
 function ReelsItem({
   title,
   isActive,
-  isLiked,
-  onToggleLike,
+  isLiked: _isLiked,
+  onToggleLike: _onToggleLike,
   onOpenSupport,
 }: {
   title: Title;
@@ -135,7 +136,8 @@ function ReelsItem({
     }
   }, [isActive, play, pause]);
 
-  const episodes = title.seasons?.[0]?.episodes || [];
+  const seasons = getSeasonsForTitle(title);
+  const episodes = seasons[0]?.episodes || [];
 
   return (
     <div className="h-full w-full snap-start snap-always relative overflow-hidden flex items-center justify-center bg-black select-none">
@@ -286,14 +288,11 @@ function ReelsItem({
           </div>
 
           <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
-            {(episodes.length > 0 ? episodes : [
-              { number: 1, name: 'Part 1: The Beginning', videoUrl: title.videoUrl },
-              { number: 2, name: 'Part 2: The Climax', videoUrl: title.trailerUrl },
-            ]).map((ep: any) => (
+            {episodes.map((ep: any) => (
               <button
-                key={ep.number}
+                key={ep.id || ep.number}
                 onClick={() => {
-                  setSelectedEpUrl(ep.videoUrl);
+                  if (ep.videoUrl) setSelectedEpUrl(ep.videoUrl);
                   setShowEpisodesDrawer(false);
                 }}
                 className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between text-xs font-bold transition-all ${
@@ -302,7 +301,7 @@ function ReelsItem({
                     : 'bg-white/5 border-white/10 hover:bg-white/10 text-gray-200'
                 }`}
               >
-                <span>Part {ep.number}: {ep.name}</span>
+                <span>E{ep.number} • {ep.name}</span>
                 <Play className="w-3.5 h-3.5 fill-current text-sky-400" />
               </button>
             ))}

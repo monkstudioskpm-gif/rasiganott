@@ -1,5 +1,8 @@
-import { Star, Clock, X, Heart, ArrowLeft, Play, Award, Film } from 'lucide-react';
+import { useState } from 'react';
+import { Star, Clock, X, Heart, ArrowLeft, Play, Tv } from 'lucide-react';
 import { Title } from '@rasigan/shared';
+import { useNavigate } from 'react-router-dom';
+import { getSeasonsForTitle } from '../lib/seasons';
 
 interface Props {
   title: Title | null;
@@ -9,7 +12,13 @@ interface Props {
 }
 
 export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSelectTitle }: Props) {
+  const navigate = useNavigate();
+  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState(1);
+
   if (!title) return null;
+
+  const seasons = getSeasonsForTitle(title);
+  const selectedSeason = seasons.find((s) => s.number === selectedSeasonNumber) || seasons[0];
 
   // Generate cast avatar placeholders if images not provided
   const castList = title.castNames && title.castNames.length > 0 ? title.castNames : ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj', 'Vijay Sethupathi'];
@@ -22,6 +31,15 @@ export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSel
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
     ];
     return avatars[index % avatars.length];
+  };
+
+  const handlePlayTitle = () => {
+    onClose();
+    if (title.kind === 'WEB_SERIES' && selectedSeason?.episodes?.[0]?.id) {
+      navigate(`/watch/${title.id}/${selectedSeason.episodes[0].id}`);
+    } else {
+      navigate(`/watch/${title.id}`);
+    }
   };
 
   return (
@@ -61,7 +79,10 @@ export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSel
 
           {/* Central Glowing Cyan Play Button (ZETTA Style) */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <button className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 hover:from-sky-400 hover:to-cyan-300 text-white flex items-center justify-center shadow-2xl shadow-sky-500/60 transition-all duration-300 transform hover:scale-110 active:scale-95 group">
+            <button
+              onClick={handlePlayTitle}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 hover:from-sky-400 hover:to-cyan-300 text-white flex items-center justify-center shadow-2xl shadow-sky-500/60 transition-all duration-300 transform hover:scale-110 active:scale-95 group"
+            >
               <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1 group-hover:scale-105 transition-transform" />
             </button>
           </div>
@@ -122,6 +143,63 @@ export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSel
             </div>
           </div>
 
+          {/* Web Series Episodes Section (Rendered at bottom of Web Series modal) */}
+          {title.kind === 'WEB_SERIES' && (
+            <div className="space-y-4 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-sky-400" /> Episodes
+                </h3>
+                {seasons.length > 1 && (
+                  <select
+                    value={selectedSeasonNumber}
+                    onChange={(e) => setSelectedSeasonNumber(parseInt(e.target.value, 10))}
+                    className="px-3 py-1.5 rounded-xl bg-[#131625] border border-white/15 text-white text-xs font-bold focus:outline-none"
+                  >
+                    {seasons.map((s) => (
+                      <option key={s.id || s.number} value={s.number}>
+                        Season {s.number}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="space-y-2.5 max-h-64 overflow-y-auto no-scrollbar">
+                {selectedSeason?.episodes?.map((ep) => (
+                  <div
+                    key={ep.id || ep.number}
+                    onClick={() => {
+                      onClose();
+                      navigate(`/watch/${title.id}/${ep.id}`);
+                    }}
+                    className="glass-card p-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-sky-400/50 transition-all group gap-3 border border-white/5 bg-white/[0.03]"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-16 h-12 flex-none rounded-xl overflow-hidden bg-black relative border border-white/10">
+                        <img src={ep.thumbnailUrl || title.posterUrl} alt={ep.name} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-4 h-4 fill-current text-white" />
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 space-y-0.5">
+                        <h4 className="font-bold text-xs text-white truncate group-hover:text-sky-400 transition-colors">
+                          E{ep.number} • {ep.name}
+                        </h4>
+                        <p className="text-[10px] text-gray-400 line-clamp-1">{ep.durationMin || 30} mins</p>
+                      </div>
+                    </div>
+
+                    <button className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/40 text-[11px] font-bold hover:bg-sky-500 hover:text-white transition-colors flex-none">
+                      Play
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Recommended For You Section (ZETTA Style) */}
           {recommendedTitles.length > 0 && (
             <div className="space-y-3 pt-2">
@@ -153,3 +231,4 @@ export function TitleDetailModal({ title, onClose, recommendedTitles = [], onSel
     </div>
   );
 }
+

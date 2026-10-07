@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVideoEngine } from './useVideoEngine';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Settings, ArrowLeft, Loader2, Gauge, IndianRupee, Heart, Tv, X } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Settings, ArrowLeft, Gauge, IndianRupee, Heart, Tv, X } from 'lucide-react';
 import { SupportModal } from '../../components/SupportModal';
 import { Title } from '@rasigan/shared';
 

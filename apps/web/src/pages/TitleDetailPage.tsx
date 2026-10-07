@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Check, Loader2, ChevronRight } from 'lucide-react';
+import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Loader2, Tv } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
+import { getSeasonsForTitle } from '../lib/seasons';
 
 export function TitleDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -97,7 +98,8 @@ export function TitleDetailPage() {
   }
 
   const trailerUrl = title.trailerUrl || title.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-  const selectedSeason = title.seasons?.find((s: any) => s.number === selectedSeasonNumber) || title.seasons?.[0];
+  const seasons = getSeasonsForTitle(title);
+  const selectedSeason = seasons.find((s) => s.number === selectedSeasonNumber) || seasons[0];
 
   const handleWatchClick = (episodeId?: string, isTrailer = false) => {
     if (title.orientation === 'VERTICAL') {
@@ -260,18 +262,20 @@ export function TitleDetailPage() {
           </div>
 
           {/* Web Series Episodes List (if Web Series) */}
-          {title.kind === 'WEB_SERIES' && title.seasons && title.seasons.length > 0 && (
+          {title.kind === 'WEB_SERIES' && (
             <div className="space-y-4 pt-2 border-t border-white/10">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-white tracking-tight">Episodes</h3>
-                {title.seasons.length > 1 && (
+                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-sky-400" /> Episodes
+                </h3>
+                {seasons.length > 1 && (
                   <select
                     value={selectedSeasonNumber}
                     onChange={(e) => setSelectedSeasonNumber(parseInt(e.target.value, 10))}
                     className="px-3 py-1.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs font-bold focus:outline-none"
                   >
-                    {title.seasons.map((s: any) => (
-                      <option key={s.id} value={s.number}>
+                    {seasons.map((s: any) => (
+                      <option key={s.id || s.number} value={s.number}>
                         Season {s.number}
                       </option>
                     ))}
@@ -282,9 +286,9 @@ export function TitleDetailPage() {
               <div className="space-y-2.5">
                 {selectedSeason?.episodes?.map((ep: any) => (
                   <div
-                    key={ep.id}
+                    key={ep.id || ep.number}
                     onClick={() => handleWatchClick(ep.id)}
-                    className="glass-card p-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-rose-400/50 transition-all group gap-3"
+                    className="glass-card p-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-sky-400/50 transition-all group gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-20 h-14 flex-none rounded-xl overflow-hidden bg-dark-card relative border border-white/10">
@@ -295,14 +299,14 @@ export function TitleDetailPage() {
                       </div>
 
                       <div className="min-w-0 space-y-0.5">
-                        <h4 className="font-bold text-xs text-white truncate group-hover:text-rose-400 transition-colors">
+                        <h4 className="font-bold text-xs text-white truncate group-hover:text-sky-400 transition-colors">
                           E{ep.number} • {ep.name}
                         </h4>
-                        <p className="text-[10px] text-gray-400 line-clamp-1">{ep.durationMin} mins</p>
+                        <p className="text-[10px] text-gray-400 line-clamp-1">{ep.durationMin || 30} mins</p>
                       </div>
                     </div>
 
-                    <button className="px-3 py-1.5 rounded-xl bg-rose-600/30 text-rose-300 border border-rose-500/40 text-[11px] font-bold hover:bg-rose-600 hover:text-white transition-colors flex-none">
+                    <button className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/40 text-[11px] font-bold hover:bg-sky-500 hover:text-white transition-colors flex-none">
                       Play
                     </button>
                   </div>

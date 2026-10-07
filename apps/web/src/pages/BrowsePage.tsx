@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Star, Loader2, SlidersHorizontal } from 'lucide-react';
+import { Star, Loader2 } from 'lucide-react';
 import { Kind } from '@rasigan/shared';
 
 export function BrowsePage() {

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Bell, Smartphone, Film, Tv, Video, Sparkles } from 'lucide-react';
+import { Search, Smartphone, Film, Tv, Video, Sparkles } from 'lucide-react';
 
 export function Header() {
   const location = useLocation();
