@@ -1,10 +1,29 @@
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, Sparkles } from 'lucide-react';
+import { Search, Sparkles, Shield, ChevronDown, Plus, Users, Wallet, Tag } from 'lucide-react';
 
 export function Header() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const currentCat = searchParams.get('cat') || 'all';
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Check local storage for active role (set via login or admin toggle)
+    const role = localStorage.getItem('user_role');
+    setUserRole(role);
+
+    // Close dropdown on outside click
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsAdminMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [location.pathname]);
 
   const navItems = [
     { id: 'all', name: 'Home', path: '/?cat=all' },
@@ -13,6 +32,9 @@ export function Header() {
     { id: 'short-films', name: 'Short Films', path: '/?cat=short-films' },
     { id: 'vertical', name: 'Vertical', path: '/reels' },
   ];
+
+  const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/creator');
+  const showAdminControls = userRole === 'ADMIN' || userRole === 'CREATOR' || isAdminRoute;
 
   return (
     <header className="sticky top-0 z-40 glass-panel border-b border-white/10 transition-all">
@@ -26,7 +48,7 @@ export function Header() {
           </Link>
         </div>
 
-        {/* Desktop Navigation Links (Clean plain-text pills matching user screenshot) */}
+        {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-1.5">
           {navItems.map((item) => {
             const isReelsPage = location.pathname === '/reels' && item.id === 'vertical';
@@ -49,7 +71,7 @@ export function Header() {
           })}
         </nav>
 
-        {/* Actions (ZETTA Style Search Icon, Admin/Creator shortcuts & Sign In) */}
+        {/* Actions (Search, Admin/Creator menu when active, & Sign In) */}
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             to="/search"
@@ -59,29 +81,67 @@ export function Header() {
             <Search className="w-5 h-5 text-gray-200" />
           </Link>
 
-          <Link
-            to="/creator"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all"
-            title="Creator Dashboard"
-          >
-            Earnings
-          </Link>
+          {/* Admin / Creator Menu Dropdown (Only rendered if logged in as Admin/Creator or on admin route) */}
+          {showAdminControls && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold transition-all"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Admin Menu</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isAdminMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-          <Link
-            to="/admin/people"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
-            title="Cast & Crew Admin"
-          >
-            Cast & Crew
-          </Link>
+              {isAdminMenuOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-1.5 border-b border-white/10 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                    Admin Tools
+                  </div>
 
-          <Link
-            to="/admin/titles/new"
-            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/30 text-xs font-bold transition-all"
-            title="Add Content Form"
-          >
-            ＋ Content
-          </Link>
+                  <Link
+                    to="/admin/titles/new"
+                    onClick={() => setIsAdminMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-sky-400" />
+                    <span>＋ Add Content</span>
+                  </Link>
+
+                  <Link
+                    to="/admin/people"
+                    onClick={() => setIsAdminMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <Users className="w-4 h-4 text-indigo-400" />
+                    <span>Cast & Crew</span>
+                  </Link>
+
+                  <Link
+                    to="/admin/genres"
+                    onClick={() => setIsAdminMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <Tag className="w-4 h-4 text-amber-400" />
+                    <span>Genres & Tags</span>
+                  </Link>
+
+                  <div className="px-3 py-1.5 border-t border-white/10 text-[10px] uppercase font-bold text-gray-400 tracking-wider mt-1">
+                    Creator Tools
+                  </div>
+
+                  <Link
+                    to="/creator"
+                    onClick={() => setIsAdminMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-emerald-400 hover:bg-white/10 transition-colors"
+                  >
+                    <Wallet className="w-4 h-4 text-emerald-400" />
+                    <span>Earnings Dashboard</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
 
           <Link
             to="/login"
@@ -95,3 +155,4 @@ export function Header() {
     </header>
   );
 }
+
