@@ -75,15 +75,23 @@ export function AdminDashboardPage() {
       setLoading(true);
       setError(null);
 
-      const [statsRes, titlesRes, creatorsRes] = await Promise.all([
+      const [statsRes, titlesRes, creatorsRes] = await Promise.allSettled([
         adminApi.getStats(),
         adminApi.getAllTitles(),
         adminApi.getCreatorEarningsBreakdown(),
       ]);
 
-      setStats(statsRes.stats);
-      setTitles(titlesRes.titles || []);
-      setCreatorsData(creatorsRes);
+      if (statsRes.status === 'fulfilled' && statsRes.value?.stats) {
+        setStats(statsRes.value.stats);
+      }
+
+      if (titlesRes.status === 'fulfilled' && titlesRes.value?.titles) {
+        setTitles(titlesRes.value.titles);
+      }
+
+      if (creatorsRes.status === 'fulfilled' && creatorsRes.value?.summary) {
+        setCreatorsData(creatorsRes.value);
+      }
     } catch (err: any) {
       console.error('Failed to load admin dashboard data:', err);
       setError(err?.message || 'Failed to load admin data. Please try again.');
@@ -225,7 +233,7 @@ export function AdminDashboardPage() {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-black text-emerald-400">
-              ₹{creatorsData ? creatorsData.summary.totalGrossRaisedInr.toLocaleString('en-IN') : stats ? stats.totalFundingRaised.toLocaleString('en-IN') : '0'}
+              ₹{creatorsData?.summary?.totalGrossRaisedInr ? creatorsData.summary.totalGrossRaisedInr.toLocaleString('en-IN') : stats?.totalFundingRaised ? stats.totalFundingRaised.toLocaleString('en-IN') : '0'}
             </div>
             <div className="text-[11px] text-gray-400">Total gross funds collected</div>
           </div>
@@ -241,7 +249,7 @@ export function AdminDashboardPage() {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-black text-indigo-300">
-              ₹{creatorsData ? creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN') : '0'}
+              ₹{creatorsData?.summary?.totalNetEarningsInr ? creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN') : '0'}
             </div>
             <div className="text-[11px] text-gray-400">Total net payable to creators</div>
           </div>
@@ -257,7 +265,7 @@ export function AdminDashboardPage() {
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-black text-white">
-              {creatorsData ? creatorsData.summary.totalCreatorsCount : 0}
+              {creatorsData?.summary?.totalCreatorsCount || 0}
             </div>
             <div className="text-[11px] text-gray-400">Registered creators & studios</div>
           </div>
@@ -506,12 +514,12 @@ export function AdminDashboardPage() {
             {/* Summary Tag */}
             <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-extrabold flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              <span>Total Net Creator Earnings: ₹{creatorsData ? creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN') : '0'}</span>
+              <span>Total Net Creator Earnings: ₹{creatorsData?.summary?.totalNetEarningsInr ? creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN') : '0'}</span>
             </div>
           </div>
 
           {/* Creators List Cards */}
-          {creatorsData && creatorsData.creators.length > 0 ? (
+          {creatorsData?.creators && creatorsData.creators.length > 0 ? (
             <div className="space-y-4">
               {creatorsData.creators.map((creator, idx) => {
                 const isExpanded = expandedCreator === creator.creatorName;
