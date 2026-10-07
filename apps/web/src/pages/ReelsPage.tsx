@@ -167,8 +167,8 @@ function ReelsItem({
         </div>
       )}
 
-      {/* Compact Right Action Rail */}
-      <div className="absolute right-2 bottom-12 z-20 flex flex-col items-center gap-2 text-white">
+      {/* Compact Right Action Rail (Positioned above BottomNav) */}
+      <div className="absolute right-3 bottom-24 sm:bottom-20 z-20 flex flex-col items-center gap-2 text-white">
         {/* Mute/Unmute Sound Button */}
         <button
           onClick={(e) => {
@@ -233,8 +233,8 @@ function ReelsItem({
         )}
       </div>
 
-      {/* Bottom Text Overlay (Nicely positioned above bottom nav when paused) */}
-      <div className="absolute bottom-4 sm:bottom-3 left-3 right-12 z-20 space-y-1 text-white">
+      {/* Bottom Text Overlay (Positioned cleanly above BottomNav) */}
+      <div className="absolute bottom-24 sm:bottom-20 left-4 right-14 z-20 space-y-1 text-white">
         {/* Creator Handle */}
         <div className="text-[10px] font-semibold text-gray-300 truncate">
           @{title.creatorName || 'Rasigan Creator'}

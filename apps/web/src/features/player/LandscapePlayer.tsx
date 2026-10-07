@@ -80,9 +80,19 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
   };
 
   const handleFullscreenToggle = async () => {
-    if (!playerContainerRef.current) return;
+    const video = videoRef.current as any;
     const elem = playerContainerRef.current as any;
     const doc = document as any;
+
+    // Check iOS Safari native video fullscreen support first
+    if (video && typeof video.webkitEnterFullscreen === 'function') {
+      try {
+        video.webkitEnterFullscreen();
+        return;
+      } catch (e) {
+        console.warn('WebKit video fullscreen error:', e);
+      }
+    }
 
     if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
       try {
@@ -235,6 +245,14 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
             <ArrowLeft className="w-4 h-4" />
             <span className="text-xs sm:text-sm font-bold tracking-tight">{titleName}</span>
             {subtitleLabel && <span className="text-xs text-gray-400 font-medium">({subtitleLabel})</span>}
+          </button>
+
+          <button
+            onClick={handleFullscreenToggle}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-xs shadow-md shadow-sky-500/30 transition-transform active:scale-95 sm:hidden"
+            title="Rotate & Fullscreen"
+          >
+            <Maximize className="w-3.5 h-3.5" /> Fullscreen
           </button>
         </div>
 

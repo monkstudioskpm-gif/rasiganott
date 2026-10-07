@@ -52,8 +52,8 @@ export function SupportModal({ title, isOpen, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-xl animate-fade-in">
-      <div className="relative w-full max-w-[300px] bg-[#0f111a] border border-sky-500/30 rounded-2xl p-4 space-y-3.5 shadow-2xl text-gray-100">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 pb-24 sm:pb-3 bg-black/85 backdrop-blur-xl animate-fade-in overflow-y-auto">
+      <div className="relative w-full max-w-[320px] max-h-[85vh] overflow-y-auto bg-[#0f111a] border border-sky-500/30 rounded-2xl p-4 space-y-3.5 shadow-2xl text-gray-100 no-scrollbar">
         {/* Close Button */}
         <button
           onClick={handleReset}
