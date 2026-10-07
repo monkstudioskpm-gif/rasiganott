@@ -173,9 +173,22 @@ export const adminApi = {
       body: JSON.stringify({ url }),
     }),
 
-  // Title Management
+  // Title & Earnings Management
   getStats: () =>
     fetcher<{ stats: { totalTitles: number; publishedTitles: number; draftTitles: number; totalPeople: number; totalGenres: number; totalTags: number; totalFundingRaised: number } }>('/titles/admin/stats'),
+  getCreatorEarningsBreakdown: () =>
+    fetcher<{
+      summary: { totalCreatorsCount: number; totalGrossRaisedInr: number; totalNetEarningsInr: number; totalPlatformFeeInr: number };
+      creators: Array<{
+        creatorName: string;
+        titlesCount: number;
+        grossRaisedInr: number;
+        netEarningsInr: number;
+        platformFeeInr: number;
+        payoutStatus: 'PAID' | 'PROCESSING' | 'PENDING';
+        titles: Array<{ id: string; title: string; posterUrl: string; kind: string; grossRaisedInr: number; netEarningsInr: number }>;
+      }>;
+    }>('/titles/admin/creator-earnings'),
   getAllTitles: (params?: { status?: string; kind?: string; orientation?: string; q?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
