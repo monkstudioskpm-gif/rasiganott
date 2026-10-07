@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, Sparkles, Shield, ChevronDown, Plus, Users, Wallet, Tag } from 'lucide-react';
+import { Search, Sparkles, Shield, ChevronDown, Plus, Users, Wallet, Tag, LayoutDashboard } from 'lucide-react';
 
 export function Header() {
   const location = useLocation();
@@ -98,6 +98,15 @@ export function Header() {
                   <div className="px-3 py-1.5 border-b border-white/10 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                     Admin Tools
                   </div>
+
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsAdminMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-sky-400 font-bold hover:bg-white/10 transition-colors"
+                  >
+                    <LayoutDashboard className="w-4 h-4 text-sky-400" />
+                    <span>Admin Dashboard</span>
+                  </Link>
 
                   <Link
                     to="/admin/titles/new"

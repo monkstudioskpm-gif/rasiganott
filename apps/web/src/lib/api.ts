@@ -174,11 +174,24 @@ export const adminApi = {
     }),
 
   // Title Management
+  getStats: () =>
+    fetcher<{ stats: { totalTitles: number; publishedTitles: number; draftTitles: number; totalPeople: number; totalGenres: number; totalTags: number; totalFundingRaised: number } }>('/titles/admin/stats'),
+  getAllTitles: (params?: { status?: string; kind?: string; orientation?: string; q?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.kind) query.set('kind', params.kind);
+    if (params?.orientation) query.set('orientation', params.orientation);
+    if (params?.q) query.set('q', params.q);
+    const qStr = query.toString();
+    return fetcher<{ titles: Title[]; total: number }>(`/titles/admin/list${qStr ? `?${qStr}` : ''}`);
+  },
   getTitleById: (id: string) => fetcher<{ title: Title }>(`/titles/admin/${id}`),
   createTitle: (payload: any) =>
     fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(payload) }),
   updateTitle: (id: string, payload: any) =>
     fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  togglePublishTitle: (id: string) =>
+    fetcher<{ title: Title; status: string }>(`/titles/admin/${id}/toggle-publish`, { method: 'POST' }),
   deleteTitle: (id: string) =>
     fetcher<{ success: boolean }>(`/titles/admin/${id}`, { method: 'DELETE' }),
 };

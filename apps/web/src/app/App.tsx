@@ -12,6 +12,7 @@ import { CategoryPage } from '../pages/CategoryPage';
 import { SearchPage } from '../pages/SearchPage';
 import { LibraryPage } from '../pages/LibraryPage';
 import { LoginPage } from '../pages/LoginPage';
+import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage';
 import { AdminPeoplePage } from '../pages/admin/AdminPeoplePage';
 import { AdminGenresPage } from '../pages/admin/AdminGenresPage';
 import { AdminContentFormPage } from '../pages/admin/AdminContentFormPage';
@@ -47,6 +48,8 @@ function AppContent() {
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/creator" element={<CreatorDashboardPage />} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/titles" element={<AdminDashboardPage />} />
           <Route path="/admin/people" element={<AdminPeoplePage />} />
           <Route path="/people" element={<AdminPeoplePage />} />
           <Route path="/admin/genres" element={<AdminGenresPage />} />

@@ -261,6 +261,100 @@ router.get('/:slug', async (req: Request, res: Response, next: NextFunction) => 
   }
 });
 
+// GET /api/titles/admin/stats (Admin Dashboard Stats)
+router.get('/admin/stats', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const [totalTitles, publishedTitles, draftTitles, totalPeople, totalGenres, totalTags, fundings] = await Promise.all([
+      prisma.title.count(),
+      prisma.title.count({ where: { status: 'PUBLISHED' } }),
+      prisma.title.count({ where: { status: 'DRAFT' } }),
+      prisma.person.count(),
+      prisma.genre.count(),
+      prisma.tag.count(),
+      prisma.funding.aggregate({
+        _sum: { amountInr: true },
+        where: { status: 'PAID' },
+      }),
+    ]);
+
+    res.json({
+      stats: {
+        totalTitles,
+        publishedTitles,
+        draftTitles,
+        totalPeople,
+        totalGenres,
+        totalTags,
+        totalFundingRaised: fundings._sum.amountInr || 0,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/titles/admin/list (Admin Title List with all statuses)
+router.get('/admin/list', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { status, kind, orientation, q } = req.query;
+    const where: any = {};
+
+    if (status) where.status = status as string;
+    if (kind) where.kind = kind as Kind;
+    if (orientation) where.orientation = orientation as Orientation;
+    if (q) {
+      where.OR = [
+        { title: { contains: q as string } },
+        { description: { contains: q as string } },
+      ];
+    }
+
+    const titles = await prisma.title.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        genres: { include: { genre: true } },
+        tags: { include: { tag: true } },
+        seasons: {
+          include: {
+            episodes: true,
+          },
+        },
+      },
+    });
+
+    const formatted = titles.map((t) => formatTitleResponse(t));
+    res.json({ titles: formatted, total: formatted.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/titles/admin/:id/toggle-publish
+router.post('/admin/:id/toggle-publish', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const titleId = (req.params as any).id as string;
+    const existing = await prisma.title.findUnique({ where: { id: titleId } });
+    if (!existing) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Title not found' } });
+      return;
+    }
+
+    const newStatus: Status = existing.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+    const updated = await prisma.title.update({
+      where: { id: titleId },
+      data: {
+        status: newStatus,
+        publishedAt: newStatus === 'PUBLISHED' ? new Date() : existing.publishedAt,
+      },
+    });
+
+    res.json({ title: updated, status: newStatus });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/admin/titles/:id
 router.get('/admin/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
