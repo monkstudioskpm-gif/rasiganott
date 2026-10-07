@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { Play, Star, Info, ChevronRight, ChevronLeft, SlidersHorizontal, X, Check, ChevronUp } from 'lucide-react';
+import { Play, Star, Info, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Title } from '@rasigan/shared';
-import { Link, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 
 export function HomePage() {
   const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedCategory = searchParams.get('cat') || 'all';
+
   const [heroIndex, setHeroIndex] = useState<number>(0);
-  const [showCategoryDrawer, setShowCategoryDrawer] = useState<boolean>(false);
 
   // Mobile Touch Swipe States for Hero Banner Carousel
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -43,6 +44,14 @@ export function HomePage() {
     { id: 'short-films', name: 'Short Films' },
     { id: 'vertical', name: 'Vertical' },
   ];
+
+  const handleSelectCategory = (catId: string) => {
+    if (catId === 'vertical') {
+      navigate('/reels');
+      return;
+    }
+    setSearchParams({ cat: catId });
+  };
 
   const filterByCat = (titles: Title[]) => {
     if (!selectedCategory || selectedCategory === 'all' || selectedCategory === 'home') {
@@ -121,8 +130,8 @@ export function HomePage() {
   const hasNoContent = popularFiltered.length === 0 && top10Filtered.length === 0 && seriesFiltered.length === 0 && recommendationsFiltered.length === 0;
 
   return (
-    <div className="space-y-10 pb-16 max-w-7xl mx-auto px-2 sm:px-4">
-      {/* 1. Main Top Hero Feature Banner with Elevated Control Arrows (Positioned at top-4 sm:top-6) */}
+    <div className="space-y-8 pb-16 max-w-7xl mx-auto px-2 sm:px-4">
+      {/* 1. Main Top Hero Feature Banner with Controls High at top-4 sm:top-6 */}
       {heroItem && (
         <section className="space-y-3">
           <div
@@ -142,7 +151,7 @@ export function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#07080e]/95 via-[#07080e]/40 to-transparent"></div>
             </div>
 
-            {/* Carousel Control Arrows — Positioned high up at top-4 sm:top-6 to NEVER disturb bottom title content */}
+            {/* Carousel Control Arrows — Positioned high at top-4 sm:top-6 to NEVER disturb bottom title text */}
             {filteredFeatured.length > 1 && (
               <>
                 <button
@@ -225,19 +234,18 @@ export function HomePage() {
         </section>
       )}
 
-      {/* 2. Sleek Professional Category Selection Chips Bar (Positioned Below Main Banner) */}
-      <section className="space-y-3 pt-1">
-        {/* Desktop Chips (hidden on mobile) */}
-        <div className="hidden sm:flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+      {/* 2. Horizontally Swipeable Category Selection Bar (Positioned Directly Below Hero Banner) */}
+      <section className="py-1">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1">
           {categoryChips.map((chip) => {
             const isActive = selectedCategory === chip.id;
             return (
               <button
                 key={chip.id}
-                onClick={() => setSelectedCategory(chip.id)}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
+                onClick={() => handleSelectCategory(chip.id)}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 flex-none ${
                   isActive
-                    ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30'
+                    ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30 font-extrabold'
                     : 'bg-white/[0.04] text-gray-400 hover:text-white hover:bg-white/[0.08] border border-white/5'
                 }`}
               >
@@ -246,88 +254,7 @@ export function HomePage() {
             );
           })}
         </div>
-
-        {/* Mobile Header Category Selector Trigger Bar */}
-        <div className="flex sm:hidden items-center justify-between p-3 rounded-2xl glass-panel border border-white/10 shadow-lg">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 font-medium">Filter:</span>
-            <span className="px-3 py-1 rounded-xl bg-sky-500/20 border border-sky-400/40 text-xs font-extrabold text-sky-300">
-              {activeCategoryObj.name}
-            </span>
-          </div>
-
-          <button
-            onClick={() => setShowCategoryDrawer(true)}
-            className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-xs shadow-md shadow-sky-500/30 transition-all flex items-center gap-1.5 active:scale-95"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Select Category ▾</span>
-          </button>
-        </div>
       </section>
-
-      {/* Mobile Floating Category Selector Button (Bottom Right) */}
-      <button
-        onClick={() => setShowCategoryDrawer(true)}
-        className="fixed bottom-20 right-4 z-40 sm:hidden flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-white font-extrabold text-xs shadow-2xl shadow-sky-500/50 border border-white/20 active:scale-95 transition-all"
-        title="Choose Content Category"
-      >
-        <SlidersHorizontal className="w-4 h-4 text-white" />
-        <span>Category: {activeCategoryObj.name}</span>
-        <ChevronUp className="w-4 h-4 text-sky-200" />
-      </button>
-
-      {/* Mobile Category Selection Pop-up Drawer Sheet */}
-      {showCategoryDrawer && (
-        <div
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in"
-          onClick={() => setShowCategoryDrawer(false)}
-        >
-          <div
-            className="w-full sm:max-w-md bg-[#0d0f1a] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl text-white animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-sky-400" /> Choose Category
-                </h3>
-                <p className="text-[11px] text-gray-400">Filters all video content on home screen</p>
-              </div>
-
-              <button
-                onClick={() => setShowCategoryDrawer(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 flex items-center justify-center transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto no-scrollbar py-1">
-              {categoryChips.map((chip) => {
-                const isActive = selectedCategory === chip.id;
-                return (
-                  <button
-                    key={chip.id}
-                    onClick={() => {
-                      setSelectedCategory(chip.id);
-                      setShowCategoryDrawer(false);
-                    }}
-                    className={`p-3.5 rounded-2xl border text-center text-xs font-bold transition-all duration-200 flex items-center justify-between ${
-                      isActive
-                        ? 'bg-sky-500/25 border-sky-400 text-sky-300 shadow-md shadow-sky-500/20'
-                        : 'bg-white/[0.04] border-white/10 hover:bg-white/[0.08] text-gray-300'
-                    }`}
-                  >
-                    <span>{chip.name}</span>
-                    {isActive && <Check className="w-4 h-4 text-sky-400 flex-none ml-1" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 3. Empty State if category filter yields no results */}
       {hasNoContent && (
@@ -337,7 +264,7 @@ export function HomePage() {
             There are currently no items matching this category. Tap below to view all content.
           </p>
           <button
-            onClick={() => setSelectedCategory('all')}
+            onClick={() => setSearchParams({ cat: 'all' })}
             className="px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs shadow-lg shadow-sky-500/30 transition-all active:scale-95"
           >
             Show All Content
@@ -404,7 +331,7 @@ export function HomePage() {
             {genreCards.map((genre) => (
               <button
                 key={genre.name}
-                onClick={() => setSelectedCategory(genre.slug)}
+                onClick={() => setSearchParams({ cat: genre.slug })}
                 className="relative aspect-video sm:aspect-square rounded-2xl overflow-hidden glass-panel border border-white/10 group cursor-pointer shadow-lg"
               >
                 <img src={genre.image} alt={genre.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -568,7 +495,7 @@ export function HomePage() {
                 <div className="relative aspect-poster rounded-2xl overflow-hidden glass-card transition-all duration-300 group-hover:scale-[1.03] shadow-xl border border-white/10">
                   <img src={title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
                   <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-black/70 border border-white/10 text-[10px] font-bold text-amber-400 flex items-center gap-1 backdrop-blur-md">
-                    <Star className="w-3.5 h-3.5 fill-current" /> {title.editorRating ? title.editorRating.toFixed(1) : '8.7'}
+                    <Star className="w-3 h-3 fill-current" /> {title.editorRating ? title.editorRating.toFixed(1) : '8.7'}
                   </div>
                 </div>
 

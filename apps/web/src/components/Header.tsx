@@ -1,7 +1,19 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Search, Sparkles } from 'lucide-react';
 
 export function Header() {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const currentCat = searchParams.get('cat') || 'all';
+
+  const navItems = [
+    { id: 'all', name: 'Home', path: '/?cat=all' },
+    { id: 'movies', name: 'Movies', path: '/?cat=movies' },
+    { id: 'web-series', name: 'Web Series', path: '/?cat=web-series' },
+    { id: 'short-films', name: 'Short Films', path: '/?cat=short-films' },
+    { id: 'vertical', name: 'Vertical', path: '/reels' },
+  ];
+
   return (
     <header className="sticky top-0 z-40 glass-panel border-b border-white/10 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
@@ -13,6 +25,29 @@ export function Header() {
             </span>
           </Link>
         </div>
+
+        {/* Desktop Navigation Links (Clean plain-text pills matching user screenshot) */}
+        <nav className="hidden md:flex items-center gap-1.5">
+          {navItems.map((item) => {
+            const isReelsPage = location.pathname === '/reels' && item.id === 'vertical';
+            const isHomePage = location.pathname === '/';
+            const isActive = isReelsPage || (isHomePage && (currentCat === item.id || (item.id === 'all' && (currentCat === 'all' || !currentCat))));
+
+            return (
+              <Link
+                key={item.id}
+                to={item.path}
+                className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 whitespace-nowrap flex-none ${
+                  isActive
+                    ? 'text-white bg-sky-500 shadow-md shadow-sky-500/30 font-extrabold'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.05]'
+                }`}
+              >
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
 
         {/* Actions (ZETTA Style Search Icon & Sign In) */}
         <div className="flex items-center gap-2 sm:gap-3">
