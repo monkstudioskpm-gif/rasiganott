@@ -13,13 +13,13 @@ export function LoginPage() {
           <p className="text-xs text-gray-400">Stream Movies, Short Films, & Web Series seamlessly.</p>
         </div>
 
-        {/* Google Sign-In Button Container */}
-        <div className="pt-2">
+        {/* Sign In Options */}
+        <div className="space-y-3 pt-2">
           <button
             onClick={() => alert('Google Sign-In is configured with Google Identity Services for Phase 5.')}
-            className="w-full py-3.5 rounded-2xl bg-white hover:bg-gray-100 text-gray-900 font-extrabold text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3"
+            className="w-full py-3 rounded-2xl bg-white hover:bg-gray-100 text-gray-900 font-extrabold text-xs shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -39,6 +39,34 @@ export function LoginPage() {
             </svg>
             <span>Continue with Google</span>
           </button>
+
+          <div className="relative py-2 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+            <span className="relative px-3 bg-slate-900 text-[10px] uppercase font-bold text-gray-400">Select Portal Role</span>
+          </div>
+
+          {/* Quick Role Sign-in options */}
+          <div className="grid grid-cols-1 gap-2">
+            <button
+              onClick={() => {
+                localStorage.setItem('user_role', 'ADMIN');
+                window.location.href = '/admin';
+              }}
+              className="w-full py-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
+              <span>🔑 Sign In as Admin</span>
+            </button>
+
+            <button
+              onClick={() => {
+                localStorage.setItem('user_role', 'CREATOR');
+                window.location.href = '/creator';
+              }}
+              className="w-full py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
+              <span>💼 Sign In as Creator</span>
+            </button>
+          </div>
         </div>
 
         <div className="pt-4 border-t border-white/10 text-[11px] text-gray-500 flex items-center justify-center gap-1.5">

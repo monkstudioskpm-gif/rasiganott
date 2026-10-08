@@ -32,6 +32,8 @@ export function ProtectedRoute({ children, requiredRole = 'ADMIN' }: ProtectedRo
     (requiredRole === 'CREATOR' && (role === 'CREATOR' || role === 'ADMIN'));
 
   if (!isAuthorized) {
+    const isCreatorAttemptingAdmin = requiredRole === 'ADMIN' && role === 'CREATOR';
+
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-dark-card border border-white/10 rounded-3xl p-8 text-center glass-panel shadow-2xl space-y-6">
@@ -42,27 +44,29 @@ export function ProtectedRoute({ children, requiredRole = 'ADMIN' }: ProtectedRo
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-extrabold uppercase tracking-wider border border-rose-500/20">
               <ShieldAlert className="w-3 h-3" />
-              <span>Access Protected</span>
+              <span>{isCreatorAttemptingAdmin ? 'Creator Account Blocked' : 'Access Protected'}</span>
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">
               {requiredRole === 'ADMIN' ? 'Admin Access Required' : 'Creator Access Required'}
             </h1>
             <p className="text-xs text-gray-400 max-w-xs mx-auto leading-relaxed">
-              This URL is restricted to authorized {requiredRole.toLowerCase()}s. Direct URL access without login credentials is blocked.
+              {isCreatorAttemptingAdmin
+                ? 'Creator accounts do not have permission to view or manage the Admin Panel.'
+                : `This area is restricted to authorized ${requiredRole.toLowerCase()}s. Please sign in with your credentials.`}
             </p>
           </div>
 
-          {/* Login Actions */}
+          {/* Login / Auth Actions */}
           <div className="space-y-3 pt-2">
             <Link
               to="/login"
               className="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-extrabold text-xs shadow-lg shadow-sky-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Sign In to Access</span>
+              <span>Sign In with Credentials</span>
             </Link>
 
-            {/* Quick Demo Login Button for Admin Testing */}
+            {/* Admin / Creator Quick Authorize Button for Vercel Deployment */}
             <button
               onClick={() => {
                 localStorage.setItem('user_role', requiredRole);
@@ -70,7 +74,7 @@ export function ProtectedRoute({ children, requiredRole = 'ADMIN' }: ProtectedRo
               }}
               className="w-full py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 transition-all"
             >
-              Authorize as {requiredRole} (Dev Mode)
+              Authorize as {requiredRole} (Vercel Dev Mode)
             </button>
           </div>
 
@@ -80,7 +84,7 @@ export function ProtectedRoute({ children, requiredRole = 'ADMIN' }: ProtectedRo
               className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Return to Home</span>
+              <span>Return to Public Site</span>
             </Link>
           </div>
         </div>

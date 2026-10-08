@@ -4,6 +4,8 @@ import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ProtectedRoute } from '../components/AdminGuard';
+import { AdminLayout } from '../components/AdminLayout';
+import { CreatorLayout } from '../components/CreatorLayout';
 import { HomePage } from '../pages/HomePage';
 import { TitleDetailPage } from '../pages/TitleDetailPage';
 import { WatchPage } from '../pages/WatchPage';
@@ -31,11 +33,15 @@ const queryClient = new QueryClient({
 function AppContent() {
   const location = useLocation();
   const isWatch = location.pathname.startsWith('/watch');
+  const isAdmin = location.pathname.startsWith('/admin') || location.pathname.startsWith('/people');
+  const isCreator = location.pathname.startsWith('/creator');
+  const isCustomLayout = isWatch || isAdmin || isCreator;
 
   return (
-    <div className="min-h-screen flex flex-col bg-dark-bg text-gray-100">
-      {!isWatch && <Header />}
-      <main className={isWatch ? 'flex-1 w-full' : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
+    <div className="min-h-screen flex flex-col bg-dark-bg text-gray-100 font-sans">
+      {!isCustomLayout && <Header />}
+
+      <main className={isCustomLayout ? 'flex-1 w-full' : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/title/:slug" element={<TitleDetailPage />} />
@@ -51,7 +57,9 @@ function AppContent() {
             path="/creator"
             element={
               <ProtectedRoute requiredRole="CREATOR">
-                <CreatorDashboardPage />
+                <CreatorLayout>
+                  <CreatorDashboardPage />
+                </CreatorLayout>
               </ProtectedRoute>
             }
           />
@@ -59,7 +67,9 @@ function AppContent() {
             path="/admin"
             element={
               <ProtectedRoute requiredRole="ADMIN">
-                <AdminDashboardPage />
+                <AdminLayout>
+                  <AdminDashboardPage />
+                </AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -67,7 +77,9 @@ function AppContent() {
             path="/admin/titles"
             element={
               <ProtectedRoute requiredRole="ADMIN">
-                <AdminDashboardPage />
+                <AdminLayout>
+                  <AdminDashboardPage />
+                </AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -75,7 +87,9 @@ function AppContent() {
             path="/admin/people"
             element={
               <ProtectedRoute requiredRole="ADMIN">
-                <AdminPeoplePage />
+                <AdminLayout>
+                  <AdminPeoplePage />
+                </AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -83,7 +97,9 @@ function AppContent() {
             path="/people"
             element={
               <ProtectedRoute requiredRole="ADMIN">
-                <AdminPeoplePage />
+                <AdminLayout>
+                  <AdminPeoplePage />
+                </AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -91,7 +107,9 @@ function AppContent() {
             path="/admin/genres"
             element={
               <ProtectedRoute requiredRole="ADMIN">
-                <AdminGenresPage />
+                <AdminLayout>
+                  <AdminGenresPage />
+                </AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -99,7 +117,9 @@ function AppContent() {
             path="/admin/titles/new"
             element={
               <ProtectedRoute requiredRole="ADMIN">
-                <AdminContentFormPage />
+                <AdminLayout>
+                  <AdminContentFormPage />
+                </AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -107,7 +127,9 @@ function AppContent() {
             path="/admin/titles/:id/edit"
             element={
               <ProtectedRoute requiredRole="ADMIN">
-                <AdminContentFormPage />
+                <AdminLayout>
+                  <AdminContentFormPage />
+                </AdminLayout>
               </ProtectedRoute>
             }
           />

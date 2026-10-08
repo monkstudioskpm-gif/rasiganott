@@ -31,6 +31,9 @@ export function BottomNav() {
     { label: 'Profile', path: '/login', icon: User },
   ];
 
+  const isAdminOrCreatorRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/creator');
+  if (isAdminOrCreatorRoute) return null;
+
   const isVerticalPage = location.pathname === '/reels';
   const shouldHide = isPlaying && !isVerticalPage;
 
