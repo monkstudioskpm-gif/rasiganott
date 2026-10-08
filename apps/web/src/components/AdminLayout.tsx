@@ -27,11 +27,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navItems = [
     { label: 'Overview & Catalog', path: '/admin', icon: LayoutDashboard },
-    { label: '＋ Add Content', path: '/admin/titles/new', icon: Plus },
+    { label: 'Add Content', path: '/admin/titles/new', icon: Plus },
     { label: 'Creators & Studios', path: '/admin?tab=creators-list', icon: Clapperboard },
     { label: 'Cast & Crew', path: '/admin/people', icon: Users },
     { label: 'Genres & Tags', path: '/admin/genres', icon: Tag },
   ];
+
 
   return (
     <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">

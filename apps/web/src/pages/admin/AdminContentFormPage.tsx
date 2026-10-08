@@ -278,8 +278,12 @@ export function AdminContentFormPage() {
     onSuccess: () => {
       setHasUnsavedChanges(false);
       queryClient.invalidateQueries({ queryKey: ['admin-title-detail'] });
-      navigate('/');
+      queryClient.invalidateQueries({ queryKey: ['admin-titles'] });
+      queryClient.invalidateQueries({ queryKey: ['titles'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      navigate('/admin');
     },
+
   });
 
   return (

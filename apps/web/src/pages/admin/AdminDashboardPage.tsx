@@ -30,6 +30,10 @@ import {
   Building2,
   UserCheck,
   ShieldCheck,
+  BarChart3,
+  Star,
+  Heart,
+  MessageSquare,
 } from 'lucide-react';
 import {
   adminApi,
@@ -70,6 +74,38 @@ interface UserItem {
   avatarUrl?: string | null;
   role: string;
   createdAt?: string;
+}
+
+interface PaymentCapture {
+  id: string;
+  amountInr: number;
+  donorName: string;
+  donorEmail: string;
+  razorpayPaymentId: string;
+  paidAt: string;
+  status: string;
+  message?: string | null;
+}
+
+interface TitleAnalytics {
+  titleId: string;
+  title: string;
+  slug: string;
+  kind: string;
+  orientation: string;
+  posterUrl: string;
+  bannerUrl?: string | null;
+  creatorName: string;
+  publishedAt: string;
+  fundingGoal: number;
+  fundingRaised: number;
+  fundingPercent: number;
+  supportersCount: number;
+  totalViews: number;
+  watchTimeHours: number;
+  editorRating: number;
+  likesCount: number;
+  payments: PaymentCapture[];
 }
 
 export function AdminDashboardPage() {
@@ -132,6 +168,10 @@ export function AdminDashboardPage() {
   const [isSubmittingCreator, setIsSubmittingCreator] = useState(false);
   const [creatorSuccessMsg, setCreatorSuccessMsg] = useState<string | null>(null);
 
+  // YouTube Studio Style Title Analytics State
+  const [selectedAnalytics, setSelectedAnalytics] = useState<TitleAnalytics | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+
   useEffect(() => {
     if (tabParam === 'creators-list' || tabParam === 'creators') {
       setActiveTab('creators-list');
@@ -179,6 +219,20 @@ export function AdminDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const openTitleAnalytics = async (titleId: string) => {
+    try {
+      setIsLoadingAnalytics(true);
+      const res = await adminApi.getTitleAnalytics(titleId);
+      if (res?.analytics) {
+        setSelectedAnalytics(res.analytics);
+      }
+    } catch (err) {
+      console.error('Failed to load title analytics:', err);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  };
 
   const handleSearchUsers = async (q: string) => {
     setUserSearchQuery(q);
@@ -374,7 +428,7 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Top Header Banner - Premium Vibrant Obsidian Glassmorphism */}
+      {/* Top Header Banner - Clean Balanced Alignment */}
       <div className="relative rounded-3xl bg-gradient-to-r from-slate-900 via-[#0E172A] to-[#0A0F1D] border border-cyan-500/25 p-6 md:p-8 backdrop-blur-2xl shadow-2xl shadow-cyan-950/20 overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
         <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -393,14 +447,14 @@ export function AdminDashboardPage() {
             </p>
           </div>
 
-          {/* Shortcut Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Balanced Header Shortcut Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               to="/admin/titles/new"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-500/30 transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-extrabold shadow-lg shadow-cyan-500/30 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              <span>＋ Add Content</span>
+              <span>Add Content</span>
             </Link>
 
             <button
@@ -408,17 +462,17 @@ export function AdminDashboardPage() {
                 setActiveTab('creators-list');
                 setIsAddCreatorOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-black shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
             >
               <UserPlus className="w-4 h-4" />
-              <span>＋ Add Creator</span>
+              <span>Add Creator</span>
             </button>
 
             <Link
               to="/admin/people"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
             >
-              <Users className="w-3.5 h-3.5 text-indigo-400" />
+              <Users className="w-4 h-4 text-indigo-400" />
               <span>Cast & Crew</span>
             </Link>
           </div>
@@ -427,7 +481,6 @@ export function AdminDashboardPage() {
 
       {/* Overview Metrics Cards - Curated Vibrant Theme */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Catalog Titles (Cyan Theme) */}
         <div className="p-5 rounded-3xl bg-gradient-to-br from-cyan-500/10 via-slate-900/80 to-slate-950 border border-cyan-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-cyan-400/50 transition-all">
           <div className="flex items-center justify-between text-cyan-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Catalog Titles</span>
@@ -446,7 +499,6 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Total Creator Revenue (Emerald Theme) */}
         <div className="p-5 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-slate-900/80 to-slate-950 border border-emerald-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-emerald-400/50 transition-all">
           <div className="flex items-center justify-between text-emerald-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Gross Support Raised</span>
@@ -462,7 +514,6 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Creator Net Payouts (Violet Theme) */}
         <div className="p-5 rounded-3xl bg-gradient-to-br from-violet-500/10 via-slate-900/80 to-slate-950 border border-violet-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-violet-400/50 transition-all">
           <div className="flex items-center justify-between text-violet-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Creator Net Earnings</span>
@@ -478,7 +529,6 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Active Creators Count (Amber Theme) */}
         <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-slate-950 border border-amber-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-amber-400/50 transition-all">
           <div className="flex items-center justify-between text-amber-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Active Creators</span>
@@ -565,7 +615,7 @@ export function AdminDashboardPage() {
                 <span>All Catalog Content</span>
               </h2>
               <p className="text-xs text-gray-400">
-                Filter titles, check publish status, or edit content details.
+                Filter titles, inspect YouTube Studio analytics, check publish status, or edit content details.
               </p>
             </div>
 
@@ -702,6 +752,14 @@ export function AdminDashboardPage() {
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openTitleAnalytics(item.id)}
+                            className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-colors"
+                            title="View YouTube Studio Analytics & Payment Captures"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </button>
+
                           <Link
                             to={`/title/${item.slug}`}
                             target="_blank"
@@ -758,11 +816,10 @@ export function AdminDashboardPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs shadow-lg shadow-amber-500/30 transition-all active:scale-95"
             >
               <UserPlus className="w-4 h-4" />
-              <span>＋ Add Creator by Searching Users</span>
+              <span>Add Creator by Searching Users</span>
             </button>
           </div>
 
-          {/* Creators Grid / List */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {creatorsData.creators.map((c, i) => (
               <div
@@ -1056,6 +1113,145 @@ export function AdminDashboardPage() {
         </div>
       )}
 
+      {/* YouTube Studio Style Content Analytics Modal */}
+      {selectedAnalytics && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-2xl animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl bg-[#0B0F19] border border-purple-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setSelectedAnalytics(null)}
+              className="absolute top-5 right-5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Title Header Info */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-white/10 pb-6">
+              <img
+                src={selectedAnalytics.posterUrl}
+                alt={selectedAnalytics.title}
+                className="w-16 h-24 rounded-2xl object-cover border border-white/10 shadow-lg flex-shrink-0"
+              />
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[10px] font-black uppercase tracking-wider">
+                  <BarChart3 className="w-3 h-3" />
+                  <span>Content Performance Analytics</span>
+                </div>
+                <h2 className="text-2xl font-black text-white">{selectedAnalytics.title}</h2>
+                <div className="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                  <span>Studio: <strong className="text-white">{selectedAnalytics.creatorName}</strong></span>
+                  <span>•</span>
+                  <span>Format: <strong className="text-purple-300">{selectedAnalytics.kind} ({selectedAnalytics.orientation})</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4 Performance Metric Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                <div className="flex items-center justify-between text-cyan-400 text-xs font-bold">
+                  <span>Total Plays</span>
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div className="text-xl font-black text-white">{selectedAnalytics.totalViews.toLocaleString()}</div>
+                <div className="text-[10px] text-gray-400">{selectedAnalytics.watchTimeHours} hrs watch time</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                <div className="flex items-center justify-between text-emerald-400 text-xs font-bold">
+                  <span>Support Raised</span>
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div className="text-xl font-black text-emerald-400">₹{selectedAnalytics.fundingRaised.toLocaleString('en-IN')}</div>
+                <div className="text-[10px] text-gray-400">{selectedAnalytics.fundingPercent}% of ₹{selectedAnalytics.fundingGoal.toLocaleString('en-IN')}</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                <div className="flex items-center justify-between text-amber-400 text-xs font-bold">
+                  <span>Supporters</span>
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="text-xl font-black text-white">{selectedAnalytics.supportersCount}</div>
+                <div className="text-[10px] text-gray-400">Direct backers</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                <div className="flex items-center justify-between text-pink-400 text-xs font-bold">
+                  <span>Rating & Likes</span>
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                </div>
+                <div className="text-xl font-black text-white">{selectedAnalytics.editorRating} ★</div>
+                <div className="text-[10px] text-gray-400">{selectedAnalytics.likesCount} viewer likes</div>
+              </div>
+            </div>
+
+            {/* Funding Goal Progress Bar */}
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-gray-300">Crowdfunding Target Progress</span>
+                <span className="text-emerald-400">₹{selectedAnalytics.fundingRaised.toLocaleString('en-IN')} / ₹{selectedAnalytics.fundingGoal.toLocaleString('en-IN')} ({selectedAnalytics.fundingPercent}%)</span>
+              </div>
+              <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden p-0.5 border border-white/5">
+                <div
+                  className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${selectedAnalytics.fundingPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Payment Captures Breakdown Table */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-emerald-400" />
+                <span>Captured Database Payments & Razorpay Transactions</span>
+              </h3>
+
+              <div className="overflow-x-auto rounded-2xl border border-white/10">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-white/5 text-gray-400 uppercase text-[10px] font-mono">
+                      <th className="py-2.5 px-3">Donor / Supporter</th>
+                      <th className="py-2.5 px-3">Razorpay Payment ID</th>
+                      <th className="py-2.5 px-3">Amount</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {selectedAnalytics.payments.map((p) => (
+                      <tr key={p.id} className="hover:bg-white/[0.02]">
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-white">{p.donorName}</div>
+                          <div className="text-[10px] text-gray-400">{p.donorEmail}</div>
+                          {p.message && <div className="text-[10px] text-rose-300 italic mt-0.5">"{p.message}"</div>}
+                        </td>
+
+                        <td className="py-3 px-3 font-mono text-purple-300 text-xs">
+                          {p.razorpayPaymentId}
+                        </td>
+
+                        <td className="py-3 px-3 font-black text-emerald-400 text-sm">
+                          ₹{p.amountInr.toLocaleString('en-IN')}
+                        </td>
+
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                            {p.status}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-3 text-[11px] text-gray-400 whitespace-nowrap">
+                          {new Date(p.paidAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Creator / Promote User Modal Dialog */}
       {isAddCreatorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200">
@@ -1087,7 +1283,6 @@ export function AdminDashboardPage() {
             )}
 
             <form onSubmit={handleCreateCreator} className="space-y-5">
-              {/* Step 1: Search Users in Database */}
               <div className="space-y-2">
                 <label className="text-xs font-extrabold text-gray-300 block">
                   1. Search Registered Database Users
@@ -1106,7 +1301,6 @@ export function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* User Search Results */}
                 {foundUsers.length > 0 && (
                   <div className="max-h-44 overflow-y-auto rounded-2xl bg-slate-900 border border-white/10 divide-y divide-white/5">
                     {foundUsers.map((u) => (
@@ -1142,7 +1336,6 @@ export function AdminDashboardPage() {
                 )}
               </div>
 
-              {/* Selected User Indicator */}
               {selectedUser && (
                 <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs">
                   <span className="text-gray-300">Selected User: <strong className="text-amber-300">{selectedUser.name}</strong> ({selectedUser.email})</span>
@@ -1156,7 +1349,6 @@ export function AdminDashboardPage() {
                 </div>
               )}
 
-              {/* Step 2: Creator / Studio Name Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-extrabold text-gray-300 block">
                   2. Creator / Studio Name <span className="text-rose-400">*</span>
@@ -1174,7 +1366,6 @@ export function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
                 <button
                   type="button"
