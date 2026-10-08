@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import videojs from 'video.js';
+import type Player from 'video.js/dist/types/player';
 import Hls from 'hls.js';
 
 export interface VideoQuality {
@@ -19,6 +21,11 @@ export interface UseVideoEngineOptions {
   onError?: (error: Error) => void;
 }
 
+export function isBunnyStreamUrl(url: string): boolean {
+  if (!url) return false;
+  return url.includes('b-cdn.net') || url.includes('bunnycdn') || (url.includes('.m3u8') && url.includes('playlist'));
+}
+
 export function useVideoEngine({
   src,
   streamType = 'HLS',
@@ -30,6 +37,7 @@ export function useVideoEngine({
   onError,
 }: UseVideoEngineOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const vjsPlayerRef = useRef<Player | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -43,11 +51,24 @@ export function useVideoEngine({
   const [playbackSpeed, setPlaybackSpeedState] = useState<number>(1);
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isBunnyStream = isBunnyStreamUrl(src);
 
-  // Clean up HLS instance safely
-  const destroyHls = useCallback(() => {
+  // Clean up engines safely
+  const cleanupEngine = useCallback(() => {
+    if (vjsPlayerRef.current) {
+      try {
+        vjsPlayerRef.current.dispose();
+      } catch (e) {
+        console.warn('Video.js dispose cleanup warning:', e);
+      }
+      vjsPlayerRef.current = null;
+    }
     if (hlsRef.current) {
-      hlsRef.current.destroy();
+      try {
+        hlsRef.current.destroy();
+      } catch (e) {
+        console.warn('HLS destroy cleanup warning:', e);
+      }
       hlsRef.current = null;
     }
   }, []);
@@ -57,16 +78,16 @@ export function useVideoEngine({
     if (!video || !src) return;
 
     setError(null);
-    destroyHls();
+    cleanupEngine();
 
-    const isHlsUrl = src.includes('.m3u8') || streamType === 'HLS';
+    const isHls = src.includes('.m3u8') || streamType === 'HLS' || isBunnyStreamUrl(src);
 
-    if (isHlsUrl && Hls.isSupported()) {
+    if (isHls && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
         capLevelToPlayerSize: true,
-        startLevel: -1, // Auto
+        startLevel: -1, // Auto quality
         maxBufferLength: 30,
         backBufferLength: 30,
       });
@@ -78,9 +99,9 @@ export function useVideoEngine({
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         const parsedQualities: VideoQuality[] = data.levels.map((level, idx) => ({
           id: idx,
-          label: `${level.height}p`,
-          height: level.height,
-          bitrate: level.bitrate,
+          label: `${level.height || 720}p`,
+          height: level.height || 720,
+          bitrate: level.bitrate || 0,
         }));
         setQualities(parsedQualities);
 
@@ -90,7 +111,6 @@ export function useVideoEngine({
 
         if (autoPlay) {
           video.play().catch(() => {
-            // Browsers require muted playback for autoplay
             video.muted = true;
             setIsMuted(true);
             video.play().catch((e) => console.warn('Autoplay failed:', e));
@@ -102,24 +122,53 @@ export function useVideoEngine({
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              console.warn('HLS Network error, attempting recovery...');
+              console.warn('Bunny Stream / HLS network error, attempting recovery...');
               hls.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
-              console.warn('HLS Media error, attempting recovery...');
+              console.warn('Bunny Stream / HLS media error, attempting recovery...');
               hls.recoverMediaError();
               break;
             default:
               console.error('Fatal HLS error:', data);
-              setError('Fatal video stream error');
-              destroyHls();
+              setError('Fatal video stream error. Please check URL or network connection.');
+              cleanupEngine();
               if (onError) onError(new Error(data.details));
               break;
           }
         }
       });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl') || !isHlsUrl) {
-      // Native HLS (Safari) or standard MP4
+
+      // Optionally attach Video.js player instance
+      try {
+        const player = videojs(video, {
+          autoplay: autoPlay,
+          controls: false,
+          sources: [
+            {
+              src,
+              type: 'application/x-mpegURL',
+            },
+          ],
+        });
+        vjsPlayerRef.current = player;
+      } catch (err) {
+        console.debug('Video.js attach debug:', err);
+      }
+    } else if (video.canPlayType('application/vnd.apple.mpegurl') || isHls) {
+      // Native HLS (Safari iOS/macOS)
+      video.src = src;
+      if (startPositionSec > 0) {
+        video.currentTime = startPositionSec;
+      }
+      if (autoPlay) {
+        video.play().catch(() => {
+          video.muted = true;
+          setIsMuted(true);
+          video.play().catch((e) => console.warn('Autoplay failed:', e));
+        });
+      }
+    } else {
       video.src = src;
       if (startPositionSec > 0) {
         video.currentTime = startPositionSec;
@@ -134,13 +183,13 @@ export function useVideoEngine({
     }
 
     return () => {
-      destroyHls();
+      cleanupEngine();
       if (video) {
         video.removeAttribute('src');
         video.load();
       }
     };
-  }, [src, streamType, autoPlay, startPositionSec, destroyHls, onError]);
+  }, [src, streamType, autoPlay, startPositionSec, cleanupEngine, onError]);
 
   // Video event listeners
   useEffect(() => {
@@ -193,11 +242,19 @@ export function useVideoEngine({
 
   // Controls API
   const play = useCallback(() => {
-    videoRef.current?.play().catch((err) => console.warn('Play error:', err));
+    if (vjsPlayerRef.current) {
+      vjsPlayerRef.current.play()?.catch(() => {});
+    } else {
+      videoRef.current?.play().catch((err) => console.warn('Play error:', err));
+    }
   }, []);
 
   const pause = useCallback(() => {
-    videoRef.current?.pause();
+    if (vjsPlayerRef.current) {
+      vjsPlayerRef.current.pause();
+    } else {
+      videoRef.current?.pause();
+    }
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -252,6 +309,7 @@ export function useVideoEngine({
 
   return {
     videoRef,
+    vjsPlayerRef,
     isPlaying,
     isMuted,
     volume,
@@ -263,6 +321,7 @@ export function useVideoEngine({
     playbackSpeed,
     isBuffering,
     error,
+    isBunnyStream,
     play,
     pause,
     togglePlay,
@@ -274,3 +333,4 @@ export function useVideoEngine({
     setPlaybackSpeed,
   };
 }
+

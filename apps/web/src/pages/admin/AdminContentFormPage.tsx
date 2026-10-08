@@ -769,11 +769,24 @@ export function AdminContentFormPage() {
               </div>
 
               {/* Supported Video Types Info */}
-              <div className="flex flex-wrap gap-2 pt-1 text-[11px]">
+              <div className="flex flex-wrap gap-2 pt-1 text-[11px] items-center">
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-bold flex items-center gap-1">
+                  <span>🐰</span> Bunny Stream HLS (.m3u8)
+                </span>
                 <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">HLS (.m3u8)</span>
                 <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono">MP4 (.mp4)</span>
                 <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">DASH (.mpd)</span>
-                <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">CDN / S3 / Mux / Cloudflare</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">CDN / S3 / Mux</span>
+                
+                {!movieLink && (
+                  <button
+                    type="button"
+                    onClick={() => setMovieLink('https://vz-3f12b649-1e0.b-cdn.net/831acf2e-e5b9-4b68-bb98-c7657a23e91b/playlist.m3u8')}
+                    className="ml-auto text-[10px] text-amber-400 hover:underline font-mono"
+                  >
+                    + Fill Sample Bunny Stream URL
+                  </button>
+                )}
               </div>
 
               {movieValidation && (
@@ -809,6 +822,9 @@ export function AdminContentFormPage() {
 
             {/* Supported Video Types Info */}
             <div className="flex flex-wrap gap-2 pt-1 text-[11px]">
+              <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono font-bold flex items-center gap-1">
+                <span>🐰</span> Bunny Stream HLS (.m3u8)
+              </span>
               <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">HLS (.m3u8)</span>
               <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono">MP4 (.mp4)</span>
               <span className="px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 font-mono">YouTube</span>

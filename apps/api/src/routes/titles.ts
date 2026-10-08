@@ -83,7 +83,8 @@ router.post('/admin/validate-video-url', async (req: Request, res: Response, nex
       return;
     }
 
-    const isHls = url.includes('.m3u8') || url.includes('mux.dev');
+    const isBunny = url.includes('b-cdn.net') || url.includes('bunnycdn');
+    const isHls = url.includes('.m3u8') || url.includes('mux.dev') || isBunny;
     const isMp4 = url.includes('.mp4');
     const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
     const isVimeo = url.includes('vimeo.com');
@@ -100,15 +101,23 @@ router.post('/admin/validate-video-url', async (req: Request, res: Response, nex
       return;
     }
 
+    const detectedMsg = isBunny
+      ? '🐰 Bunny Stream HLS Master Playlist (.m3u8)'
+      : isHls
+      ? 'HLS Master Playlist (.m3u8)'
+      : isMp4
+      ? 'MP4 Video'
+      : 'Embedded Stream';
+
     res.json({
       isValid: true,
       streamType: isHls ? 'HLS' : isMp4 ? 'MP4' : 'EMBED',
       reachable: true,
       durationSec: isHls ? 6300 : 5400,
-      qualities: isHls ? ['240p', '360p', '720p', '1080p'] : ['720p', '1080p'],
+      qualities: isHls ? ['240p', '360p', '480p', '720p', '1080p'] : ['720p', '1080p'],
       audioTracks: ['Tamil (Stereo)', 'English (Stereo)'],
       subtitles: ['English', 'Tamil'],
-      message: '✓ Reachable · detected type: ' + (isHls ? 'HLS Master Playlist' : 'MP4 Video'),
+      message: '✓ Reachable · detected type: ' + detectedMsg,
     });
   } catch (err) {
     next(err);
