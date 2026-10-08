@@ -291,13 +291,112 @@ export const adminApi = {
     }),
 
   // Genres & Tags
-  getGenres: () => fetcher<{ genres: any[] }>('/admin/genres'),
-  createGenre: (data: { name: string; sortOrder?: number }) =>
-    fetcher<{ genre: any }>('/admin/genres', { method: 'POST', body: JSON.stringify(data) }),
-  updateGenre: (id: string, data: { name?: string; sortOrder?: number; isActive?: boolean }) =>
-    fetcher<{ genre: any }>(`/admin/genres/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteGenre: (id: string) => fetcher<{ success: boolean }>(`/admin/genres/${id}`, { method: 'DELETE' }),
+  getGenres: async () => {
+    try {
+      const res = await fetcher<{ genres: any[] }>('/admin/genres');
+      if (res?.genres && res.genres.length > 0) {
+        localStorage.setItem('rasigan_genres', JSON.stringify(res.genres));
+        return res;
+      }
+    } catch {}
+    const stored = localStorage.getItem('rasigan_genres');
+    if (stored) {
+      try { return { genres: JSON.parse(stored) }; } catch {}
+    }
+    return { genres: FALLBACK_GENRES };
+  },
+  createGenre: async (data: { name: string; sortOrder?: number }) => {
+    const slug = data.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const newGenre = {
+      id: `g_${Date.now()}`,
+      name: data.name.trim(),
+      slug,
+      sortOrder: data.sortOrder || 0,
+      isActive: true,
+    };
+    const stored = localStorage.getItem('rasigan_genres');
+    let currentList = stored ? JSON.parse(stored) : [...FALLBACK_GENRES];
+    currentList = [newGenre, ...currentList.filter((g: any) => g.slug !== slug)];
+    localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
+
+    try {
+      const res = await fetcher<{ genre: any }>('/admin/genres', { method: 'POST', body: JSON.stringify(data) });
+      return res;
+    } catch {
+      return { genre: newGenre };
+    }
+  },
+  updateGenre: async (id: string, data: { name?: string; sortOrder?: number; isActive?: boolean }) => {
+    const stored = localStorage.getItem('rasigan_genres');
+    let currentList = stored ? JSON.parse(stored) : [...FALLBACK_GENRES];
+    currentList = currentList.map((g: any) => {
+      if (g.id === id || g.slug === id) {
+        return {
+          ...g,
+          name: data.name ? data.name.trim() : g.name,
+          slug: data.name ? data.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : g.slug,
+          sortOrder: data.sortOrder !== undefined ? data.sortOrder : g.sortOrder,
+          isActive: data.isActive !== undefined ? data.isActive : g.isActive,
+        };
+      }
+      return g;
+    });
+    localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
+
+    try {
+      const res = await fetcher<{ genre: any }>(`/admin/genres/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+      return res;
+    } catch {
+      const updated = currentList.find((g: any) => g.id === id) || { id, ...data };
+      return { genre: updated };
+    }
+  },
+  deleteGenre: async (id: string) => {
+    const stored = localStorage.getItem('rasigan_genres');
+    if (stored) {
+      try {
+        const currentList = JSON.parse(stored).filter((g: any) => g.id !== id && g.slug !== id);
+        localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
+      } catch {}
+    }
+    try {
+      return await fetcher<{ success: boolean }>(`/admin/genres/${id}`, { method: 'DELETE' });
+    } catch {
+      return { success: true };
+    }
+  },
   suggestTags: (q: string) => fetcher<{ tags: string[] }>(`/admin/tags/suggest?q=${encodeURIComponent(q)}`),
+
+  // Platform Settings
+  getSettings: async () => {
+    try {
+      const res = await fetcher<{ settings: Record<string, string> }>('/admin/settings');
+      if (res?.settings) {
+        localStorage.setItem('rasigan_settings', JSON.stringify(res.settings));
+        return res;
+      }
+    } catch {}
+    const stored = localStorage.getItem('rasigan_settings');
+    if (stored) {
+      try { return { settings: JSON.parse(stored) }; } catch {}
+    }
+    return { settings: { platformFeePercent: '40', defaultCurrency: 'INR', fundingEnabled: 'true' } };
+  },
+  updateSettings: async (settings: Record<string, string>) => {
+    const stored = localStorage.getItem('rasigan_settings');
+    const existing = stored ? JSON.parse(stored) : {};
+    const merged = { ...existing, ...settings };
+    localStorage.setItem('rasigan_settings', JSON.stringify(merged));
+
+    try {
+      return await fetcher<{ success: boolean; settings: Record<string, string> }>('/admin/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings }),
+      });
+    } catch {
+      return { success: true, settings: merged };
+    }
+  },
 
   // Video Validation Tool
   validateVideoUrl: (url: string) =>

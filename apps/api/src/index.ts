@@ -8,6 +8,7 @@ import genresRouter from './routes/genres.js';
 import peopleRouter from './routes/people.js';
 import tagsRouter from './routes/tags.js';
 import creatorRouter from './routes/creator.js';
+import adminRouter from './routes/admin.js';
 
 dotenv.config();
 
@@ -35,7 +36,7 @@ app.use('/api/home', homeRouter);
 app.use('/api/titles', titlesRouter);
 app.use('/api/genres', genresRouter);
 app.use('/api/categories', genresRouter); // legacy alias for Genre
-app.use('/api/admin/genres', genresRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/admin/people', peopleRouter);
 app.use('/api/admin/tags', tagsRouter);
 app.use('/api/creator', creatorRouter);

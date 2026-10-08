@@ -49,6 +49,9 @@ export function AdminGenresPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-genres'] });
+      queryClient.invalidateQueries({ queryKey: ['genres'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
       setIsModalOpen(false);
     },
   });
@@ -57,6 +60,9 @@ export function AdminGenresPage() {
     mutationFn: (id: string) => adminApi.deleteGenre(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-genres'] });
+      queryClient.invalidateQueries({ queryKey: ['genres'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
     },
   });
 

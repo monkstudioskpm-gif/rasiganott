@@ -52,35 +52,21 @@ router.get('/earnings', async (_req: Request, res: Response, next: NextFunction)
 // GET /api/creator/payouts
 router.get('/payouts', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const statements: CreatorPayoutStatementDto[] = [
-      {
-        id: 'stmt_2026_09',
-        cycle: 'September 2026',
-        period: '01 Sep 2026 - 30 Sep 2026',
-        earningsInr: 45000,
-        adjustmentsInr: 0,
-        netPayableInr: 45000,
-        status: 'PAID',
-        referenceUtr: 'UTR9823410293',
-        titles: [
-          { titleId: 't1', title: 'Viking Wolf', earningsInr: 30000 },
-          { titleId: 't2', title: 'Chennai Chronicles', earningsInr: 15000 },
-        ],
-      },
-      {
-        id: 'stmt_2026_10',
-        cycle: 'October 2026 (Pending)',
-        period: '01 Oct 2026 - 31 Oct 2026',
-        earningsInr: 18500,
-        adjustmentsInr: 0,
-        netPayableInr: 18500,
-        status: 'PROCESSING',
-        titles: [
-          { titleId: 't1', title: 'Viking Wolf', earningsInr: 12000 },
-          { titleId: 't2', title: 'Chennai Chronicles', earningsInr: 6500 },
-        ],
-      },
-    ];
+    const rawPayouts = await prisma.creatorPayout.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const statements: CreatorPayoutStatementDto[] = rawPayouts.map((p) => ({
+      id: p.id,
+      cycle: p.cycle,
+      period: p.period,
+      earningsInr: p.netPayableInr,
+      adjustmentsInr: 0,
+      netPayableInr: p.netPayableInr,
+      status: p.status === 'COMPLETED' ? 'PAID' : 'PROCESSING',
+      referenceUtr: p.paymentUtrNumber || undefined,
+      titles: [],
+    }));
 
     res.json({ statements });
   } catch (err) {

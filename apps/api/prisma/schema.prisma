@@ -272,3 +272,26 @@ model Funding {
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title             Title     @relation(fields: [titleId], references: [id], onDelete: Cascade)
 }
+
+model CreatorPayout {
+  id               String   @id @default(cuid())
+  creatorName      String
+  statementNumber  String   @unique
+  cycle            String
+  period           String
+  grossEarningsInr Int
+  platformFeeInr   Int
+  netPayableInr    Int
+  status           String   @default("PROCESSING")
+  paymentUtrNumber String?
+  paidAt           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
