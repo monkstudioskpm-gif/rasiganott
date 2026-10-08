@@ -262,8 +262,12 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
     if (endpoint === '/admin/payouts') return FALLBACK_PAYOUT_STATEMENTS as unknown as T;
     if (endpoint.startsWith('/titles/')) {
       const slug = endpoint.replace('/titles/', '');
-      const found = FALLBACK_TITLES.find((t) => t.slug === slug || t.id === slug) || FALLBACK_TITLES[0];
-      return { title: found } as unknown as T;
+      const combined = getCombinedTitles();
+      const found = combined.find((t) => t.slug === slug || t.id === slug);
+      if (found) {
+        return { title: found } as unknown as T;
+      }
+      return { title: combined[0] || FALLBACK_TITLES[0] } as unknown as T;
     }
     if (endpoint.startsWith('/titles')) return { titles: FALLBACK_TITLES, pagination: { page: 1, totalPages: 1 } } as unknown as T;
     throw error;
@@ -386,16 +390,16 @@ export const api = {
   getTitleBySlug: async (slug: string) => {
     const combined = getCombinedTitles();
     const foundLocal = combined.find((t) => t.slug === slug || t.id === slug);
+    if (foundLocal) {
+      return { title: foundLocal };
+    }
 
     try {
       const res = await fetcher<{ title: Title }>(`/titles/${slug}`);
       if (res?.title) return res;
     } catch {}
 
-    if (foundLocal) {
-      return { title: foundLocal };
-    }
-    return { title: FALLBACK_TITLES[0] };
+    return { title: combined[0] || FALLBACK_TITLES[0] };
   },
 };
 
