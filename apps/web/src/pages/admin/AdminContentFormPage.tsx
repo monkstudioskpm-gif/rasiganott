@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminApi } from '../../lib/api';
+import { adminApi, getPersonInitials } from '../../lib/api';
 import { Check, X, Plus, Trash2, Eye, Loader2, Tv } from 'lucide-react';
 
 export function AdminContentFormPage() {
@@ -517,13 +517,28 @@ export function AdminContentFormPage() {
 
           {/* Field 7: Cast Typeahead with Instant Auto-Save (B4.4) */}
           <div className="glass-card p-6 rounded-3xl space-y-4 border border-white/10 relative z-40">
-            <h3 className="text-base font-bold text-white">7. Cast (Instant Auto-Save)</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">7. Cast (Instant Auto-Save)</h3>
+              <span className="text-[10px] text-sky-400 font-mono">Press Enter to auto-create character</span>
+            </div>
             <div className="relative">
               <input
                 type="text"
                 value={castSearch}
                 onChange={(e) => setCastSearch(e.target.value)}
-                placeholder="Type cast member name (e.g. Vijay)..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && castSearch.trim()) {
+                    e.preventDefault();
+                    // If exact match found in suggestions, select it; otherwise auto-create new person in DB!
+                    const exactMatch = castSuggestions.find((p) => p.name.toLowerCase().trim() === castSearch.toLowerCase().trim());
+                    if (exactMatch) {
+                      handleSelectCastPerson(exactMatch);
+                    } else {
+                      handleCreateNewCastPerson(castSearch.trim());
+                    }
+                  }
+                }}
+                placeholder="Type cast member name (e.g. Mohan) & press Enter..."
                 className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none focus:border-sky-400"
               />
 
@@ -531,7 +546,9 @@ export function AdminContentFormPage() {
               {castSearch.trim() && (
                 <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-[#0f121d] border border-sky-500/40 rounded-2xl shadow-2xl max-h-60 overflow-y-auto p-2 space-y-1">
                   {isCastSearching ? (
-                    <div className="p-3 text-center text-xs text-gray-400">Searching people database...</div>
+                    <div className="p-3 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-sky-400" /> Searching database...
+                    </div>
                   ) : (
                     <>
                       {castSuggestions.map((p) => (
@@ -541,9 +558,13 @@ export function AdminContentFormPage() {
                           className="p-2.5 rounded-xl hover:bg-sky-500/20 flex items-center justify-between cursor-pointer text-xs transition-colors"
                         >
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-sky-900/80 text-sky-300 font-bold flex items-center justify-center border border-sky-400/30">
-                              {p.name.slice(0, 2).toUpperCase()}
-                            </div>
+                            {p.photoUrl ? (
+                              <img src={p.photoUrl} alt={p.name} className="w-8 h-8 rounded-full object-cover border border-sky-400/30" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center border border-sky-400/40 shadow-sm">
+                                {getPersonInitials(p.name)}
+                              </div>
+                            )}
                             <div>
                               <span className="text-white font-semibold block">{p.name}</span>
                               {p.bio && <span className="text-[10px] text-gray-400 line-clamp-1">{p.bio}</span>}
@@ -553,13 +574,20 @@ export function AdminContentFormPage() {
                         </div>
                       ))}
 
-                      {/* "+ Add Name as new person" Option (B4.4) */}
+                      {/* Prompt banner when no matches found */}
+                      {castSuggestions.length === 0 && (
+                        <div className="p-2 text-[11px] text-amber-300/90 bg-amber-500/10 rounded-xl border border-amber-500/20 text-center font-medium">
+                          No existing character found for "{castSearch}". Click below or press Enter to auto-create!
+                        </div>
+                      )}
+
+                      {/* "+ Add Name as new person" Option (Auto-saves to DB) */}
                       <button
                         type="button"
                         onClick={() => handleCreateNewCastPerson(castSearch)}
-                        className="w-full p-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold text-xs text-left flex items-center gap-2 border border-sky-400/20"
+                        className="w-full p-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold text-xs text-left flex items-center gap-2 border border-sky-400/30 transition-colors"
                       >
-                        <Plus className="w-4 h-4" /> Add "{castSearch}" as new person
+                        <Plus className="w-4 h-4 text-sky-400" /> Auto-Create & Save "{castSearch}" to Database
                       </button>
                     </>
                   )}
@@ -567,12 +595,22 @@ export function AdminContentFormPage() {
               )}
             </div>
 
-            {/* Added Cast Chips */}
+            {/* Added Cast Chips with DP Initials / Photo */}
             <div className="space-y-2">
               {cast.map((item, idx) => (
                 <div key={idx} className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-gray-500">#{idx + 1}</span>
+                    
+                    {/* DP Avatar Badge */}
+                    {item.person?.photoUrl ? (
+                      <img src={item.person.photoUrl} alt={item.person.name} className="w-7 h-7 rounded-full object-cover border border-sky-400/30" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-black text-[11px] flex items-center justify-center border border-sky-400/40 shadow-sm">
+                        {getPersonInitials(item.person?.name || 'DP')}
+                      </div>
+                    )}
+
                     <span className="font-bold text-xs text-white">{item.person?.name}</span>
                     <input
                       type="text"

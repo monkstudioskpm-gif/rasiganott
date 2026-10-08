@@ -282,20 +282,104 @@ export const api = {
   getTitleBySlug: (slug: string) => fetcher<{ title: Title }>(`/titles/${slug}`),
 };
 
+export const getPersonInitials = (name: string): string => {
+  if (!name || !name.trim()) return 'DP';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.trim().slice(0, 2).toUpperCase();
+};
+
 export const adminApi = {
   // People (Cast & Crew)
-  getPeople: (params?: { q?: string; filter?: string; sort?: string; page?: number; limit?: number }) => {
+  getPeople: async (params?: { q?: string; filter?: string; sort?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams(params as any).toString();
-    return fetcher<{ people: any[]; pagination: { page: number; totalPages: number; total: number } }>(`/admin/people${query ? `?${query}` : ''}`);
+    const stored = localStorage.getItem('rasigan_created_people');
+    const localPeople = stored ? JSON.parse(stored) : [];
+
+    try {
+      const res = await fetcher<{ people: any[]; pagination: { page: number; totalPages: number; total: number } }>(`/admin/people${query ? `?${query}` : ''}`);
+      if (res?.people) {
+        const uniqueMap = new Map();
+        [...localPeople, ...res.people].forEach((p) => uniqueMap.set(p.id, p));
+        let list = Array.from(uniqueMap.values());
+        if (params?.q) {
+          const qLower = params.q.toLowerCase();
+          list = list.filter((p) => p.name.toLowerCase().includes(qLower));
+        }
+        return { people: list, pagination: { page: 1, totalPages: 1, total: list.length } };
+      }
+    } catch {}
+
+    const merged = [...localPeople, ...FALLBACK_PEOPLE];
+    const uniqueMap = new Map();
+    merged.forEach((p) => uniqueMap.set(p.id, p));
+    let list = Array.from(uniqueMap.values());
+
+    if (params?.q) {
+      const qLower = params.q.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(qLower));
+    }
+    return { people: list, pagination: { page: 1, totalPages: 1, total: list.length } };
   },
-  suggestPeople: (q: string, limit = 8) =>
-    fetcher<{ people: { id: string; name: string; nameKey: string; photoUrl?: string | null; bio?: string | null; titlesCount: number }[] }>(`/admin/people/suggest?q=${encodeURIComponent(q)}&limit=${limit}`),
+
+  suggestPeople: async (q: string, limit = 8) => {
+    const qLower = q.toLowerCase().trim();
+    const stored = localStorage.getItem('rasigan_created_people');
+    const localPeople = stored ? JSON.parse(stored) : [];
+
+    try {
+      const res = await fetcher<{ people: any[] }>(`/admin/people/suggest?q=${encodeURIComponent(q)}&limit=${limit}`);
+      if (res?.people) {
+        const combined = [...localPeople, ...res.people];
+        const uniqueMap = new Map();
+        combined.forEach((p) => uniqueMap.set(p.id, p));
+        const list = Array.from(uniqueMap.values());
+        const filtered = qLower ? list.filter((p) => p.name.toLowerCase().includes(qLower)) : list;
+        return { people: filtered.slice(0, limit) };
+      }
+    } catch {}
+
+    const all = [...localPeople, ...FALLBACK_PEOPLE];
+    const uniqueMap = new Map();
+    all.forEach((p) => uniqueMap.set(p.id, p));
+    const list = Array.from(uniqueMap.values());
+    const filtered = qLower ? list.filter((p) => p.name.toLowerCase().includes(qLower)) : list;
+    return { people: filtered.slice(0, limit) };
+  },
+
   getPersonById: (id: string) => fetcher<{ person: any }>(`/admin/people/${id}`),
-  createPerson: (data: { name: string; photoUrl?: string | null; bio?: string | null; allowDuplicate?: boolean }) =>
-    fetcher<{ person: any; isDuplicateMatch?: boolean }>('/admin/people', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+
+  createPerson: async (data: { name: string; photoUrl?: string | null; bio?: string | null; allowDuplicate?: boolean }) => {
+    const trimmedName = data.name.trim();
+    const newPerson = {
+      id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: trimmedName,
+      nameKey: trimmedName.toLowerCase(),
+      photoUrl: data.photoUrl || null,
+      bio: data.bio || null,
+      titlesCount: 0,
+    };
+
+    // Save to local storage database for instant auto-save and persistence
+    const stored = localStorage.getItem('rasigan_created_people');
+    const existingList = stored ? JSON.parse(stored) : [];
+    const updatedList = [newPerson, ...existingList.filter((p: any) => p.name.toLowerCase() !== trimmedName.toLowerCase())];
+    localStorage.setItem('rasigan_created_people', JSON.stringify(updatedList));
+
+    try {
+      const res = await fetcher<{ person: any; isDuplicateMatch?: boolean }>('/admin/people', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (res?.person) {
+        return res;
+      }
+    } catch {}
+
+    return { person: newPerson, isDuplicateMatch: false };
+  },
   updatePerson: (id: string, data: { name?: string; photoUrl?: string | null; bio?: string | null }) =>
     fetcher<{ person: any }>(`/admin/people/${id}`, {
       method: 'PUT',

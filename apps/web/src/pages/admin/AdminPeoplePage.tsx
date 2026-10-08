@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminApi } from '../../lib/api';
+import { adminApi, getPersonInitials } from '../../lib/api';
 import { User, Search, Plus, Trash2, Edit, Merge, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface PersonItem {
@@ -214,8 +214,8 @@ export function AdminPeoplePage() {
                   {person.photoUrl ? (
                     <img src={person.photoUrl} alt={person.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-sky-950 text-sky-300 font-bold text-sm flex items-center justify-center">
-                      {person.name.slice(0, 2).toUpperCase()}
+                    <div className="w-full h-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center border border-sky-400/40 shadow-sm">
+                      {getPersonInitials(person.name)}
                     </div>
                   )}
                   {(!person.photoUrl || !person.bio) && (
