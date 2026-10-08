@@ -2,9 +2,6 @@ import { HomeResponse, Genre, Category, Title } from '@rasigan/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-const MUX_HLS = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
-const BBB_MP4 = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-
 export const FALLBACK_GENRES: Genre[] = [
   { id: 'cat-1', name: 'Action', slug: 'action', sortOrder: 1, isActive: true },
   { id: 'cat-2', name: 'Drama', slug: 'drama', sortOrder: 2, isActive: true },
@@ -16,68 +13,7 @@ export const FALLBACK_GENRES: Genre[] = [
   { id: 'cat-8', name: 'Sci-Fi', slug: 'sci-fi', sortOrder: 8, isActive: true },
 ];
 
-const BASE_TITLES = [
-  { name: 'Viking Wolf', tagline: 'Unleash the beast inside', cat: [FALLBACK_GENRES[0], FALLBACK_GENRES[2], FALLBACK_GENRES[5]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
-  { name: 'Kung Fu Panda 4', tagline: 'The Dragon Warrior returns', cat: [FALLBACK_GENRES[0], FALLBACK_GENRES[3]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
-  { name: 'Blade Runner 2049', tagline: 'The key to the future is finally unearthed', cat: [FALLBACK_GENRES[7], FALLBACK_GENRES[2], FALLBACK_GENRES[0]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
-  { name: 'Night Call', tagline: 'One phone call. Zero escape.', cat: [FALLBACK_GENRES[2], FALLBACK_GENRES[6]], kind: 'MOVIE' as const, ori: 'VERTICAL' as const },
-  { name: 'Kaadhal Kavithai', tagline: 'Love written in rain', cat: [FALLBACK_GENRES[4], FALLBACK_GENRES[1]], kind: 'SHORT_FILM' as const, ori: 'LANDSCAPE' as const },
-  { name: 'Filter Coffee', tagline: 'Strong, sweet, and short', cat: [FALLBACK_GENRES[3]], kind: 'SHORT_FILM' as const, ori: 'VERTICAL' as const },
-  { name: 'Chennai Chronicles', tagline: 'City of dreams and shadows', cat: [FALLBACK_GENRES[1], FALLBACK_GENRES[3]], kind: 'WEB_SERIES' as const, ori: 'LANDSCAPE' as const },
-  { name: 'Reels of Madurai', tagline: 'Micro stories from the temple city', cat: [FALLBACK_GENRES[3]], kind: 'WEB_SERIES' as const, ori: 'VERTICAL' as const },
-  { name: 'Cyber Chennai 2099', tagline: 'Neon rain over OMR', cat: [FALLBACK_GENRES[7], FALLBACK_GENRES[0]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
-  { name: 'Ghost of Kodaikanal', tagline: 'Mist hides secrets', cat: [FALLBACK_GENRES[5], FALLBACK_GENRES[2]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
-];
-
-const POSTERS = [
-  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=600&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=600&auto=format&fit=crop&q=80',
-];
-
-const BANNERS = [
-  'https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=1600&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
-];
-
-export const FALLBACK_TITLES: Title[] = Array.from({ length: 52 }, (_, i) => {
-  const base = BASE_TITLES[i % BASE_TITLES.length];
-  const count = Math.floor(i / BASE_TITLES.length) + 1;
-  const titleName = count > 1 ? `${base.name} vol. ${count}` : base.name;
-  const slug = `${base.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${i + 1}`;
-
-  return {
-    id: `title_fallback_${i + 1}`,
-    slug,
-    kind: base.kind,
-    orientation: base.ori,
-    status: 'PUBLISHED',
-    title: titleName,
-    tagline: base.tagline,
-    description: `${base.name} brings an unmatched cinematic experience with gripping storytelling and immersive visuals.`,
-    language: i % 2 === 0 ? 'Tamil' : 'English',
-    year: 2023 + (i % 3),
-    ageRating: i % 4 === 0 ? 'A' : 'U/A',
-    durationMin: base.kind === 'WEB_SERIES' ? null : 90 + (i * 3) % 60,
-    editorRating: parseFloat((8.0 + (i % 20) * 0.1).toFixed(1)),
-    posterUrl: POSTERS[i % POSTERS.length],
-    bannerUrl: base.ori === 'LANDSCAPE' ? BANNERS[i % BANNERS.length] : null,
-    trailerUrl: MUX_HLS,
-    videoUrl: i % 2 === 0 ? MUX_HLS : BBB_MP4,
-    streamType: 'HLS',
-    subtitles: [],
-    audioTracks: [],
-    creatorName: `Studio ${1 + (i % 7)} Originals`,
-    isFeatured: i < 5,
-    fundingEnabled: true,
-    fundingGoal: 200000 + i * 50000,
-    fundingRaised: 0,
-    genres: base.cat,
-  };
-});
+export const FALLBACK_TITLES: Title[] = [];
 
 export const FALLBACK_PEOPLE = [
   { id: 'p1', name: 'Vijay Sethupathi', nameKey: 'vijay sethupathi', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80', bio: 'Acclaimed Indian actor working predominantly in Tamil cinema.', titlesCount: 8, rolesUsed: ['Actor'] },
@@ -722,6 +658,19 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
+
+  // Clear All Database Content
+  clearAllContent: async () => {
+    localStorage.removeItem('rasigan_created_titles');
+    localStorage.removeItem('rasigan_title_rankings');
+    localStorage.removeItem('rasigan_appearance_settings');
+    try {
+      await fetcher('/titles/admin/clear-all-content', { method: 'POST' });
+    } catch (e) {
+      console.warn('Backend clear info:', e);
+    }
+    return { success: true };
+  },
 
   // Title & Earnings Management
   getStats: () =>

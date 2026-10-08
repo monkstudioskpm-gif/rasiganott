@@ -124,6 +124,28 @@ router.post('/admin/validate-video-url', async (req: Request, res: Response, nex
   }
 });
 
+// POST /api/titles/admin/clear-all-content
+router.post('/admin/clear-all-content', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    await prisma.titleCast.deleteMany({});
+    await prisma.titleCrew.deleteMany({});
+    await prisma.titleGenre.deleteMany({});
+    await prisma.titleTag.deleteMany({});
+    await prisma.watchlistItem.deleteMany({});
+    await prisma.reaction.deleteMany({});
+    await prisma.watchProgress.deleteMany({});
+    await prisma.funding.deleteMany({});
+    await prisma.episode.deleteMany({});
+    await prisma.season.deleteMany({});
+    await prisma.title.deleteMany({});
+    await prisma.person.deleteMany({});
+
+    res.json({ success: true, message: 'All database content deleted successfully.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/titles
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

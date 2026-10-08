@@ -488,6 +488,21 @@ export function AdminDashboardPage() {
               <span>Add Creator</span>
             </button>
 
+            <button
+              onClick={async () => {
+                if (confirm('Are you sure you want to delete ALL content from the database? This will clear all titles so you can add them manually one by one.')) {
+                  await adminApi.clearAllContent();
+                  setTitles([]);
+                  window.location.reload();
+                }
+              }}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-extrabold transition-all active:scale-95"
+              title="Delete all content from database to add manually"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              <span>Clear Database</span>
+            </button>
+
             <Link
               to="/admin/people"
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
