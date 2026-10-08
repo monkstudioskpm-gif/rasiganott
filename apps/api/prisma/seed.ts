@@ -113,7 +113,8 @@ async function main() {
   // Generate 52 titles
   let count = 1;
   for (let i = 0; i < 52; i++) {
-    const base = BASE_TITLES[i % BASE_TITLES.length];
+    try {
+      const base = BASE_TITLES[i % BASE_TITLES.length];
     const uniqueSlug = `${base.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${count}`;
     const titleName = `${base.name} ${count > 1 ? `vol. ${count}` : ''}`.trim();
 
@@ -221,7 +222,10 @@ async function main() {
       create: { titleId: createdTitle.id, personId: composer.id, role: 'MUSIC_DIRECTOR' },
     });
 
-    count++;
+      count++;
+    } catch (err) {
+      console.error('Error seeding item ' + i + ':', err);
+    }
   }
 
   console.log(`Successfully seeded ${count - 1} content items with genres, tags, cast, crew!`);
