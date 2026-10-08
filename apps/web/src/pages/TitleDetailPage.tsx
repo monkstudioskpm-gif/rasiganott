@@ -398,7 +398,7 @@ export function TitleDetailPage() {
                     className="flex-none w-28 space-y-1 block group"
                   >
                     <div className="aspect-poster rounded-2xl overflow-hidden glass-card group-hover:scale-105 transition-transform shadow-md">
-                      <img src={item.posterUrl} alt={item.title} className="w-full h-full object-cover" />
+                      <img src={item.verticalPosterUrl || item.posterUrl} alt={item.title} className="w-full h-full object-cover" />
                     </div>
                     <p className="text-xs font-semibold text-gray-200 truncate group-hover:text-rose-400 transition-colors">
                       {item.title}

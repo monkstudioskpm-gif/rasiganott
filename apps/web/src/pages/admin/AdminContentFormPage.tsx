@@ -904,31 +904,64 @@ export function AdminContentFormPage() {
               <Eye className="w-4 h-4 text-sky-400" /> Live Preview Card
             </h3>
 
-            <div className="bg-[#0b0d15] rounded-2xl overflow-hidden border border-white/15 shadow-2xl space-y-3">
-              <div className="aspect-video bg-dark-card relative overflow-hidden">
-                {posterUrl ? (
-                  <img src={posterUrl} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Poster Preview</div>
-                )}
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase">
-                  {kind}
+            <div className="bg-[#0b0d15] rounded-2xl overflow-hidden border border-white/15 shadow-2xl space-y-3 p-4">
+              {/* 9:16 Vertical Banner Card Preview Box */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-gray-300">
+                  <span className="text-sky-300">9:16 Vertical Banner Preview</span>
+                  {verticalPosterUrl ? (
+                    <span className="text-emerald-400 font-mono text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Attached ✓</span>
+                  ) : (
+                    <span className="text-amber-400 font-mono text-[10px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Mandatory</span>
+                  )}
+                </div>
+
+                <div className="w-full aspect-[9/16] bg-dark-card rounded-2xl overflow-hidden relative border border-sky-500/30 shadow-xl">
+                  {verticalPosterUrl ? (
+                    <img src={verticalPosterUrl} alt="Vertical Banner Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-xs text-amber-300 bg-amber-500/5 space-y-2">
+                      <AlertTriangle className="w-8 h-8 text-amber-400 animate-bounce" />
+                      <span className="font-bold">Enter 9:16 Vertical Banner URL above</span>
+                      <p className="text-[10px] text-gray-400">Mandatory for vertical cards, mobile reels, and row sections</p>
+                    </div>
+                  )}
+
+                  <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-lg bg-black/70 backdrop-blur-md text-[10px] font-bold text-white uppercase border border-white/10">
+                    {kind}
+                  </div>
+
+                  <div className="absolute bottom-2.5 left-2.5 right-2.5 p-3 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 space-y-1">
+                    <h5 className="font-extrabold text-xs text-white truncate">{title || 'Untitled Title'}</h5>
+                    <p className="text-[10px] text-gray-300 line-clamp-1">{description || 'No description entered yet.'}</p>
+                    <div className="flex items-center justify-between text-[10px] text-sky-400 font-mono pt-1">
+                      <span>Rating: {editorRating || '9.0'}★</span>
+                      <span>{language}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-black text-sm text-white truncate">{title || 'Untitled Title'}</h4>
+              {/* Standard Poster Card Preview */}
+              <div className="pt-3 border-t border-white/10 space-y-1.5">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Standard Poster Card</span>
+                <div className="aspect-video bg-dark-card relative rounded-xl overflow-hidden border border-white/10 shadow">
+                  {posterUrl ? (
+                    <img src={posterUrl} alt="Poster Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Standard Poster Preview</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-1 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <h4 className="font-black text-white truncate">{title || 'Untitled Title'}</h4>
                   {creatorName && (
                     <span className="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded font-mono truncate max-w-[120px]">
                       {creatorName}
                     </span>
                   )}
-                </div>
-                <p className="text-[11px] text-gray-400 line-clamp-2">{description || 'No description entered yet.'}</p>
-                <div className="flex items-center justify-between text-[10px] text-sky-400 font-mono pt-1">
-                  <span>Rating: {editorRating || '9.0'}★</span>
-                  <span>{orientation}</span>
                 </div>
               </div>
             </div>
