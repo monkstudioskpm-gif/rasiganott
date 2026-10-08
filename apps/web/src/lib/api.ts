@@ -13,24 +13,133 @@ export const FALLBACK_GENRES: Genre[] = [
   { id: 'cat-8', name: 'Sci-Fi', slug: 'sci-fi', sortOrder: 8, isActive: true },
 ];
 
-export const FALLBACK_TITLES: Title[] = [];
+export const INITIAL_USER_TITLES: Title[] = [
+  {
+    id: 'title_kodi_melam',
+    slug: 'kodi-melam-republic-day-happy-independence-day',
+    kind: 'SHORT_FILM',
+    orientation: 'LANDSCAPE',
+    status: 'PUBLISHED',
+    title: 'Kodi Melam | Republic day | கொடி மேளம் | Happy Independence day',
+    tagline: 'Kodi Melam Tamil Short Film',
+    description: 'Kodi Melam is a short film produced by Cupice Productions (12:02) that focuses on the spirit of Independence Day. The narrative features a variety of characters, including a news reporter (Sowthra) and a freedom fighter (M Gurusamy), who gather to discuss a...',
+    language: 'Tamil',
+    year: 2025,
+    ageRating: 'U/A',
+    durationMin: 12,
+    editorRating: 9.0,
+    posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80',
+    bannerUrl: 'https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=1600&auto=format&fit=crop&q=80',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    streamType: 'MP4',
+    creatorName: 'cupice productions',
+    isFeatured: true,
+    fundingEnabled: true,
+    subtitles: [],
+    audioTracks: [],
+    genres: [{ id: 'cat-short-films', name: 'Short Films', slug: 'short-films', sortOrder: 1, isActive: true }],
+  },
+  {
+    id: 'title_no_sudu',
+    slug: 'no-sudu-no-soranai-kena-puna-part-2',
+    kind: 'SHORT_FILM',
+    orientation: 'LANDSCAPE',
+    status: 'PUBLISHED',
+    title: 'No Sudu No Soranai | Kena Puna Part 2',
+    tagline: 'Kena Puna Part 2 Tamil Short Film',
+    description: 'No Sudu No Soranai is the official continuation and Part 2 of Kena Puna Tamil Short Film produced by cupice productions.',
+    language: 'Tamil',
+    year: 2025,
+    ageRating: 'U/A',
+    durationMin: 15,
+    editorRating: 9.0,
+    posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    streamType: 'MP4',
+    creatorName: 'cupice productions',
+    isFeatured: true,
+    fundingEnabled: true,
+    subtitles: [],
+    audioTracks: [],
+    genres: [{ id: 'cat-short-films', name: 'Short Films', slug: 'short-films', sortOrder: 1, isActive: true }],
+  },
+  {
+    id: 'title_kena_puna',
+    slug: 'kena-puna-tamil-short-film',
+    kind: 'SHORT_FILM',
+    orientation: 'LANDSCAPE',
+    status: 'PUBLISHED',
+    title: 'Kena Puna | Tamil Short Film',
+    tagline: 'Kena Puna Tamil Short Film',
+    description: 'Kena Puna is an engaging Tamil short film produced by Cupice Productions.',
+    language: 'Tamil',
+    year: 2025,
+    ageRating: 'U/A',
+    durationMin: 14,
+    editorRating: 9.0,
+    posterUrl: 'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=800&auto=format&fit=crop&q=80',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    streamType: 'MP4',
+    creatorName: 'Cupice Productions',
+    isFeatured: true,
+    fundingEnabled: true,
+    subtitles: [],
+    audioTracks: [],
+    genres: [{ id: 'cat-short-films', name: 'Short Films', slug: 'short-films', sortOrder: 1, isActive: true }],
+  },
+  {
+    id: 'title_double_meaning',
+    slug: 'double-meaning-tamil-short-film',
+    kind: 'SHORT_FILM',
+    orientation: 'LANDSCAPE',
+    status: 'PUBLISHED',
+    title: 'Double Meaning | Tamil Short Film',
+    tagline: 'Double Meaning Tamil Short Film',
+    description: 'Double Meaning is an entertaining comedy drama Tamil short film produced by Cupice Productions.',
+    language: 'Tamil',
+    year: 2025,
+    ageRating: 'U/A',
+    durationMin: 16,
+    editorRating: 9.0,
+    posterUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=80',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    streamType: 'MP4',
+    creatorName: 'Cupice Productions',
+    isFeatured: true,
+    fundingEnabled: true,
+    subtitles: [],
+    audioTracks: [],
+    genres: [{ id: 'cat-short-films', name: 'Short Films', slug: 'short-films', sortOrder: 1, isActive: true }],
+  },
+];
+
+export const FALLBACK_TITLES: Title[] = INITIAL_USER_TITLES;
 
 export const FALLBACK_PEOPLE: any[] = [];
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FALLBACK_HOME: HomeResponse = {
-  featured: [],
-  genres: [],
-  trending: [],
-  newReleases: [],
-  topRated: [],
-  mostSupported: [],
+  featured: INITIAL_USER_TITLES,
+  genres: [
+    {
+      id: 'cat-short-films',
+      name: 'Short Films',
+      slug: 'short-films',
+      sortOrder: 1,
+      isActive: true,
+      titles: INITIAL_USER_TITLES,
+    },
+  ],
+  trending: INITIAL_USER_TITLES,
+  newReleases: INITIAL_USER_TITLES,
+  topRated: INITIAL_USER_TITLES,
+  mostSupported: INITIAL_USER_TITLES,
 };
 
 export const FALLBACK_ADMIN_STATS = {
   stats: {
-    totalTitles: 0,
-    publishedTitles: 0,
+    totalTitles: 4,
+    publishedTitles: 4,
     draftTitles: 0,
     totalPeople: 0,
     totalGenres: 8,
@@ -41,7 +150,7 @@ export const FALLBACK_ADMIN_STATS = {
 
 export const FALLBACK_CREATOR_BREAKDOWN = {
   summary: {
-    totalCreatorsCount: 0,
+    totalCreatorsCount: 1,
     totalGrossRaisedInr: 0,
     totalNetEarningsInr: 0,
     totalPlatformFeeInr: 0,
@@ -63,9 +172,10 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
       ...options,
     });
 
-    if (!response.ok) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || !contentType.includes('application/json')) {
       const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.error?.message || `HTTP error ${response.status}`);
+      throw new Error(errorData?.error?.message || `HTTP error ${response.status} (received ${contentType})`);
     }
 
     const data = await response.json();
