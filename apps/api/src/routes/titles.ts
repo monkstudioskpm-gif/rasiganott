@@ -597,7 +597,10 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
       fundingGoal,
     } = payload;
 
-    if (!title || !description || !kind || !orientation || !posterUrl) {
+    const effectivePosterUrl = posterUrl || payload.verticalPosterUrl || bannerUrl || '';
+    const effectiveDescription = description || title || '';
+
+    if (!title || !kind || !orientation || (!posterUrl && !payload.verticalPosterUrl && !bannerUrl)) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required title fields' } });
       return;
     }
@@ -624,11 +627,11 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
         data: {
           slug,
           title: title.trim(),
-          description: description.trim(),
+          description: effectiveDescription.trim(),
           kind: kind as Kind,
           orientation: orientation as Orientation,
           status: status as Status,
-          posterUrl,
+          posterUrl: effectivePosterUrl,
           bannerUrl: bannerUrl || null,
           videoUrl: videoUrl || null,
           trailerUrl: trailerUrl || null,

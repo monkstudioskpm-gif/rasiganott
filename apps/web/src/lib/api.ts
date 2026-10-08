@@ -210,18 +210,62 @@ export const getCombinedTitles = (): Title[] => {
   });
 };
 
+export const syncLocalTitlesToBackend = async () => {
+  try {
+    const local = getStoredCreatedTitles();
+    if (!local || local.length === 0) return;
+
+    let modified = false;
+    for (const item of local) {
+      if ((item as any)._synced) continue;
+      try {
+        const payload = {
+          title: item.title,
+          description: item.description || item.title,
+          kind: item.kind || 'MOVIE',
+          orientation: item.orientation || 'LANDSCAPE',
+          posterUrl: item.posterUrl || item.verticalPosterUrl || item.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80',
+          bannerUrl: item.bannerUrl,
+          verticalPosterUrl: item.verticalPosterUrl,
+          videoUrl: item.videoUrl,
+          trailerUrl: item.trailerUrl,
+          status: item.status || 'PUBLISHED',
+          year: item.year,
+          creatorName: item.creatorName,
+          tagline: item.tagline,
+          language: item.language,
+          editorRating: item.editorRating,
+          isFeatured: item.isFeatured,
+        };
+        const res = await fetcher<{ title: Title }>('/titles/admin', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        if (res?.title) {
+          (item as any)._synced = true;
+          modified = true;
+        }
+      } catch {}
+    }
+    if (modified) {
+      localStorage.setItem('rasigan_created_titles', JSON.stringify(local));
+    }
+  } catch {}
+};
+
 export const api = {
   getHome: async () => {
+    syncLocalTitlesToBackend().catch(() => {});
     const combined = getCombinedTitles();
     const published = combined.filter((t) => t.status === 'PUBLISHED');
 
     try {
       const res = await fetcher<HomeResponse>('/home');
-      if (res?.trending && res.trending.length > 0) {
+      if (res) {
         const createdPublished = getStoredCreatedTitles().filter((t) => t.status === 'PUBLISHED');
         if (createdPublished.length > 0) {
           const mergedTrendingMap = new Map();
-          [...createdPublished, ...res.trending].forEach((t) => mergedTrendingMap.set(t.id, t));
+          [...createdPublished, ...(res.trending || [])].forEach((t) => mergedTrendingMap.set(t.id, t));
           const finalTrending = Array.from(mergedTrendingMap.values());
 
           const updatedGenres = (res.genres || []).map((cat) => {
@@ -239,7 +283,7 @@ export const api = {
             featured: [...createdPublished.filter((t) => t.isFeatured), ...(res.featured || [])],
             trending: finalTrending,
             newReleases: [...createdPublished, ...(res.newReleases || [])],
-            genres: updatedGenres,
+            genres: updatedGenres.length > 0 ? updatedGenres : res.genres || [],
           };
         }
         return res;
@@ -265,6 +309,7 @@ export const api = {
   getCategories: () => fetcher<{ categories: Category[]; genres: Genre[] }>('/genres'),
 
   getTitles: async (params?: Record<string, string>) => {
+    syncLocalTitlesToBackend().catch(() => {});
     const combined = getCombinedTitles();
     let published = combined.filter((t) => t.status === 'PUBLISHED');
 
@@ -287,7 +332,7 @@ export const api = {
     try {
       const query = new URLSearchParams(params).toString();
       const res = await fetcher<{ titles: Title[]; pagination: { page: number; totalPages: number } }>(`/titles${query ? `?${query}` : ''}`);
-      if (res?.titles && res.titles.length > 0) {
+      if (res?.titles) {
         const createdPublished = getStoredCreatedTitles().filter((t) => t.status === 'PUBLISHED');
         const map = new Map();
         [...createdPublished, ...res.titles].forEach((t) => map.set(t.id, t));
@@ -761,8 +806,17 @@ export const adminApi = {
     const updated = [newTitle, ...existing.filter((t) => t.slug !== slug && t.id !== newTitle.id)];
     localStorage.setItem('rasigan_created_titles', JSON.stringify(updated));
 
+    const effectivePoster = payload.posterUrl || payload.verticalPosterUrl || payload.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80';
+    const effectiveDesc = payload.description || payload.title || 'Indie Content';
+
+    const normalizedPayload = {
+      ...payload,
+      posterUrl: effectivePoster,
+      description: effectiveDesc,
+    };
+
     try {
-      const res = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(payload) });
+      const res = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(normalizedPayload) });
       if (res?.title) return res;
     } catch {}
 
