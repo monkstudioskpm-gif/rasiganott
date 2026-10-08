@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import videojs from 'video.js';
-import type Player from 'video.js/dist/types/player';
 import Hls from 'hls.js';
 
 export interface VideoQuality {
@@ -37,7 +35,6 @@ export function useVideoEngine({
   onError,
 }: UseVideoEngineOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const vjsPlayerRef = useRef<Player | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -53,21 +50,13 @@ export function useVideoEngine({
   const [error, setError] = useState<string | null>(null);
   const isBunnyStream = isBunnyStreamUrl(src);
 
-  // Clean up engines safely
+  // Clean up HLS instance safely on unmount
   const cleanupEngine = useCallback(() => {
-    if (vjsPlayerRef.current) {
-      try {
-        vjsPlayerRef.current.dispose();
-      } catch (e) {
-        console.warn('Video.js dispose cleanup warning:', e);
-      }
-      vjsPlayerRef.current = null;
-    }
     if (hlsRef.current) {
       try {
         hlsRef.current.destroy();
       } catch (e) {
-        console.warn('HLS destroy cleanup warning:', e);
+        console.warn('HLS destroy warning:', e);
       }
       hlsRef.current = null;
     }
@@ -87,7 +76,7 @@ export function useVideoEngine({
         enableWorker: true,
         lowLatencyMode: false,
         capLevelToPlayerSize: true,
-        startLevel: -1, // Auto quality
+        startLevel: -1, // Auto quality selection
         maxBufferLength: 30,
         backBufferLength: 30,
       });
@@ -138,23 +127,6 @@ export function useVideoEngine({
           }
         }
       });
-
-      // Optionally attach Video.js player instance
-      try {
-        const player = videojs(video, {
-          autoplay: autoPlay,
-          controls: false,
-          sources: [
-            {
-              src,
-              type: 'application/x-mpegURL',
-            },
-          ],
-        });
-        vjsPlayerRef.current = player;
-      } catch (err) {
-        console.debug('Video.js attach debug:', err);
-      }
     } else if (video.canPlayType('application/vnd.apple.mpegurl') || isHls) {
       // Native HLS (Safari iOS/macOS)
       video.src = src;
@@ -242,19 +214,11 @@ export function useVideoEngine({
 
   // Controls API
   const play = useCallback(() => {
-    if (vjsPlayerRef.current) {
-      vjsPlayerRef.current.play()?.catch(() => {});
-    } else {
-      videoRef.current?.play().catch((err) => console.warn('Play error:', err));
-    }
+    videoRef.current?.play().catch((err) => console.warn('Play error:', err));
   }, []);
 
   const pause = useCallback(() => {
-    if (vjsPlayerRef.current) {
-      vjsPlayerRef.current.pause();
-    } else {
-      videoRef.current?.pause();
-    }
+    videoRef.current?.pause();
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -309,7 +273,6 @@ export function useVideoEngine({
 
   return {
     videoRef,
-    vjsPlayerRef,
     isPlaying,
     isMuted,
     volume,

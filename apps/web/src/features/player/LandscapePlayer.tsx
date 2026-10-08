@@ -37,7 +37,6 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
     playbackSpeed,
     isBuffering,
     error,
-    isBunnyStream,
     togglePlay,
     seek,
     skip,
@@ -239,21 +238,14 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
       >
         {/* Top Header Bar */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleBackClick}
-              className="flex items-center gap-2 text-white hover:text-sky-400 transition-colors p-2 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-xs sm:text-sm font-bold tracking-tight">{titleName}</span>
-              {subtitleLabel && <span className="text-xs text-gray-400 font-medium">({subtitleLabel})</span>}
-            </button>
-            {isBunnyStream && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-[11px] font-bold backdrop-blur-md shadow-sm">
-                <span>🐰</span> Bunny Stream HLS
-              </span>
-            )}
-          </div>
+          <button
+            onClick={handleBackClick}
+            className="flex items-center gap-2 text-white hover:text-sky-400 transition-colors p-2 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-xs sm:text-sm font-bold tracking-tight">{titleName}</span>
+            {subtitleLabel && <span className="text-xs text-gray-400 font-medium">({subtitleLabel})</span>}
+          </button>
 
           <button
             onClick={handleFullscreenToggle}
