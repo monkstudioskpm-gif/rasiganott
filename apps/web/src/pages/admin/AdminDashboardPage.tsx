@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Film,
   Plus,
@@ -25,6 +25,11 @@ import {
   X,
   Send,
   CreditCard,
+  UserPlus,
+  Clapperboard,
+  Building2,
+  UserCheck,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   adminApi,
@@ -58,8 +63,20 @@ interface PayoutStatementItem {
   titlesCount: number;
 }
 
+interface UserItem {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+  role: string;
+  createdAt?: string;
+}
+
 export function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'catalog' | 'creators' | 'payouts'>('catalog');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
+  const [activeTab, setActiveTab] = useState<'catalog' | 'creators-list' | 'creators' | 'payouts'>('catalog');
 
   const [stats, setStats] = useState<{
     totalTitles: number;
@@ -105,6 +122,22 @@ export function AdminDashboardPage() {
   const [modalDate, setModalDate] = useState<string>('');
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
 
+  // Add Creator / Search Users Modal State
+  const [isAddCreatorOpen, setIsAddCreatorOpen] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [foundUsers, setFoundUsers] = useState<UserItem[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
+  const [creatorStudioName, setCreatorStudioName] = useState('');
+  const [isSubmittingCreator, setIsSubmittingCreator] = useState(false);
+  const [creatorSuccessMsg, setCreatorSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tabParam === 'creators-list' || tabParam === 'creators') {
+      setActiveTab('creators-list');
+    }
+  }, [tabParam]);
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -147,6 +180,75 @@ export function AdminDashboardPage() {
     fetchDashboardData();
   }, []);
 
+  const handleSearchUsers = async (q: string) => {
+    setUserSearchQuery(q);
+    if (!q.trim()) {
+      setFoundUsers([]);
+      return;
+    }
+    try {
+      setSearchingUsers(true);
+      const res = await adminApi.searchUsers(q);
+      if (res?.users) {
+        setFoundUsers(res.users);
+      }
+    } catch (e) {
+      console.error('Failed to search users:', e);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  const handleCreateCreator = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!creatorStudioName.trim()) {
+      alert('Please enter a Creator / Studio Name');
+      return;
+    }
+    try {
+      setIsSubmittingCreator(true);
+      const res = await adminApi.addCreator({
+        creatorName: creatorStudioName.trim(),
+        email: selectedUser?.email || 'creator@rasigan.com',
+        userId: selectedUser?.id,
+      });
+
+      if (res?.success) {
+        const newCreatorItem: CreatorBreakdownItem = {
+          creatorName: creatorStudioName.trim(),
+          titlesCount: 0,
+          grossRaisedInr: 0,
+          netEarningsInr: 0,
+          platformFeeInr: 0,
+          payoutStatus: 'PROCESSING',
+          titles: [],
+        };
+
+        setCreatorsData((prev) => ({
+          summary: {
+            ...prev.summary,
+            totalCreatorsCount: prev.summary.totalCreatorsCount + 1,
+          },
+          creators: [newCreatorItem, ...prev.creators],
+        }));
+
+        setCreatorSuccessMsg(`Successfully assigned "${creatorStudioName.trim()}" as active Creator!`);
+        setTimeout(() => {
+          setCreatorSuccessMsg(null);
+          setIsAddCreatorOpen(false);
+          setSelectedUser(null);
+          setCreatorStudioName('');
+          setUserSearchQuery('');
+        }, 1600);
+      }
+    } catch (err) {
+      console.error('Failed to add creator:', err);
+      alert('Failed to register creator');
+    } finally {
+      setIsSubmittingCreator(false);
+    }
+  };
+
   const handleCopyUtr = (utr: string) => {
     navigator.clipboard.writeText(utr);
     setCopiedUtr(utr);
@@ -156,7 +258,7 @@ export function AdminDashboardPage() {
   const openPayoutModal = (stmt: PayoutStatementItem) => {
     setSelectedPayout(stmt);
     setModalAmount(stmt.netPayableInr);
-    setModalUtr(stmt.paymentUtrNumber.startsWith('UTR9') || stmt.paymentUtrNumber.startsWith('UTR8') ? stmt.paymentUtrNumber : `UTR${Math.floor(100000000000 + Math.random() * 900000000000)}`);
+    setModalUtr(stmt.paymentUtrNumber && stmt.paymentUtrNumber.startsWith('UTR9') || (stmt.paymentUtrNumber && stmt.paymentUtrNumber.startsWith('UTR8')) ? stmt.paymentUtrNumber : `UTR${Math.floor(100000000000 + Math.random() * 900000000000)}`);
     setModalDate(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
   };
 
@@ -176,7 +278,6 @@ export function AdminDashboardPage() {
         paidAt: modalDate.trim(),
       });
 
-      // Update local statement state
       setPayoutsData((prev) =>
         prev.map((s) =>
           s.id === selectedPayout.id
@@ -259,44 +360,59 @@ export function AdminDashboardPage() {
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto px-2 sm:px-4">
       {loading && (
-        <div className="w-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-between animate-pulse">
-          <span>Connecting to Supabase database...</span>
-          <div className="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold px-4 py-2.5 rounded-2xl flex items-center justify-between animate-pulse shadow-lg">
+          <span className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span>Connecting to Supabase PostgreSQL real-time catalog database...</span>
+          </span>
+          <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {error && (
-        <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold px-4 py-2 rounded-xl">
+        <div className="w-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold px-4 py-2.5 rounded-2xl shadow-lg">
           {error}
         </div>
       )}
 
-      {/* Top Header Banner - Clean Minimalist Dark Glassmorphism */}
-      <div className="relative rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950/90 border border-white/10 p-6 md:p-8 backdrop-blur-2xl shadow-2xl overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+      {/* Top Header Banner - Premium Vibrant Obsidian Glassmorphism */}
+      <div className="relative rounded-3xl bg-gradient-to-r from-slate-900 via-[#0E172A] to-[#0A0F1D] border border-cyan-500/25 p-6 md:p-8 backdrop-blur-2xl shadow-2xl shadow-cyan-950/20 overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[11px] font-extrabold uppercase tracking-widest">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Admin Control Center</span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 border border-cyan-400/30 text-cyan-300 text-[11px] font-black uppercase tracking-widest shadow-inner">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Administrative Overview & Command</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
-              Admin Overview & Management
+              Rasigan Admin Dashboard
             </h1>
-            <p className="text-xs md:text-sm text-gray-400 max-w-2xl leading-relaxed">
-              Manage video catalog titles, publish statuses, cast & crew database, and review creator earnings & payouts.
+            <p className="text-xs md:text-sm text-gray-300 max-w-2xl leading-relaxed">
+              Manage video catalog content, publish status, register creators by database search, and settle monthly payouts with UTR numbers.
             </p>
           </div>
 
-          {/* Clean Shortcut Pill Buttons */}
+          {/* Shortcut Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
               to="/admin/titles/new"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-extrabold shadow-lg shadow-sky-500/25 transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-500/30 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>＋ Add Content</span>
             </Link>
+
+            <button
+              onClick={() => {
+                setActiveTab('creators-list');
+                setIsAddCreatorOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-black shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>＋ Add Creator</span>
+            </button>
 
             <Link
               to="/admin/people"
@@ -305,32 +421,24 @@ export function AdminDashboardPage() {
               <Users className="w-3.5 h-3.5 text-indigo-400" />
               <span>Cast & Crew</span>
             </Link>
-
-            <Link
-              to="/admin/genres"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
-            >
-              <Tag className="w-3.5 h-3.5 text-amber-400" />
-              <span>Genres</span>
-            </Link>
           </div>
         </div>
       </div>
 
-      {/* Overview Metrics Cards */}
+      {/* Overview Metrics Cards - Curated Vibrant Theme */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Catalog Titles */}
-        <div className="p-5 rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-xl space-y-3 shadow-lg relative overflow-hidden group hover:border-white/20 transition-all">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider">Catalog Titles</span>
-            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400">
+        {/* Total Catalog Titles (Cyan Theme) */}
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-cyan-500/10 via-slate-900/80 to-slate-950 border border-cyan-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-cyan-400/50 transition-all">
+          <div className="flex items-center justify-between text-cyan-300">
+            <span className="text-[11px] font-black uppercase tracking-wider">Catalog Titles</span>
+            <div className="p-2.5 rounded-2xl bg-cyan-500/20 text-cyan-400 shadow-inner">
               <Film className="w-4 h-4" />
             </div>
           </div>
           <div className="space-y-1">
             <div className="text-3xl font-black text-white">{titles.length || stats.totalTitles}</div>
-            <div className="text-[11px] text-sky-400 font-semibold flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />
+            <div className="text-[11px] text-cyan-400 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
               <span>{stats.publishedTitles} Published</span>
               <span className="text-gray-500">•</span>
               <span className="text-amber-400">{stats.draftTitles} Drafts</span>
@@ -338,11 +446,11 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Total Creator Revenue */}
-        <div className="p-5 rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-xl space-y-3 shadow-lg relative overflow-hidden group hover:border-white/20 transition-all">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider">Gross Support Raised</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+        {/* Total Creator Revenue (Emerald Theme) */}
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-slate-900/80 to-slate-950 border border-emerald-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-emerald-400/50 transition-all">
+          <div className="flex items-center justify-between text-emerald-300">
+            <span className="text-[11px] font-black uppercase tracking-wider">Gross Support Raised</span>
+            <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 shadow-inner">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
@@ -354,28 +462,28 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Creator Net Payouts */}
-        <div className="p-5 rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-xl space-y-3 shadow-lg relative overflow-hidden group hover:border-white/20 transition-all">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider">Creator Net Earnings</span>
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+        {/* Creator Net Payouts (Violet Theme) */}
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-violet-500/10 via-slate-900/80 to-slate-950 border border-violet-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-violet-400/50 transition-all">
+          <div className="flex items-center justify-between text-violet-300">
+            <span className="text-[11px] font-black uppercase tracking-wider">Creator Net Earnings</span>
+            <div className="p-2.5 rounded-2xl bg-violet-500/20 text-violet-300 shadow-inner">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
           <div className="space-y-1">
-            <div className="text-3xl font-black text-indigo-300">
+            <div className="text-3xl font-black text-violet-300">
               ₹{creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-gray-400">Total net payable to creators</div>
           </div>
         </div>
 
-        {/* Active Creators Count */}
-        <div className="p-5 rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-xl space-y-3 shadow-lg relative overflow-hidden group hover:border-white/20 transition-all">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider">Active Creators</span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-              <Users className="w-4 h-4" />
+        {/* Active Creators Count (Amber Theme) */}
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-slate-950 border border-amber-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-amber-400/50 transition-all">
+          <div className="flex items-center justify-between text-amber-300">
+            <span className="text-[11px] font-black uppercase tracking-wider">Active Creators</span>
+            <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 shadow-inner">
+              <Building2 className="w-4 h-4" />
             </div>
           </div>
           <div className="space-y-1">
@@ -387,13 +495,13 @@ export function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Clean Tab Switcher */}
+      {/* Main Tab Switcher - Vibrant Glowing Pills */}
       <div className="flex flex-wrap items-center gap-3 border-b border-white/10 pb-4">
         <button
           onClick={() => setActiveTab('catalog')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
             activeTab === 'catalog'
-              ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30'
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 border border-cyan-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
@@ -405,30 +513,42 @@ export function AdminDashboardPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab('creators')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-2 ${
-            activeTab === 'creators'
-              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+          onClick={() => setActiveTab('creators-list')}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+            activeTab === 'creators-list'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/30 border border-amber-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
-          <Wallet className="w-4 h-4" />
-          <span>Creator Earnings Breakdown</span>
+          <Clapperboard className="w-4 h-4" />
+          <span>Creators & Database Users</span>
           <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
-            {creatorsData.creators.length}
+            {creatorsData.summary.totalCreatorsCount}
           </span>
         </button>
 
         <button
+          onClick={() => setActiveTab('creators')}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+            activeTab === 'creators'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400/40'
+              : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span>Revenue Breakdown</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('payouts')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
             activeTab === 'payouts'
-              ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30'
+              ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <Receipt className="w-4 h-4" />
-          <span>Creator Payout Statements & UTR</span>
+          <span>Payout Statements & UTR</span>
           <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
             {payoutsData.length}
           </span>
@@ -437,11 +557,11 @@ export function AdminDashboardPage() {
 
       {/* TAB 1: Catalog Management Table */}
       {activeTab === 'catalog' && (
-        <div className="rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
+        <div className="rounded-3xl bg-slate-900/80 border border-cyan-500/20 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                <Layers className="w-5 h-5 text-sky-400" />
+                <Layers className="w-5 h-5 text-cyan-400" />
                 <span>All Catalog Content</span>
               </h2>
               <p className="text-xs text-gray-400">
@@ -458,14 +578,14 @@ export function AdminDashboardPage() {
                   placeholder="Search titles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-sky-500 transition-colors"
+                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-cyan-500 transition-colors"
                 />
               </div>
 
               <select
                 value={kindFilter}
                 onChange={(e) => setKindFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs focus:outline-none focus:border-sky-500"
+                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs focus:outline-none focus:border-cyan-500 font-semibold"
               >
                 <option value="ALL">All Kinds</option>
                 <option value="MOVIE">Movies</option>
@@ -476,7 +596,7 @@ export function AdminDashboardPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs focus:outline-none focus:border-sky-500"
+                className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs focus:outline-none focus:border-cyan-500 font-semibold"
               >
                 <option value="ALL">All Statuses</option>
                 <option value="PUBLISHED">Published</option>
@@ -490,7 +610,7 @@ export function AdminDashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-white/10 text-gray-400 uppercase text-[10px] tracking-wider font-extrabold">
+                  <tr className="border-b border-white/10 text-gray-400 uppercase text-[10px] tracking-wider font-black">
                     <th className="py-3 px-4">Title & Details</th>
                     <th className="py-3 px-4">Type</th>
                     <th className="py-3 px-4">Format</th>
@@ -501,7 +621,7 @@ export function AdminDashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredTitles.map((item) => (
-                    <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={item.id} className="hover:bg-white/[0.03] transition-colors">
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <img
@@ -512,7 +632,7 @@ export function AdminDashboardPage() {
                           <div className="space-y-0.5 min-w-0">
                             <Link
                               to={`/title/${item.slug}`}
-                              className="font-extrabold text-white hover:text-sky-400 transition-colors truncate block text-sm"
+                              className="font-black text-white hover:text-cyan-400 transition-colors truncate block text-sm"
                             >
                               {item.title}
                             </Link>
@@ -530,13 +650,13 @@ export function AdminDashboardPage() {
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 font-bold text-[11px]">
+                        <span className="px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-bold text-[11px]">
                           {item.kind === 'MOVIE' ? 'Movie' : item.kind === 'WEB_SERIES' ? 'Web Series' : 'Short Film'}
                         </span>
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 text-gray-300 text-xs">
+                        <div className="flex items-center gap-1.5 text-gray-300 text-xs font-semibold">
                           {item.orientation === 'VERTICAL' ? (
                             <>
                               <Smartphone className="w-3.5 h-3.5 text-purple-400" />
@@ -551,7 +671,7 @@ export function AdminDashboardPage() {
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 whitespace-nowrap text-gray-300 font-medium">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-gray-200 font-bold">
                         {item.creatorName || 'Indie Studio'}
                       </td>
 
@@ -559,7 +679,7 @@ export function AdminDashboardPage() {
                         <button
                           onClick={() => handleTogglePublish(item.id)}
                           disabled={togglingId === item.id}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold transition-all border ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black transition-all border ${
                             item.status === 'PUBLISHED'
                               ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                               : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
@@ -589,12 +709,12 @@ export function AdminDashboardPage() {
                             className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
                             title="View title page"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4 text-cyan-400" />
                           </Link>
 
                           <Link
                             to={`/admin/titles/${item.id}/edit`}
-                            className="p-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition-colors"
+                            className="p-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 transition-colors"
                             title="Edit title"
                           >
                             <Edit3 className="w-4 h-4" />
@@ -619,9 +739,69 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      {/* TAB 2: Creator Earnings Breakdown (Which Creator gets how much) */}
+      {/* TAB 2: Creators & Database User Promotion */}
+      {activeTab === 'creators-list' && (
+        <div className="rounded-3xl bg-slate-900/80 border border-amber-500/30 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <Clapperboard className="w-5 h-5 text-amber-400" />
+                <span>Creators Management & Database User Promotion</span>
+              </h2>
+              <p className="text-xs text-gray-400">
+                View all active creator studios across Rasigan OTT or search database users to assign new creators.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsAddCreatorOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs shadow-lg shadow-amber-500/30 transition-all active:scale-95"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>＋ Add Creator by Searching Users</span>
+            </button>
+          </div>
+
+          {/* Creators Grid / List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {creatorsData.creators.map((c, i) => (
+              <div
+                key={i}
+                className="p-5 rounded-2xl bg-white/[0.03] border border-amber-500/20 flex items-center justify-between gap-4 hover:border-amber-400/40 transition-all shadow-md"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white font-black text-lg shadow-lg">
+                    {c.creatorName.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+                      <span>{c.creatorName}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                        {c.titlesCount} {c.titlesCount === 1 ? 'Title' : 'Titles'}
+                      </span>
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Verified Creator Studio</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-[10px] uppercase font-bold text-gray-400">Net Payable</div>
+                  <div className="text-base font-black text-emerald-400">
+                    ₹{c.netEarningsInr.toLocaleString('en-IN')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Revenue Breakdown */}
       {activeTab === 'creators' && (
-        <div className="rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
+        <div className="rounded-3xl bg-slate-900/80 border border-emerald-500/30 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
@@ -633,14 +813,12 @@ export function AdminDashboardPage() {
               </p>
             </div>
 
-            {/* Summary Tag */}
-            <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-extrabold flex items-center gap-2">
+            <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black flex items-center gap-2 shadow-inner">
               <TrendingUp className="w-4 h-4" />
               <span>Total Net Creator Earnings: ₹{creatorsData.summary.totalNetEarningsInr.toLocaleString('en-IN')}</span>
             </div>
           </div>
 
-          {/* Creators List Cards */}
           <div className="space-y-4">
             {creatorsData.creators.map((creator, idx) => {
               const isExpanded = expandedCreator === creator.creatorName;
@@ -648,9 +826,8 @@ export function AdminDashboardPage() {
               return (
                 <div
                   key={idx}
-                  className="rounded-2xl bg-white/[0.03] border border-white/10 overflow-hidden transition-all duration-200 hover:border-white/20"
+                  className="rounded-2xl bg-white/[0.03] border border-white/10 overflow-hidden transition-all duration-200 hover:border-emerald-500/30"
                 >
-                  {/* Main Row Header */}
                   <div
                     onClick={() => setExpandedCreator(isExpanded ? null : creator.creatorName)}
                     className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-white/[0.02]"
@@ -672,7 +849,6 @@ export function AdminDashboardPage() {
                       </div>
                     </div>
 
-                    {/* Amounts & Expand Arrow */}
                     <div className="flex items-center gap-6">
                       <div className="text-right">
                         <div className="text-xs text-gray-400 uppercase font-bold text-[10px]">Gross Support</div>
@@ -703,9 +879,8 @@ export function AdminDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Expanded Detail View: Per-Title Earnings */}
                   {isExpanded && (
-                    <div className="p-5 border-t border-white/10 bg-slate-950/40 space-y-4">
+                    <div className="p-5 border-t border-white/10 bg-slate-950/60 space-y-4">
                       <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
                         Per-Title Earnings Breakdown for {creator.creatorName}
                       </div>
@@ -750,9 +925,9 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      {/* TAB 3: Creator Payout Statements (Actionable Mark Payout Done + UTR) */}
+      {/* TAB 4: Creator Payout Statements */}
       {activeTab === 'payouts' && (
-        <div className="rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
+        <div className="rounded-3xl bg-slate-900/80 border border-purple-500/30 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
@@ -764,7 +939,6 @@ export function AdminDashboardPage() {
               </p>
             </div>
 
-            {/* Filter by Status */}
             <div className="flex items-center gap-2">
               <select
                 value={payoutStatusFilter}
@@ -778,11 +952,10 @@ export function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Payout Statements Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-gray-400 uppercase text-[10px] tracking-wider font-extrabold">
+                <tr className="border-b border-white/10 text-gray-400 uppercase text-[10px] tracking-wider font-black">
                   <th className="py-3 px-4">Statement # & Creator</th>
                   <th className="py-3 px-4">Payout Cycle</th>
                   <th className="py-3 px-4">Gross Collected</th>
@@ -794,11 +967,10 @@ export function AdminDashboardPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filteredPayouts.map((stmt) => (
-                  <tr key={stmt.id} className="hover:bg-white/[0.02] transition-colors">
-                    {/* Statement # & Creator Name */}
+                  <tr key={stmt.id} className="hover:bg-white/[0.03] transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="space-y-0.5">
-                        <div className="font-extrabold text-white text-sm flex items-center gap-2">
+                        <div className="font-black text-white text-sm flex items-center gap-2">
                           <span>{stmt.creatorName}</span>
                         </div>
                         <div className="text-[11px] text-gray-400 font-mono font-semibold">
@@ -807,7 +979,6 @@ export function AdminDashboardPage() {
                       </div>
                     </td>
 
-                    {/* Cycle & Period */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="space-y-0.5">
                         <div className="font-bold text-gray-200">{stmt.cycle}</div>
@@ -815,38 +986,34 @@ export function AdminDashboardPage() {
                       </div>
                     </td>
 
-                    {/* Gross Collected */}
                     <td className="py-3.5 px-4 whitespace-nowrap text-gray-300 font-bold">
                       ₹{stmt.grossAmountInr.toLocaleString('en-IN')}
                     </td>
 
-                    {/* Net Paid */}
                     <td className="py-3.5 px-4 whitespace-nowrap font-black text-emerald-400 text-sm">
                       ₹{stmt.netPayableInr.toLocaleString('en-IN')}
                     </td>
 
-                    {/* Status Badge */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       {stmt.status === 'COMPLETED' ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-extrabold text-xs">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-black text-xs">
                           <CheckCircle className="w-3.5 h-3.5" />
                           <span>COMPLETED</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 font-extrabold text-xs">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 font-black text-xs">
                           <Clock className="w-3.5 h-3.5" />
                           <span>PROCESSING</span>
                         </span>
                       )}
                     </td>
 
-                    {/* Payment UTR Number */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border ${stmt.status === 'COMPLETED' ? 'text-purple-300 bg-purple-500/10 border-purple-500/20' : 'text-gray-400 bg-white/5 border-white/10'}`}>
                           {stmt.paymentUtrNumber}
                         </span>
-                        {stmt.paymentUtrNumber.startsWith('UTR') && !stmt.paymentUtrNumber.includes('PROCESSING') && (
+                        {stmt.paymentUtrNumber && stmt.paymentUtrNumber.startsWith('UTR') && !stmt.paymentUtrNumber.includes('PROCESSING') && (
                           <button
                             onClick={() => handleCopyUtr(stmt.paymentUtrNumber)}
                             className="p-1 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
@@ -862,12 +1029,11 @@ export function AdminDashboardPage() {
                       </div>
                     </td>
 
-                    {/* Admin Action Button */}
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       {stmt.status !== 'COMPLETED' ? (
                         <button
                           onClick={() => openPayoutModal(stmt)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 transition-all active:scale-95"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs shadow-md shadow-emerald-500/20 transition-all active:scale-95"
                         >
                           <CheckCircle className="w-3.5 h-3.5" />
                           <span>Mark Payout Done</span>
@@ -877,7 +1043,7 @@ export function AdminDashboardPage() {
                           onClick={() => openPayoutModal(stmt)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs border border-white/10 transition-colors"
                         >
-                          <Edit3 className="w-3 h-3 text-sky-400" />
+                          <Edit3 className="w-3 h-3 text-cyan-400" />
                           <span>Update UTR</span>
                         </button>
                       )}
@@ -890,10 +1056,152 @@ export function AdminDashboardPage() {
         </div>
       )}
 
+      {/* Add Creator / Promote User Modal Dialog */}
+      {isAddCreatorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#0F172A] border border-amber-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative">
+            <button
+              onClick={() => setIsAddCreatorOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                <UserPlus className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight">
+                Add Creator & Promote User
+              </h2>
+              <p className="text-xs text-gray-400">
+                Search all registered users in the database by name or email, then assign their Creator Studio name.
+              </p>
+            </div>
+
+            {creatorSuccessMsg && (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>{creatorSuccessMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCreator} className="space-y-5">
+              {/* Step 1: Search Users in Database */}
+              <div className="space-y-2">
+                <label className="text-xs font-extrabold text-gray-300 block">
+                  1. Search Registered Database Users
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Type name or email to search users..."
+                    value={userSearchQuery}
+                    onChange={(e) => handleSearchUsers(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                  {searchingUsers && (
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                  )}
+                </div>
+
+                {/* User Search Results */}
+                {foundUsers.length > 0 && (
+                  <div className="max-h-44 overflow-y-auto rounded-2xl bg-slate-900 border border-white/10 divide-y divide-white/5">
+                    {foundUsers.map((u) => (
+                      <div
+                        key={u.id}
+                        onClick={() => {
+                          setSelectedUser(u);
+                          if (!creatorStudioName) {
+                            setCreatorStudioName(`${u.name}'s Studio`);
+                          }
+                        }}
+                        className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                          selectedUser?.id === u.id ? 'bg-amber-500/20 border-l-4 border-amber-400' : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={u.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'}
+                            alt={u.name}
+                            className="w-8 h-8 rounded-full object-cover bg-slate-800"
+                          />
+                          <div>
+                            <div className="font-extrabold text-white text-xs">{u.name}</div>
+                            <div className="text-[10px] text-gray-400">{u.email}</div>
+                          </div>
+                        </div>
+                        {selectedUser?.id === u.id && (
+                          <CheckCircle className="w-4 h-4 text-amber-400" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected User Indicator */}
+              {selectedUser && (
+                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs">
+                  <span className="text-gray-300">Selected User: <strong className="text-amber-300">{selectedUser.name}</strong> ({selectedUser.email})</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUser(null)}
+                    className="text-[10px] text-rose-400 font-bold hover:underline"
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+
+              {/* Step 2: Creator / Studio Name Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-gray-300 block">
+                  2. Creator / Studio Name <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Madurai Film Works"
+                    value={creatorStudioName}
+                    onChange={(e) => setCreatorStudioName(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-extrabold text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCreatorOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingCreator}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs shadow-lg shadow-amber-500/30 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>{isSubmittingCreator ? 'Saving...' : 'Assign & Save Creator'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Admin Payout Completion Modal Dialog */}
       {selectedPayout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#0F172A] border border-cyan-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative">
             <button
               onClick={() => setSelectedPayout(null)}
               className="absolute top-5 right-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
@@ -902,14 +1210,14 @@ export function AdminDashboardPage() {
             </button>
 
             <div className="space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
                 <CreditCard className="w-6 h-6" />
               </div>
               <h2 className="text-xl font-black text-white tracking-tight">
                 Process Creator Payout
               </h2>
               <p className="text-xs text-gray-400">
-                Mark payout statement <strong className="text-sky-400 font-mono">{selectedPayout.statementNumber}</strong> as completed. Entered details will reflect directly in creator's portal.
+                Mark payout statement <strong className="text-cyan-400 font-mono">{selectedPayout.statementNumber}</strong> as completed. Entered details will reflect directly in creator's portal.
               </p>
             </div>
 
@@ -929,7 +1237,6 @@ export function AdminDashboardPage() {
             </div>
 
             <form onSubmit={handleSavePayout} className="space-y-4">
-              {/* Amount Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-300 block">
                   Net Payout Amount (₹) <span className="text-rose-400">*</span>
@@ -947,7 +1254,6 @@ export function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* UTR / Reference ID Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-300 block">
                   Bank Transaction UTR / Ref Number <span className="text-rose-400">*</span>
@@ -965,7 +1271,6 @@ export function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* Payment Date Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-300 block">
                   Settlement Date <span className="text-rose-400">*</span>
@@ -979,7 +1284,6 @@ export function AdminDashboardPage() {
                 />
               </div>
 
-              {/* Actions */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
                 <button
                   type="button"
@@ -992,7 +1296,7 @@ export function AdminDashboardPage() {
                 <button
                   type="submit"
                   disabled={isSubmittingPayout}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   <span>{isSubmittingPayout ? 'Saving...' : 'Save & Complete Payout'}</span>

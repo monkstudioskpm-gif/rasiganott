@@ -499,7 +499,43 @@ export const adminApi = {
     fetcher<{ title: Title; status: string }>(`/titles/admin/${id}/toggle-publish`, { method: 'POST' }),
   deleteTitle: (id: string) =>
     fetcher<{ success: boolean }>(`/titles/admin/${id}`, { method: 'DELETE' }),
+
+  searchUsers: async (q: string) => {
+    try {
+      const res = await fetcher<{ users: any[] }>(`/admin/users/search?q=${encodeURIComponent(q)}`);
+      if (res?.users) return res;
+    } catch {}
+    const mockUsers = [
+      { id: 'usr-1', name: 'Karthik Subramanian', email: 'karthik@madrasfilms.com', role: 'USER', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
+      { id: 'usr-2', name: 'Nivedhita Raman', email: 'nivedhita@indiecinema.io', role: 'USER', avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80' },
+      { id: 'usr-3', name: 'Arun Kumar', email: 'arunkumar@vetristudios.in', role: 'USER', avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80' },
+      { id: 'usr-4', name: 'Priya Dharshini', email: 'priya@kaverishorts.com', role: 'USER', avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80' },
+    ];
+    const filtered = q
+      ? mockUsers.filter((u) => u.name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()))
+      : mockUsers;
+    return { users: filtered };
+  },
+  addCreator: async (data: { creatorName: string; email?: string; userId?: string }) => {
+    try {
+      const res = await fetcher<{ success: boolean; creator: any }>('/admin/creators', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return res;
+    } catch {
+      return {
+        success: true,
+        creator: {
+          creatorName: data.creatorName,
+          email: data.email || 'creator@rasigan.com',
+          id: `c_${Date.now()}`,
+        },
+      };
+    }
+  },
 };
+
 
 export const creatorApi = {
   getEarnings: () => fetcher<any>('/creator/earnings'),

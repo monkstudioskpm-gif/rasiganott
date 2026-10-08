@@ -217,4 +217,64 @@ router.put('/settings', async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
+// GET /api/admin/users/search?q=
+router.get('/users/search', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const q = ((req.query.q as string) || '').trim();
+    const users = await prisma.user.findMany({
+      where: q
+        ? {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { email: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {},
+      take: 20,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatarUrl: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ users });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/creators
+router.post('/creators', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { creatorName, email } = req.body;
+    if (!creatorName || !creatorName.trim()) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Creator/Studio name is required' } });
+      return;
+    }
+
+    const statementNumber = `STMT-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+    const newPayout = await prisma.creatorPayout.create({
+      data: {
+        creatorName: creatorName.trim(),
+        statementNumber,
+        cycle: `${new Date().toLocaleString('en-US', { month: 'long' })} ${new Date().getFullYear()} (New)`,
+        period: `01 ${new Date().toLocaleString('en-US', { month: 'short' })} ${new Date().getFullYear()} - 30 ${new Date().toLocaleString('en-US', { month: 'short' })} ${new Date().getFullYear()}`,
+        grossEarningsInr: 0,
+        platformFeeInr: 0,
+        netPayableInr: 0,
+        status: 'PROCESSING',
+      },
+    });
+
+    res.status(201).json({ success: true, creator: { creatorName: creatorName.trim(), email: email || 'creator@rasigan.com', id: newPayout.id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
+
