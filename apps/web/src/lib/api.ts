@@ -1,77 +1,98 @@
 import { HomeResponse, Genre, Category, Title } from '@rasigan/shared';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const MUX_HLS = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
 const BBB_MP4 = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
-// Fallback catalog dataset to ensure 100% zero downtime & instant loading
-const FALLBACK_TITLES: Title[] = [
-  {
-    id: 'cmuwlzb04000coh6vvytu7zw5',
-    slug: 'vetri-the-triumph',
-    kind: 'MOVIE',
-    orientation: 'LANDSCAPE',
-    status: 'PUBLISHED',
-    title: 'Vetri: The Triumph',
-    tagline: 'Courage against all odds',
-    description: 'An inspiring Tamil action thriller about an underdog fighting corrupt forces in Madurai.',
-    language: 'Tamil',
-    year: 2024,
-    ageRating: 'U/A',
-    durationMin: 135,
-    editorRating: 9.1,
-    posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80',
-    bannerUrl: 'https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=1600&auto=format&fit=crop&q=80',
-    trailerUrl: MUX_HLS,
-    videoUrl: MUX_HLS,
-    streamType: 'HLS',
-    subtitles: [],
-    audioTracks: [],
-    creatorName: 'Vetri Studios',
-    isFeatured: true,
-    fundingEnabled: true,
-    fundingGoal: 500000,
-    fundingRaised: 0,
-    genres: [{ id: 'cat-1', name: 'Action', slug: 'action', sortOrder: 1, isActive: true }, { id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true }],
-  },
-  {
-    id: 'cmuwlzb0b000doh6vlsidefks',
-    slug: 'night-call-vertical-movie',
-    kind: 'MOVIE',
-    orientation: 'VERTICAL',
-    status: 'PUBLISHED',
-    title: 'Night Call',
-    tagline: 'One phone call. Zero escape.',
-    description: 'An edge-of-your-seat vertical suspense thriller shot entirely for mobile viewports.',
-    language: 'Tamil',
-    year: 2025,
-    ageRating: 'U/A',
-    durationMin: 75,
-    editorRating: 8.9,
-    posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80',
-    bannerUrl: null,
-    trailerUrl: BBB_MP4,
-    videoUrl: BBB_MP4,
-    streamType: 'MP4',
-    subtitles: [],
-    audioTracks: [],
-    creatorName: 'Indie Mobile Cinema',
-    isFeatured: true,
-    fundingEnabled: true,
-    fundingGoal: 200000,
-    fundingRaised: 0,
-    genres: [{ id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true }],
-  },
-];
-
-const FALLBACK_GENRES: Genre[] = [
+export const FALLBACK_GENRES: Genre[] = [
   { id: 'cat-1', name: 'Action', slug: 'action', sortOrder: 1, isActive: true },
   { id: 'cat-2', name: 'Drama', slug: 'drama', sortOrder: 2, isActive: true },
   { id: 'cat-3', name: 'Thriller', slug: 'thriller', sortOrder: 3, isActive: true },
   { id: 'cat-4', name: 'Comedy', slug: 'comedy', sortOrder: 4, isActive: true },
   { id: 'cat-5', name: 'Romance', slug: 'romance', sortOrder: 5, isActive: true },
-  { id: 'cat-6', name: 'Sci-Fi', slug: 'sci-fi', sortOrder: 6, isActive: true },
+  { id: 'cat-6', name: 'Horror', slug: 'horror', sortOrder: 6, isActive: true },
+  { id: 'cat-7', name: 'Crime', slug: 'crime', sortOrder: 7, isActive: true },
+  { id: 'cat-8', name: 'Sci-Fi', slug: 'sci-fi', sortOrder: 8, isActive: true },
+];
+
+const BASE_TITLES = [
+  { name: 'Viking Wolf', tagline: 'Unleash the beast inside', cat: [FALLBACK_GENRES[0], FALLBACK_GENRES[2], FALLBACK_GENRES[5]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
+  { name: 'Kung Fu Panda 4', tagline: 'The Dragon Warrior returns', cat: [FALLBACK_GENRES[0], FALLBACK_GENRES[3]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
+  { name: 'Blade Runner 2049', tagline: 'The key to the future is finally unearthed', cat: [FALLBACK_GENRES[7], FALLBACK_GENRES[2], FALLBACK_GENRES[0]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
+  { name: 'Night Call', tagline: 'One phone call. Zero escape.', cat: [FALLBACK_GENRES[2], FALLBACK_GENRES[6]], kind: 'MOVIE' as const, ori: 'VERTICAL' as const },
+  { name: 'Kaadhal Kavithai', tagline: 'Love written in rain', cat: [FALLBACK_GENRES[4], FALLBACK_GENRES[1]], kind: 'SHORT_FILM' as const, ori: 'LANDSCAPE' as const },
+  { name: 'Filter Coffee', tagline: 'Strong, sweet, and short', cat: [FALLBACK_GENRES[3]], kind: 'SHORT_FILM' as const, ori: 'VERTICAL' as const },
+  { name: 'Chennai Chronicles', tagline: 'City of dreams and shadows', cat: [FALLBACK_GENRES[1], FALLBACK_GENRES[3]], kind: 'WEB_SERIES' as const, ori: 'LANDSCAPE' as const },
+  { name: 'Reels of Madurai', tagline: 'Micro stories from the temple city', cat: [FALLBACK_GENRES[3]], kind: 'WEB_SERIES' as const, ori: 'VERTICAL' as const },
+  { name: 'Cyber Chennai 2099', tagline: 'Neon rain over OMR', cat: [FALLBACK_GENRES[7], FALLBACK_GENRES[0]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
+  { name: 'Ghost of Kodaikanal', tagline: 'Mist hides secrets', cat: [FALLBACK_GENRES[5], FALLBACK_GENRES[2]], kind: 'MOVIE' as const, ori: 'LANDSCAPE' as const },
+];
+
+const POSTERS = [
+  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=600&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=600&auto=format&fit=crop&q=80',
+];
+
+const BANNERS = [
+  'https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=1600&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
+];
+
+export const FALLBACK_TITLES: Title[] = Array.from({ length: 52 }, (_, i) => {
+  const base = BASE_TITLES[i % BASE_TITLES.length];
+  const count = Math.floor(i / BASE_TITLES.length) + 1;
+  const titleName = count > 1 ? `${base.name} vol. ${count}` : base.name;
+  const slug = `${base.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${i + 1}`;
+
+  return {
+    id: `title_fallback_${i + 1}`,
+    slug,
+    kind: base.kind,
+    orientation: base.ori,
+    status: 'PUBLISHED',
+    title: titleName,
+    tagline: base.tagline,
+    description: `${base.name} brings an unmatched cinematic experience with gripping storytelling and immersive visuals.`,
+    language: i % 2 === 0 ? 'Tamil' : 'English',
+    year: 2023 + (i % 3),
+    ageRating: i % 4 === 0 ? 'A' : 'U/A',
+    durationMin: base.kind === 'WEB_SERIES' ? null : 90 + (i * 3) % 60,
+    editorRating: parseFloat((8.0 + (i % 20) * 0.1).toFixed(1)),
+    posterUrl: POSTERS[i % POSTERS.length],
+    bannerUrl: base.ori === 'LANDSCAPE' ? BANNERS[i % BANNERS.length] : null,
+    trailerUrl: MUX_HLS,
+    videoUrl: i % 2 === 0 ? MUX_HLS : BBB_MP4,
+    streamType: 'HLS',
+    subtitles: [],
+    audioTracks: [],
+    creatorName: `Studio ${1 + (i % 7)} Originals`,
+    isFeatured: i < 5,
+    fundingEnabled: true,
+    fundingGoal: 200000 + i * 50000,
+    fundingRaised: 0,
+    genres: base.cat,
+  };
+});
+
+export const FALLBACK_PEOPLE = [
+  { id: 'p1', name: 'Vijay Sethupathi', nameKey: 'vijay sethupathi', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80', bio: 'Acclaimed Indian actor working predominantly in Tamil cinema.', titlesCount: 8, rolesUsed: ['Actor'] },
+  { id: 'p2', name: 'Samantha Ruth Prabhu', nameKey: 'samantha ruth prabhu', photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80', bio: 'Award-winning actress known for powerhouse performances.', titlesCount: 8, rolesUsed: ['Actor'] },
+  { id: 'p3', name: 'Lokesh Kanagaraj', nameKey: 'lokesh kanagaraj', photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80', bio: 'Visionary filmmaker known for high-octane action blockbusters.', titlesCount: 52, rolesUsed: ['DIRECTOR'] },
+  { id: 'p4', name: 'Anirudh Ravichander', nameKey: 'anirudh ravichander', photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&auto=format&fit=crop&q=80', bio: 'Chart-topping music composer and playback singer.', titlesCount: 52, rolesUsed: ['MUSIC_DIRECTOR'] },
+  { id: 'p5', name: 'Suriya Sivakumar', nameKey: 'suriya sivakumar', photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80', bio: 'Versatile actor and film producer.', titlesCount: 8, rolesUsed: ['Actor'] },
+  { id: 'p6', name: 'Fahadh Faasil', nameKey: 'fahadh faasil', photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&auto=format&fit=crop&q=80', bio: 'National award winning actor known for intense role choices.', titlesCount: 8, rolesUsed: ['Actor'] },
+  { id: 'p7', name: 'Trisha Krishnan', nameKey: 'trisha krishnan', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80', bio: 'Leading actress with over two decades in South Indian cinema.', titlesCount: 8, rolesUsed: ['Actor'] },
+  { id: 'p8', name: 'Dhanush K', nameKey: 'dhanush k', photoUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=300&auto=format&fit=crop&q=80', bio: 'Multi-faceted actor, director, lyricist and producer.', titlesCount: 8, rolesUsed: ['Actor'] },
+  { id: 'p9', name: 'Nelson Dilipkumar', nameKey: 'nelson dilipkumar', photoUrl: null, bio: 'Director known for dark comedy action films.', titlesCount: 4, rolesUsed: ['DIRECTOR'] },
+  { id: 'p10', name: 'Santhosh Narayanan', nameKey: 'santhosh narayanan', photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80', bio: null, titlesCount: 4, rolesUsed: ['MUSIC_DIRECTOR'] },
+  { id: 'p11', name: 'Halitha Shameem', nameKey: 'halitha shameem', photoUrl: null, bio: null, titlesCount: 2, rolesUsed: ['DIRECTOR'] },
+  { id: 'p12', name: 'Karthik Subbaraj', nameKey: 'karthik subbaraj', photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=300&auto=format&fit=crop&q=80', bio: 'Pioneer of modern Tamil indie wave cinema.', titlesCount: 4, rolesUsed: ['DIRECTOR'] },
+  { id: 'p13', name: 'Manikandan R', nameKey: 'manikandan r', photoUrl: null, bio: 'Rising star actor and dialogue writer.', titlesCount: 4, rolesUsed: ['Actor'] },
 ];
 
 const FALLBACK_HOME: HomeResponse = {
@@ -86,13 +107,12 @@ const FALLBACK_HOME: HomeResponse = {
   mostSupported: FALLBACK_TITLES,
 };
 
-// Fallback admin stats & creator dataset
 export const FALLBACK_ADMIN_STATS = {
   stats: {
-    totalTitles: 6,
-    publishedTitles: 5,
-    draftTitles: 1,
-    totalPeople: 18,
+    totalTitles: 52,
+    publishedTitles: 52,
+    draftTitles: 0,
+    totalPeople: 13,
     totalGenres: 8,
     totalTags: 20,
     totalFundingRaised: 185000,
@@ -108,48 +128,47 @@ export const FALLBACK_CREATOR_BREAKDOWN = {
   },
   creators: [
     {
-      creatorName: 'Vetri Studios',
-      titlesCount: 3,
+      creatorName: 'Studio 1 Originals',
+      titlesCount: 8,
       grossRaisedInr: 75000,
       netEarningsInr: 45000,
       platformFeeInr: 30000,
       payoutStatus: 'PAID' as const,
       titles: [
-        { id: 'cmuwlzb04000coh6vvytu7zw5', title: 'Vetri: The Triumph', posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
-        { id: 't2-vetri', title: 'Madurai Nights', posterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&auto=format&fit=crop&q=80', kind: 'WEB_SERIES', grossRaisedInr: 25000, netEarningsInr: 15000 },
+        { id: 'title_fallback_1', title: 'Viking Wolf', posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
       ],
     },
     {
       creatorName: 'Indie Mobile Cinema',
-      titlesCount: 2,
+      titlesCount: 8,
       grossRaisedInr: 50000,
       netEarningsInr: 30000,
       platformFeeInr: 20000,
       payoutStatus: 'PAID' as const,
       titles: [
-        { id: 'cmuwlzb0b000doh6vlsidefks', title: 'Night Call', posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
+        { id: 'title_fallback_4', title: 'Night Call', posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
       ],
     },
     {
       creatorName: 'Madras Digital Studio',
-      titlesCount: 2,
+      titlesCount: 8,
       grossRaisedInr: 35000,
       netEarningsInr: 21000,
       platformFeeInr: 14000,
       payoutStatus: 'PROCESSING' as const,
       titles: [
-        { id: 't3-madras', title: 'Chennai Chronicles', posterUrl: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=600&auto=format&fit=crop&q=80', kind: 'WEB_SERIES', grossRaisedInr: 35000, netEarningsInr: 21000 },
+        { id: 'title_fallback_7', title: 'Chennai Chronicles', posterUrl: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=600&auto=format&fit=crop&q=80', kind: 'WEB_SERIES', grossRaisedInr: 35000, netEarningsInr: 21000 },
       ],
     },
     {
       creatorName: 'Kaveri Short Films',
-      titlesCount: 1,
+      titlesCount: 8,
       grossRaisedInr: 25000,
       netEarningsInr: 15000,
       platformFeeInr: 10000,
       payoutStatus: 'PAID' as const,
       titles: [
-        { id: 't4-kaveri', title: 'Kaveri Whispers', posterUrl: 'https://images.unsplash.com/photo-1518676599625-581335e23630?w=600&auto=format&fit=crop&q=80', kind: 'SHORT_FILM', grossRaisedInr: 25000, netEarningsInr: 15000 },
+        { id: 'title_fallback_5', title: 'Kaadhal Kavithai', posterUrl: 'https://images.unsplash.com/photo-1518676599625-581335e23630?w=600&auto=format&fit=crop&q=80', kind: 'SHORT_FILM', grossRaisedInr: 25000, netEarningsInr: 15000 },
       ],
     },
   ],
@@ -160,7 +179,7 @@ export const FALLBACK_PAYOUT_STATEMENTS = {
     {
       id: 'stmt_2026_09_01',
       statementNumber: 'PAY-2026-0901',
-      creatorName: 'Vetri Studios',
+      creatorName: 'Studio 1 Originals',
       cycle: 'September 2026',
       period: '01 Sep 2026 - 30 Sep 2026',
       grossAmountInr: 75000,
@@ -168,7 +187,7 @@ export const FALLBACK_PAYOUT_STATEMENTS = {
       status: 'COMPLETED' as const,
       paymentUtrNumber: 'UTR982341029384',
       paidAt: '01 Oct 2026',
-      titlesCount: 2,
+      titlesCount: 8,
     },
     {
       id: 'stmt_2026_09_02',
@@ -181,7 +200,7 @@ export const FALLBACK_PAYOUT_STATEMENTS = {
       status: 'COMPLETED' as const,
       paymentUtrNumber: 'UTR887120394102',
       paidAt: '01 Oct 2026',
-      titlesCount: 1,
+      titlesCount: 8,
     },
     {
       id: 'stmt_2026_10_01',
@@ -194,7 +213,7 @@ export const FALLBACK_PAYOUT_STATEMENTS = {
       status: 'PROCESSING' as const,
       paymentUtrNumber: 'UTR-PROCESSING-BANK',
       paidAt: 'Expected 01 Nov 2026',
-      titlesCount: 1,
+      titlesCount: 8,
     },
     {
       id: 'stmt_2026_10_02',
@@ -207,7 +226,7 @@ export const FALLBACK_PAYOUT_STATEMENTS = {
       status: 'COMPLETED' as const,
       paymentUtrNumber: 'UTR449102837291',
       paidAt: '05 Oct 2026',
-      titlesCount: 1,
+      titlesCount: 8,
     },
   ],
 };
@@ -234,6 +253,7 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
     return data;
   } catch (error) {
     console.warn(`API call to ${endpoint} failed, utilizing catalog fallback dataset:`, error);
+    if (endpoint.startsWith('/admin/people')) return { people: FALLBACK_PEOPLE, pagination: { page: 1, limit: 24, total: FALLBACK_PEOPLE.length, totalPages: 1 } } as unknown as T;
     if (endpoint === '/home') return FALLBACK_HOME as unknown as T;
     if (endpoint === '/categories' || endpoint === '/genres') return { categories: FALLBACK_GENRES, genres: FALLBACK_GENRES } as unknown as T;
     if (endpoint === '/titles/admin/stats') return FALLBACK_ADMIN_STATS as unknown as T;
@@ -249,6 +269,7 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
     throw error;
   }
 }
+
 
 export const api = {
   getHome: () => fetcher<HomeResponse>('/home'),
