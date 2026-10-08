@@ -37,6 +37,9 @@ import {
   FALLBACK_ADMIN_STATS,
   FALLBACK_CREATOR_BREAKDOWN,
   FALLBACK_PAYOUT_STATEMENTS,
+  getAppearanceSettings,
+  getStoredRankings,
+  AppearanceSettings,
 } from '../../lib/api';
 import { Title } from '@rasigan/shared';
 
@@ -108,8 +111,13 @@ interface TitleAnalytics {
 export function AdminDashboardPage() {
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-
-  const [activeTab, setActiveTab] = useState<'catalog' | 'creators-list' | 'creators' | 'payouts'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'creators-list' | 'creators' | 'payouts' | 'appearance'>('catalog');
+  const [appearanceSubTab, setAppearanceSubTab] = useState<'ranking' | 'featured' | 'sections'>('ranking');
+  const [appearanceSettings, setAppearanceSettings] = useState<AppearanceSettings>(getAppearanceSettings());
+  const [titleRankings, setTitleRankings] = useState<Record<string, number>>(getStoredRankings());
+  const [rankingsKindFilter, setRankingsKindFilter] = useState<'ALL' | 'MOVIE' | 'SHORT_FILM' | 'WEB_SERIES'>('ALL');
+  const [rankingsSearch, setRankingsSearch] = useState('');
+  const [saveStatusMsg, setSaveStatusMsg] = useState<string | null>(null);
 
   const [stats, setStats] = useState<{
     totalTitles: number;
@@ -473,6 +481,14 @@ export function AdminDashboardPage() {
               <Users className="w-4 h-4 text-indigo-400" />
               <span>Cast & Crew</span>
             </Link>
+
+            <button
+              onClick={() => setActiveTab('appearance')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-extrabold shadow-lg shadow-purple-500/30 transition-all active:scale-95"
+            >
+              <Sparkles className="w-4 h-4 text-purple-300" />
+              <span>Appearance & Ranking</span>
+            </button>
           </div>
         </div>
       </div>
@@ -600,6 +616,18 @@ export function AdminDashboardPage() {
           <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
             {payoutsData.length}
           </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('appearance')}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+            activeTab === 'appearance'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/40'
+              : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          <span>Appearance & Ranking</span>
         </button>
       </div>
 
@@ -1108,6 +1136,327 @@ export function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* TAB 5: Appearance & Realtime Ranking Management Studio */}
+      {activeTab === 'appearance' && (
+        <div className="rounded-3xl bg-slate-900/80 border border-purple-500/25 backdrop-blur-2xl p-6 shadow-2xl space-y-6">
+          {/* Studio Header & Sub-Tab Navigation */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <span>Appearance & Realtime Ranking Studio</span>
+              </h2>
+              <p className="text-xs text-gray-400">
+                Control section order, feature pinned titles in top carousels, and manage custom rank ordering across Movies, Short Films, and Web Series in real time.
+              </p>
+            </div>
+
+            {/* Sub-tab Switcher Buttons */}
+            <div className="flex items-center gap-2 p-1 rounded-2xl bg-white/5 border border-white/10">
+              <button
+                type="button"
+                onClick={() => setAppearanceSubTab('ranking')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                  appearanceSubTab === 'ranking' ? 'bg-purple-500 text-white shadow' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                🏆 Title Rankings ({titles.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAppearanceSubTab('featured')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                  appearanceSubTab === 'featured' ? 'bg-purple-500 text-white shadow' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                📌 Featured Hero Pins
+              </button>
+              <button
+                type="button"
+                onClick={() => setAppearanceSubTab('sections')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                  appearanceSubTab === 'sections' ? 'bg-purple-500 text-white shadow' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                🎨 Section Controls
+              </button>
+            </div>
+          </div>
+
+          {/* Realtime Save Notification Toast */}
+          {saveStatusMsg && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{saveStatusMsg}</span>
+            </div>
+          )}
+
+          {/* SUB-TAB 1: Realtime Custom Title Ranking Studio */}
+          {appearanceSubTab === 'ranking' && (
+            <div className="space-y-4">
+              {/* Filters & Search */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {(['ALL', 'MOVIE', 'SHORT_FILM', 'WEB_SERIES'] as const).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setRankingsKindFilter(k)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        rankingsKindFilter === k ? 'bg-purple-500/20 border-purple-400 text-purple-300' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {k === 'ALL' ? 'All' : k === 'MOVIE' ? 'Movies' : k === 'SHORT_FILM' ? 'Short Films' : 'Web Series'}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search title to change rank..."
+                    value={rankingsSearch}
+                    onChange={(e) => setRankingsSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-purple-400"
+                  />
+                </div>
+              </div>
+
+              {/* Ranking List Table */}
+              <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40">
+                <table className="w-full text-left text-xs text-gray-300">
+                  <thead className="bg-white/5 text-gray-400 font-bold uppercase tracking-wider text-[10px] border-b border-white/10">
+                    <tr>
+                      <th className="py-3 px-4">Rank (#)</th>
+                      <th className="py-3 px-4">Title & Poster</th>
+                      <th className="py-3 px-4">Kind</th>
+                      <th className="py-3 px-4">Vertical Banner</th>
+                      <th className="py-3 px-4">Custom Rank Value</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {titles
+                      .filter((t) => rankingsKindFilter === 'ALL' || t.kind === rankingsKindFilter)
+                      .filter((t) => !rankingsSearch || t.title.toLowerCase().includes(rankingsSearch.toLowerCase()))
+                      .map((t, idx, arr) => {
+                        const currentRank = titleRankings[t.id] !== undefined ? titleRankings[t.id] : (t.sortRank ?? idx + 1);
+                        return (
+                          <tr key={t.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="py-3 px-4 font-black text-sm text-purple-400">
+                              #{idx + 1}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={t.verticalPosterUrl || t.posterUrl}
+                                  alt={t.title}
+                                  className="w-10 h-14 object-cover rounded-xl border border-white/10 shadow"
+                                />
+                                <div>
+                                  <span className="font-extrabold text-white block text-sm">{t.title}</span>
+                                  <span className="text-[10px] text-gray-400">{t.language} • {t.year || 2025} • {t.editorRating || '9.0'}★</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <span className="px-2.5 py-1 rounded-lg bg-white/5 text-gray-300 font-bold text-[10px] border border-white/10 uppercase">
+                                {t.kind}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {t.verticalPosterUrl ? (
+                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">
+                                  9:16 Attached
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-mono">
+                                  Fallback Poster
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <input
+                                type="number"
+                                min="1"
+                                max="999"
+                                value={currentRank}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  const updated = { ...titleRankings, [t.id]: val };
+                                  setTitleRankings(updated);
+                                  adminApi.updateTitleRankings(updated);
+                                  setSaveStatusMsg(`Rank for "${t.title}" updated to #${val} in realtime!`);
+                                  setTimeout(() => setSaveStatusMsg(null), 2500);
+                                }}
+                                className="w-20 px-2.5 py-1.5 rounded-xl bg-dark-card border border-purple-400/40 text-white font-mono font-bold text-center text-xs focus:outline-none focus:border-purple-300"
+                              />
+                            </td>
+
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => {
+                                    if (idx === 0) return;
+                                    const prevTitle = arr[idx - 1];
+                                    const newRankings = {
+                                      ...titleRankings,
+                                      [t.id]: idx,
+                                      [prevTitle.id]: idx + 1,
+                                    };
+                                    setTitleRankings(newRankings);
+                                    adminApi.updateTitleRankings(newRankings);
+                                    setSaveStatusMsg(`Moved "${t.title}" up in realtime rank!`);
+                                    setTimeout(() => setSaveStatusMsg(null), 2500);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 font-bold text-xs disabled:opacity-30 border border-white/10"
+                                >
+                                  ▲ Up
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={idx === arr.length - 1}
+                                  onClick={() => {
+                                    if (idx === arr.length - 1) return;
+                                    const nextTitle = arr[idx + 1];
+                                    const newRankings = {
+                                      ...titleRankings,
+                                      [t.id]: idx + 2,
+                                      [nextTitle.id]: idx + 1,
+                                    };
+                                    setTitleRankings(newRankings);
+                                    adminApi.updateTitleRankings(newRankings);
+                                    setSaveStatusMsg(`Moved "${t.title}" down in realtime rank!`);
+                                    setTimeout(() => setSaveStatusMsg(null), 2500);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 font-bold text-xs disabled:opacity-30 border border-white/10"
+                                >
+                                  ▼ Down
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* SUB-TAB 2: Featured Hero Pins & Multi-Selection */}
+          {appearanceSubTab === 'featured' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 flex items-center justify-between">
+                <span><strong>Hero Carousel Pinning:</strong> Select multiple titles to feature in the top hero carousels for Home, Movies, Short Films, and Web Series pages.</span>
+                <span className="px-3 py-1 rounded-xl bg-purple-500/20 border border-purple-400 text-purple-300 font-bold text-xs">
+                  {appearanceSettings.featuredTitleIds?.length || 0} Titles Featured
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {titles.map((t) => {
+                  const isFeat = appearanceSettings.featuredTitleIds?.includes(t.id) || t.isFeatured;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => {
+                        const currentList = appearanceSettings.featuredTitleIds || [];
+                        const updated = isFeat
+                          ? currentList.filter((id) => id !== t.id)
+                          : [...currentList, t.id];
+                        const newSettings = { ...appearanceSettings, featuredTitleIds: updated };
+                        setAppearanceSettings(newSettings);
+                        adminApi.updateAppearanceSettings(newSettings);
+                        setSaveStatusMsg(`Updated top hero carousel pinning for "${t.title}"!`);
+                        setTimeout(() => setSaveStatusMsg(null), 2500);
+                      }}
+                      className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 ${
+                        isFeat
+                          ? 'bg-purple-500/20 border-purple-400 text-white shadow-lg'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                      }`}
+                    >
+                      <img src={t.verticalPosterUrl || t.posterUrl} alt={t.title} className="w-12 h-16 object-cover rounded-xl border border-white/10" />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-extrabold text-xs block text-white truncate">{t.title}</span>
+                        <span className="text-[10px] text-gray-400 uppercase font-bold">{t.kind}</span>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${isFeat ? 'bg-purple-500 text-white border-purple-300' : 'bg-white/5 text-gray-400 border-white/10'}`}>
+                            {isFeat ? '★ Featured in Hero' : 'Unpinned'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* SUB-TAB 3: Page Section Customization */}
+          {appearanceSubTab === 'sections' && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Home Page Section Controls</span>
+                </h3>
+
+                <div className="space-y-2">
+                  {appearanceSettings.homeSections.map((sec, idx) => (
+                    <div key={sec.id} className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="font-mono text-xs text-purple-400 font-bold">#{idx + 1}</span>
+                        <input
+                          type="text"
+                          value={sec.name}
+                          onChange={(e) => {
+                            const updatedSecs = [...appearanceSettings.homeSections];
+                            updatedSecs[idx].name = e.target.value;
+                            const newSettings = { ...appearanceSettings, homeSections: updatedSecs };
+                            setAppearanceSettings(newSettings);
+                            adminApi.updateAppearanceSettings(newSettings);
+                          }}
+                          className="flex-1 px-3 py-1.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs font-semibold focus:outline-none focus:border-purple-400"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedSecs = [...appearanceSettings.homeSections];
+                            updatedSecs[idx].enabled = !updatedSecs[idx].enabled;
+                            const newSettings = { ...appearanceSettings, homeSections: updatedSecs };
+                            setAppearanceSettings(newSettings);
+                            adminApi.updateAppearanceSettings(newSettings);
+                            setSaveStatusMsg(`Section "${sec.name}" visibility updated!`);
+                            setTimeout(() => setSaveStatusMsg(null), 2500);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all ${
+                            sec.enabled ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          }`}
+                        >
+                          {sec.enabled ? 'Enabled' : 'Disabled'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

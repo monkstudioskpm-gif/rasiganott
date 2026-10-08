@@ -275,6 +275,59 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
 }
 
 
+export interface AppearanceSettings {
+  featuredTitleIds: string[];
+  featuredMovieIds: string[];
+  featuredShortFilmIds: string[];
+  featuredWebSeriesIds: string[];
+  homeSections: Array<{ id: string; name: string; enabled: boolean; order: number }>;
+  moviesSections: Array<{ id: string; name: string; enabled: boolean; order: number }>;
+  shortFilmsSections: Array<{ id: string; name: string; enabled: boolean; order: number }>;
+  webSeriesSections: Array<{ id: string; name: string; enabled: boolean; order: number }>;
+}
+
+export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
+  featuredTitleIds: ['title_fallback_1', 'title_fallback_2', 'title_fallback_3'],
+  featuredMovieIds: ['title_fallback_1', 'title_fallback_2'],
+  featuredShortFilmIds: ['title_fallback_5', 'title_fallback_6'],
+  featuredWebSeriesIds: ['title_fallback_7', 'title_fallback_8'],
+  homeSections: [
+    { id: 'hero', name: 'Top Hero Banner Carousel', enabled: true, order: 1 },
+    { id: 'trending', name: 'Popular & Trending Content', enabled: true, order: 2 },
+    { id: 'top10', name: 'Top 10 Ranked Titles', enabled: true, order: 3 },
+    { id: 'genres', name: 'Genre Categories Quick Grid', enabled: true, order: 4 },
+    { id: 'new_releases', name: 'New Releases & Short Films', enabled: true, order: 5 },
+  ],
+  moviesSections: [
+    { id: 'hero', name: 'Featured Movie Spotlight', enabled: true, order: 1 },
+    { id: 'all_movies', name: 'All Movies Catalog', enabled: true, order: 2 },
+    { id: 'top_movies', name: 'Top Rated Movies', enabled: true, order: 3 },
+  ],
+  shortFilmsSections: [
+    { id: 'hero', name: 'Featured Short Films', enabled: true, order: 1 },
+    { id: 'all_shorts', name: 'All Short Films Catalog', enabled: true, order: 2 },
+    { id: 'trending_shorts', name: 'Trending Short Films', enabled: true, order: 3 },
+  ],
+  webSeriesSections: [
+    { id: 'hero', name: 'Featured Web Series Spotlight', enabled: true, order: 1 },
+    { id: 'all_series', name: 'All Web Series Catalog', enabled: true, order: 2 },
+    { id: 'top_series', name: 'Top Bingeable Web Series', enabled: true, order: 3 },
+  ],
+};
+
+export const getAppearanceSettings = (): AppearanceSettings => {
+  try {
+    const stored = localStorage.getItem('rasigan_appearance_settings');
+    return stored ? { ...DEFAULT_APPEARANCE_SETTINGS, ...JSON.parse(stored) } : DEFAULT_APPEARANCE_SETTINGS;
+  } catch {
+    return DEFAULT_APPEARANCE_SETTINGS;
+  }
+};
+
+export const saveAppearanceSettings = (settings: AppearanceSettings): void => {
+  localStorage.setItem('rasigan_appearance_settings', JSON.stringify(settings));
+};
+
 export const getStoredCreatedTitles = (): Title[] => {
   try {
     const stored = localStorage.getItem('rasigan_created_titles');
@@ -284,16 +337,55 @@ export const getStoredCreatedTitles = (): Title[] => {
   }
 };
 
+export const getStoredRankings = (): Record<string, number> => {
+  try {
+    const stored = localStorage.getItem('rasigan_title_rankings');
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveTitleRankings = (rankingsMap: Record<string, number>): void => {
+  localStorage.setItem('rasigan_title_rankings', JSON.stringify(rankingsMap));
+  const created = getStoredCreatedTitles();
+  if (created.length > 0) {
+    const updated = created.map((t) => ({
+      ...t,
+      sortRank: rankingsMap[t.id] !== undefined ? rankingsMap[t.id] : t.sortRank,
+    }));
+    localStorage.setItem('rasigan_created_titles', JSON.stringify(updated));
+  }
+};
+
 export const getCombinedTitles = (): Title[] => {
   const created = getStoredCreatedTitles();
+  const rankings = getStoredRankings();
+  const appearance = getAppearanceSettings();
+  const featuredSet = new Set(appearance.featuredTitleIds || []);
+
   const map = new Map<string, Title>();
-  created.forEach((t) => map.set(t.id, t));
+  created.forEach((t) => {
+    const customRank = rankings[t.id] !== undefined ? rankings[t.id] : t.sortRank;
+    const isFeat = featuredSet.has(t.id) || t.isFeatured;
+    map.set(t.id, { ...t, sortRank: customRank, isFeatured: isFeat });
+  });
+
   FALLBACK_TITLES.forEach((t) => {
     if (!map.has(t.id) && !map.has(t.slug)) {
-      map.set(t.id, t);
+      const customRank = rankings[t.id] !== undefined ? rankings[t.id] : t.sortRank;
+      const isFeat = featuredSet.has(t.id) || t.isFeatured;
+      map.set(t.id, { ...t, sortRank: customRank, isFeatured: isFeat });
     }
   });
-  return Array.from(map.values());
+
+  const list = Array.from(map.values());
+  return list.sort((a, b) => {
+    const rankA = a.sortRank !== undefined ? a.sortRank : 999;
+    const rankB = b.sortRank !== undefined ? b.sortRank : 999;
+    if (rankA !== rankB) return rankA - rankB;
+    return (b.editorRating || 0) - (a.editorRating || 0);
+  });
 };
 
 export const api = {
@@ -769,6 +861,8 @@ export const adminApi = {
       editorRating: Number(payload.editorRating) || 9.0,
       posterUrl: payload.posterUrl,
       bannerUrl: payload.bannerUrl || null,
+      verticalPosterUrl: payload.verticalPosterUrl || null,
+      sortRank: payload.sortRank !== undefined ? Number(payload.sortRank) : 999,
       trailerUrl: payload.trailerUrl || null,
       videoUrl: payload.videoUrl || null,
       streamType: 'HLS',
@@ -810,6 +904,8 @@ export const adminApi = {
         updatedTitle = {
           ...t,
           ...payload,
+          verticalPosterUrl: payload.verticalPosterUrl !== undefined ? payload.verticalPosterUrl : t.verticalPosterUrl,
+          sortRank: payload.sortRank !== undefined ? Number(payload.sortRank) : t.sortRank,
           year: payload.year ? Number(payload.year) : t.year,
           editorRating: payload.editorRating ? Number(payload.editorRating) : t.editorRating,
         };
@@ -828,6 +924,28 @@ export const adminApi = {
     } catch {}
 
     return { title: updatedTitle || { id, ...payload } as any };
+  },
+
+  updateTitleRankings: async (rankingsMap: Record<string, number>) => {
+    saveTitleRankings(rankingsMap);
+    try {
+      await fetcher<{ success: boolean }>('/titles/admin/rankings', {
+        method: 'PUT',
+        body: JSON.stringify({ rankings: rankingsMap }),
+      });
+    } catch {}
+    return { success: true };
+  },
+
+  updateAppearanceSettings: async (settings: AppearanceSettings) => {
+    saveAppearanceSettings(settings);
+    try {
+      await fetcher<{ success: boolean }>('/admin/appearance', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+    } catch {}
+    return { success: true };
   },
 
   togglePublishTitle: async (id: string) => {

@@ -179,6 +179,7 @@ export const TitleSchema = z.object({
 
   posterUrl: z.string().url(),
   bannerUrl: z.string().url().nullable().optional(),
+  verticalPosterUrl: z.string().url().nullable().optional(),
   trailerUrl: z.string().url().nullable().optional(),
 
   videoUrl: z.string().url().nullable().optional(),
@@ -190,6 +191,7 @@ export const TitleSchema = z.object({
   creatorName: z.string().nullable().optional(),
 
   isFeatured: z.boolean().default(false),
+  sortRank: z.number().int().optional(),
   fundingEnabled: z.boolean().default(true),
   fundingGoal: z.number().int().nullable().optional(),
   fundingRaised: z.number().int().nullable().optional(),

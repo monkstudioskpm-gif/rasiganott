@@ -46,6 +46,7 @@ export function AdminContentFormPage() {
   // Artwork & Details
   const [posterUrl, setPosterUrl] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
+  const [verticalPosterUrl, setVerticalPosterUrl] = useState('');
   const [year, setYear] = useState('2025');
   const [language, setLanguage] = useState('Tamil');
   const [ageRating, setAgeRating] = useState('U/A');
@@ -105,6 +106,7 @@ export function AdminContentFormPage() {
       setOrientation(t.orientation as any);
       setPosterUrl(t.posterUrl);
       setBannerUrl(t.bannerUrl || '');
+      setVerticalPosterUrl(t.verticalPosterUrl || '');
       setMovieLink(t.videoUrl || '');
       setTrailerLink(t.trailerUrl || '');
       setTagline(t.tagline || '');
@@ -266,6 +268,7 @@ export function AdminContentFormPage() {
         seasons: kind === 'WEB_SERIES' ? seasons : [],
         posterUrl,
         bannerUrl,
+        verticalPosterUrl,
         year,
         language,
         ageRating,
@@ -300,6 +303,10 @@ export function AdminContentFormPage() {
 
     if (!title.trim()) {
       errors.push('Title Name is required.');
+    }
+
+    if (!verticalPosterUrl.trim()) {
+      errors.push('Vertical Banner URL (9:16) is mandatory and required for all titles.');
     }
 
     if (targetStatus === 'PUBLISHED') {
@@ -831,7 +838,30 @@ export function AdminContentFormPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1">Banner URL (Landscape)</label>
+                <label className="block text-xs font-bold text-sky-300 mb-1 flex items-center justify-between">
+                  <span>Vertical Banner URL (9:16) *</span>
+                  <span className="text-[9px] text-amber-400 uppercase tracking-wider font-extrabold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Mandatory</span>
+                </label>
+                <input
+                  type="url"
+                  value={verticalPosterUrl}
+                  onChange={(e) => setVerticalPosterUrl(e.target.value)}
+                  placeholder="https://... (9:16 aspect ratio vertical banner)"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-sky-400/40 text-white text-xs focus:outline-none focus:border-sky-400 font-mono"
+                />
+                {verticalPosterUrl ? (
+                  <div className="mt-1.5 text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Vertical Banner attached
+                  </div>
+                ) : (
+                  <div className="mt-1.5 text-[10px] text-amber-400/90 font-mono flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Mandatory for all sections
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">Banner URL (Landscape 16:9)</label>
                 <input
                   type="url"
                   value={bannerUrl}
