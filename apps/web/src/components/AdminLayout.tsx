@@ -99,9 +99,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           path: '/admin?tab=appearance',
           icon: Sparkles,
           subItems: [
-            { label: 'Realtime Ranking Studio', path: '/admin?tab=appearance' },
-            { label: 'Featured Hero Pins', path: '/admin?tab=appearance' },
-            { label: 'Section Controls', path: '/admin?tab=appearance' },
+            { label: 'Realtime Ranking Studio', path: '/admin?tab=appearance&sub=ranking' },
+            { label: 'Featured Hero Pins', path: '/admin?tab=appearance&sub=featured' },
+            { label: 'Section Controls', path: '/admin?tab=appearance&sub=sections' },
           ],
         },
       ],

@@ -109,8 +109,10 @@ interface TitleAnalytics {
 }
 
 export function AdminDashboardPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const subParam = searchParams.get('sub');
+
   const [activeTab, setActiveTab] = useState<'catalog' | 'creators-list' | 'creators' | 'payouts' | 'appearance'>('catalog');
   const [appearanceSubTab, setAppearanceSubTab] = useState<'ranking' | 'featured' | 'sections'>('ranking');
   const [appearanceSettings, setAppearanceSettings] = useState<AppearanceSettings>(getAppearanceSettings());
@@ -178,11 +180,23 @@ export function AdminDashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
+  // Listen to URL parameters for tab and sub-tab selection (Sidebar navigation sync)
   useEffect(() => {
-    if (tabParam === 'creators-list' || tabParam === 'creators') {
+    if (tabParam === 'catalog') {
+      setActiveTab('catalog');
+    } else if (tabParam === 'appearance') {
+      setActiveTab('appearance');
+      if (subParam === 'ranking' || subParam === 'featured' || subParam === 'sections') {
+        setAppearanceSubTab(subParam);
+      }
+    } else if (tabParam === 'creators-list') {
       setActiveTab('creators-list');
+    } else if (tabParam === 'creators') {
+      setActiveTab('creators');
+    } else if (tabParam === 'payouts') {
+      setActiveTab('payouts');
     }
-  }, [tabParam]);
+  }, [tabParam, subParam]);
 
   const fetchDashboardData = async () => {
     try {
@@ -1158,7 +1172,10 @@ export function AdminDashboardPage() {
             <div className="flex items-center gap-2 p-1 rounded-2xl bg-white/5 border border-white/10">
               <button
                 type="button"
-                onClick={() => setAppearanceSubTab('ranking')}
+                onClick={() => {
+                  setAppearanceSubTab('ranking');
+                  setSearchParams({ tab: 'appearance', sub: 'ranking' });
+                }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
                   appearanceSubTab === 'ranking' ? 'bg-purple-500 text-white shadow' : 'text-gray-400 hover:text-white'
                 }`}
@@ -1167,7 +1184,10 @@ export function AdminDashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setAppearanceSubTab('featured')}
+                onClick={() => {
+                  setAppearanceSubTab('featured');
+                  setSearchParams({ tab: 'appearance', sub: 'featured' });
+                }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
                   appearanceSubTab === 'featured' ? 'bg-purple-500 text-white shadow' : 'text-gray-400 hover:text-white'
                 }`}
@@ -1176,7 +1196,10 @@ export function AdminDashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setAppearanceSubTab('sections')}
+                onClick={() => {
+                  setAppearanceSubTab('sections');
+                  setSearchParams({ tab: 'appearance', sub: 'sections' });
+                }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
                   appearanceSubTab === 'sections' ? 'bg-purple-500 text-white shadow' : 'text-gray-400 hover:text-white'
                 }`}
