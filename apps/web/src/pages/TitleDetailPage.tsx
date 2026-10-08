@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { api, getPersonInitials } from '../lib/api';
 import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Loader2, Tv } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
@@ -29,7 +29,10 @@ export function TitleDetailPage() {
   });
 
   const title: Title | undefined = data?.title;
-  const recommendedTitles = homeData?.trending || [];
+  // Filter out the current movie from recommended list!
+  const recommendedTitles = (homeData?.trending || []).filter(
+    (item: any) => item.id !== title?.id && item.slug !== title?.slug
+  );
 
   // Check if saved to Watchlist
   useEffect(() => {
@@ -63,18 +66,6 @@ export function TitleDetailPage() {
       setIsSaved(true);
     }
     localStorage.setItem('rasigan_watchlist', JSON.stringify(updated));
-  };
-
-  const castList = title?.cast && title.cast.length > 0 ? title.cast.map((c: any) => c.person?.name || 'Cast Member') : ['Suriya Kumar', 'Nayana Roy', 'Prakash Raj', 'Vijay Sethupathi'];
-
-  const getCastAvatar = (index: number) => {
-    const avatars = [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-    ];
-    return avatars[index % avatars.length];
   };
 
   if (isLoading) {
@@ -247,35 +238,42 @@ export function TitleDetailPage() {
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-normal">{title.description}</p>
           </div>
 
-          {/* Cast Section (Avatar + Name Chips with Bio Popovers - Addendum B3.3) */}
-          {((title?.cast && title.cast.length > 0) || castList.length > 0) && (
+          {/* Cast Section (Avatar + Name Chips with Bio Popovers) */}
+          {title?.cast && title.cast.length > 0 && (
             <div className="space-y-3 pt-2">
               <h3 className="text-base font-bold text-white tracking-tight">Cast</h3>
               <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
-                {(title?.cast && title.cast.length > 0 ? title.cast : castList.map((name: string, idx: number) => ({
-                  personId: `c-${idx}`,
-                  characterName: null,
-                  person: { id: `c-${idx}`, name, photoUrl: getCastAvatar(idx), bio: `${name} plays a major role in this production.` }
-                }))).map((c: any, idx: number) => {
-                  const person = c.person || { name: c.name || `Cast ${idx+1}`, photoUrl: getCastAvatar(idx), bio: null };
+                {title.cast.map((c: any, idx: number) => {
+                  const personObj = typeof c.person === 'object' && c.person ? c.person : null;
+                  const displayName = personObj?.name || c.name || c.personName || 'Cast Member';
+                  const photoUrl = personObj?.photoUrl || c.photoUrl || null;
+                  const charName = c.characterName || null;
+                  const personBio = personObj?.bio || c.bio || `${displayName} plays a key character in this production.`;
+
                   return (
                     <div
                       key={c.personId || idx}
-                      onClick={() => setSelectedPerson(selectedPerson?.id === person.id ? null : person)}
+                      onClick={() =>
+                        setSelectedPerson(
+                          selectedPerson?.id === (c.personId || `c-${idx}`)
+                            ? null
+                            : { id: c.personId || `c-${idx}`, name: displayName, photoUrl, bio: personBio }
+                        )
+                      }
                       className="relative flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 cursor-pointer flex-none transition-all active:scale-95 group"
                     >
                       <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-dark-card flex-none">
-                        {person.photoUrl ? (
-                          <img src={person.photoUrl} alt={person.name} className="w-full h-full object-cover" />
+                        {photoUrl ? (
+                          <img src={photoUrl} alt={displayName} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full bg-sky-900/50 text-sky-300 font-bold text-xs flex items-center justify-center">
-                            {person.name.slice(0, 2).toUpperCase()}
+                          <div className="w-full h-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center border border-sky-400/40 shadow-sm">
+                            {getPersonInitials(displayName)}
                           </div>
                         )}
                       </div>
                       <div className="text-left leading-tight">
-                        <p className="text-xs font-semibold text-white group-hover:text-sky-300">{person.name}</p>
-                        {c.characterName && <p className="text-[10px] text-gray-400">as {c.characterName}</p>}
+                        <p className="text-xs font-semibold text-white group-hover:text-sky-300">{displayName}</p>
+                        {charName && <p className="text-[10px] text-gray-400">as {charName}</p>}
                       </div>
                     </div>
                   );
@@ -296,8 +294,8 @@ export function TitleDetailPage() {
                       {selectedPerson.photoUrl ? (
                         <img src={selectedPerson.photoUrl} alt={selectedPerson.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-sky-800 text-sky-200 font-bold text-sm flex items-center justify-center">
-                          {selectedPerson.name.slice(0, 2).toUpperCase()}
+                        <div className="w-full h-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center border border-sky-400/40 shadow-sm">
+                          {getPersonInitials(selectedPerson.name)}
                         </div>
                       )}
                     </div>
