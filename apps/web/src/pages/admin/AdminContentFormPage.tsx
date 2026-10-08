@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, getPersonInitials } from '../../lib/api';
-import { Check, X, Plus, Trash2, Eye, Loader2, Tv } from 'lucide-react';
+import { Check, X, Plus, Trash2, Eye, Loader2, Tv, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export function AdminContentFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -72,6 +72,16 @@ export function AdminContentFormPage() {
   // Inline Genre Create Modal
   const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
   const [newGenreName, setNewGenreName] = useState('');
+
+  // Submission Status Pop-up Modal State
+  const [submitResult, setSubmitResult] = useState<{
+    isOpen: boolean;
+    status: 'SUCCESS' | 'ERROR';
+    titleSlug?: string;
+    savedId?: string;
+    message?: string;
+    details?: string[];
+  } | null>(null);
 
   // Fetch Genres & Tags
   const { data: genresData } = useQuery({ queryKey: ['admin-genres'], queryFn: adminApi.getGenres });
@@ -281,10 +291,66 @@ export function AdminContentFormPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-titles'] });
       queryClient.invalidateQueries({ queryKey: ['titles'] });
       queryClient.invalidateQueries({ queryKey: ['home'] });
-      navigate('/admin');
     },
-
   });
+
+  // Handle Submit with Pop-up Status Modal & Preserved Content
+  const handleFormSubmit = async (targetStatus: 'DRAFT' | 'PUBLISHED') => {
+    const errors: string[] = [];
+
+    if (!title.trim()) {
+      errors.push('Title Name is required.');
+    }
+
+    if (targetStatus === 'PUBLISHED') {
+      if (!description.trim()) {
+        errors.push('About / Description is required for publishing.');
+      }
+      if (selectedGenreIds.length === 0) {
+        errors.push('At least one Genre must be selected for publishing.');
+      }
+      if (!posterUrl.trim()) {
+        errors.push('Poster Artwork URL is required for publishing.');
+      }
+      if (kind !== 'WEB_SERIES' && !movieLink.trim()) {
+        errors.push('Movie Video Link is required for publishing Movies and Short Films.');
+      }
+    }
+
+    if (errors.length > 0) {
+      setSubmitResult({
+        isOpen: true,
+        status: 'ERROR',
+        message: 'Please complete all required fields before submitting:',
+        details: errors,
+      });
+      return;
+    }
+
+    try {
+      const res = await saveMutation.mutateAsync(targetStatus);
+      const createdTitle = (res as any)?.title || res;
+      const finalSlug = createdTitle?.slug || slug || (title ? title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : 'title');
+      const finalId = createdTitle?.id || id;
+
+      setSubmitResult({
+        isOpen: true,
+        status: 'SUCCESS',
+        titleSlug: finalSlug,
+        savedId: finalId,
+        message: targetStatus === 'PUBLISHED'
+          ? `"${title}" has been successfully published to Rasigan OTT!`
+          : `"${title}" draft has been saved successfully!`,
+      });
+    } catch (err: any) {
+      setSubmitResult({
+        isOpen: true,
+        status: 'ERROR',
+        message: err?.message || 'Failed to save content to database.',
+        details: [err?.message || 'Database error occurred. Please try again.'],
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen pb-32 pt-4 px-2 sm:px-4 max-w-7xl mx-auto space-y-6 text-gray-100">
@@ -844,7 +910,7 @@ export function AdminContentFormPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0b0d15]/95 backdrop-blur-md border-t border-white/15 py-3 px-6 shadow-2xl flex items-center justify-between max-w-7xl mx-auto rounded-t-3xl">
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/admin')}
           className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-gray-300 font-semibold text-xs"
         >
           Cancel
@@ -853,22 +919,110 @@ export function AdminContentFormPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            disabled={saveMutation.isPending || !title}
-            onClick={() => saveMutation.mutate('DRAFT')}
+            disabled={saveMutation.isPending}
+            onClick={() => handleFormSubmit('DRAFT')}
             className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 disabled:opacity-40"
           >
-            Save Draft
+            {saveMutation.isPending ? 'Saving...' : 'Save Draft'}
           </button>
           <button
             type="button"
-            disabled={saveMutation.isPending || !title || !description || selectedGenreIds.length === 0}
-            onClick={() => saveMutation.mutate('PUBLISHED')}
+            disabled={saveMutation.isPending}
+            onClick={() => handleFormSubmit('PUBLISHED')}
             className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/25 disabled:opacity-40 flex items-center gap-2"
           >
             {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Publish Content
           </button>
         </div>
       </div>
+
+      {/* Submission Status Pop-up Modal (Success / Error) */}
+      {submitResult?.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="glass-card max-w-md w-full p-6 sm:p-8 rounded-3xl space-y-6 border border-white/20 shadow-2xl relative overflow-hidden bg-[#0e111c]">
+            {submitResult.status === 'SUCCESS' ? (
+              <>
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <CheckCircle2 className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">Content Saved Successfully!</h2>
+                  <p className="text-xs text-gray-300 max-w-sm">{submitResult.message}</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs">
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>Title:</span>
+                    <strong className="text-white font-bold truncate max-w-[200px]">{title}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>Kind:</span>
+                    <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono text-[10px]">{kind}</span>
+                  </div>
+                  {creatorName && (
+                    <div className="flex justify-between items-center text-gray-400">
+                      <span>Studio:</span>
+                      <span className="text-emerald-400 font-semibold">{creatorName}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetSlug = submitResult.titleSlug || slug;
+                      navigate(`/title/${targetSlug}`);
+                    }}
+                    className="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-all"
+                  >
+                    <Eye className="w-4 h-4" /> View Content
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate('/admin')}
+                    className="w-full py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-gray-200 font-bold text-xs flex items-center justify-center gap-2 border border-white/15 transition-all"
+                  >
+                    <X className="w-4 h-4" /> Close (Admin)
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-rose-500/20 border-2 border-rose-400 text-rose-400 flex items-center justify-center shadow-lg shadow-rose-500/20">
+                    <AlertTriangle className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">Form Validation & Error Status</h2>
+                  <p className="text-xs text-rose-300 font-semibold max-w-sm">{submitResult.message}</p>
+                </div>
+
+                {submitResult.details && submitResult.details.length > 0 && (
+                  <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2 text-xs">
+                    <h4 className="font-bold text-rose-300 text-xs">Required Fields to Complete:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-gray-300 text-[11px]">
+                      {submitResult.details.map((detail, idx) => (
+                        <li key={idx} className="text-rose-200 font-medium">{detail}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSubmitResult(null)}
+                    className="w-full py-3 rounded-2xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 transition-all"
+                  >
+                    Dismiss & Fix Errors (Content Preserved)
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Inline Genre Create Modal */}
       {isGenreModalOpen && (
