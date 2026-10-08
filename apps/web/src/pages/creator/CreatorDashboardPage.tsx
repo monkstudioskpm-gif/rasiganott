@@ -12,9 +12,7 @@ interface SupporterItem {
 }
 
 export function CreatorDashboardPage() {
-  const [selectedAnalyticsTitleId, setSelectedAnalyticsTitleId] = useState<string | null>(null);
   const [selectedAnalyticsData, setSelectedAnalyticsData] = useState<any | null>(null);
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   const { data: summary, isLoading: isLoadingSummary } = useQuery<CreatorEarningsSummaryDto>({
     queryKey: ['creator-earnings'],
@@ -33,16 +31,12 @@ export function CreatorDashboardPage() {
 
   const openAnalytics = async (titleId: string) => {
     try {
-      setSelectedAnalyticsTitleId(titleId);
-      setIsLoadingAnalytics(true);
       const res = await adminApi.getTitleAnalytics(titleId);
       if (res?.analytics) {
         setSelectedAnalyticsData(res.analytics);
       }
     } catch (err) {
       console.error('Failed to load title analytics:', err);
-    } finally {
-      setIsLoadingAnalytics(false);
     }
   };
 

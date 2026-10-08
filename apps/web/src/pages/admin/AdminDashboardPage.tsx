@@ -4,7 +4,6 @@ import {
   Film,
   Plus,
   Users,
-  Tag,
   Wallet,
   Search,
   Eye,
@@ -32,8 +31,6 @@ import {
   ShieldCheck,
   BarChart3,
   Star,
-  Heart,
-  MessageSquare,
 } from 'lucide-react';
 import {
   adminApi,
@@ -170,6 +167,7 @@ export function AdminDashboardPage() {
 
   // YouTube Studio Style Title Analytics State
   const [selectedAnalytics, setSelectedAnalytics] = useState<TitleAnalytics | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   useEffect(() => {
