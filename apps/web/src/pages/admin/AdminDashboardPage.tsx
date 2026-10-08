@@ -717,6 +717,8 @@ export function AdminDashboardPage() {
                 <thead>
                   <tr className="border-b border-white/10 text-gray-400 uppercase text-[10px] tracking-wider font-black">
                     <th className="py-3 px-4">Title & Details</th>
+                    <th className="py-3 px-4">Poster Link</th>
+                    <th className="py-3 px-4">Movie Video Link</th>
                     <th className="py-3 px-4">Type</th>
                     <th className="py-3 px-4">Format</th>
                     <th className="py-3 px-4">Creator</th>
@@ -730,7 +732,7 @@ export function AdminDashboardPage() {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={item.posterUrl}
+                            src={item.posterUrl || item.verticalPosterUrl || item.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80'}
                             alt={item.title}
                             className="w-10 h-14 rounded-xl object-cover bg-slate-800 border border-white/10 flex-shrink-0 shadow-md"
                           />
@@ -752,6 +754,38 @@ export function AdminDashboardPage() {
                             </div>
                           </div>
                         </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {item.posterUrl || item.verticalPosterUrl ? (
+                          <a
+                            href={(item.posterUrl || item.verticalPosterUrl) ?? undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-mono transition-colors max-w-[150px] truncate"
+                            title={(item.posterUrl || item.verticalPosterUrl) ?? undefined}
+                          >
+                            <span className="truncate">{item.posterUrl || item.verticalPosterUrl}</span>
+                          </a>
+                        ) : (
+                          <span className="text-gray-500 italic text-[11px]">No Poster Link</span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {item.videoUrl ? (
+                          <a
+                            href={item.videoUrl ?? undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono transition-colors max-w-[170px] truncate"
+                            title={item.videoUrl ?? undefined}
+                          >
+                            <span className="truncate">{item.videoUrl}</span>
+                          </a>
+                        ) : (
+                          <span className="text-gray-500 italic text-[11px]">No Movie Link</span>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">

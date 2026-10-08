@@ -266,9 +266,9 @@ export function AdminContentFormPage() {
         videoUrl: movieLink,
         trailerUrl: trailerLink,
         seasons: kind === 'WEB_SERIES' ? seasons : [],
-        posterUrl,
+        posterUrl: posterUrl || verticalPosterUrl || bannerUrl,
         bannerUrl,
-        verticalPosterUrl,
+        verticalPosterUrl: verticalPosterUrl || posterUrl,
         year,
         language,
         ageRating,
@@ -305,8 +305,8 @@ export function AdminContentFormPage() {
       errors.push('Title Name is required.');
     }
 
-    if (!verticalPosterUrl.trim()) {
-      errors.push('Vertical Banner URL (9:16) is mandatory and required for all titles.');
+    if (!posterUrl.trim() && !verticalPosterUrl.trim() && !bannerUrl.trim()) {
+      errors.push('At least one image URL (Poster Artwork or Vertical Banner) is required.');
     }
 
     if (targetStatus === 'PUBLISHED') {
@@ -315,9 +315,6 @@ export function AdminContentFormPage() {
       }
       if (selectedGenreIds.length === 0) {
         errors.push('At least one Genre must be selected for publishing.');
-      }
-      if (!posterUrl.trim()) {
-        errors.push('Poster Artwork URL is required for publishing.');
       }
       if (kind !== 'WEB_SERIES' && !movieLink.trim()) {
         errors.push('Movie Video Link is required for publishing Movies and Short Films.');
