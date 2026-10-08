@@ -849,18 +849,24 @@ export const adminApi = {
   },
 
   getTitleById: async (id: string) => {
-    const combined = getCombinedTitles();
-    const foundLocal = combined.find((t) => t.id === id || t.slug === id);
-
     try {
       const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`);
       if (res?.title) return res;
     } catch {}
 
+    const allTitlesRes = await adminApi.getAllTitles().catch(() => ({ titles: [] }));
+    const foundInAll = (allTitlesRes?.titles || []).find((t) => t.id === id || t.slug === id || id.includes(t.slug) || t.slug.includes(id));
+    if (foundInAll) {
+      return { title: foundInAll };
+    }
+
+    const combined = getCombinedTitles();
+    const foundLocal = combined.find((t) => t.id === id || t.slug === id || id.includes(t.slug) || t.slug.includes(id));
     if (foundLocal) {
       return { title: foundLocal };
     }
-    return { title: FALLBACK_TITLES[0] };
+
+    return { title: combined[0] || FALLBACK_TITLES[0] };
   },
 
   createTitle: async (payload: any) => {

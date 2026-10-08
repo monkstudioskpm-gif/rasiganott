@@ -104,11 +104,11 @@ export function AdminContentFormPage() {
       setDescription(t.description);
       setKind(t.kind as any);
       setOrientation(t.orientation as any);
-      setPosterUrl(t.posterUrl);
+      setPosterUrl(t.posterUrl || t.verticalPosterUrl || '');
       setBannerUrl(t.bannerUrl || '');
-      setVerticalPosterUrl(t.verticalPosterUrl || '');
-      setMovieLink(t.videoUrl || '');
-      setTrailerLink(t.trailerUrl || '');
+      setVerticalPosterUrl(t.verticalPosterUrl || t.posterUrl || '');
+      setMovieLink(t.videoUrl || t.trailerUrl || '');
+      setTrailerLink(t.trailerUrl || t.videoUrl || '');
       setTagline(t.tagline || '');
       setYear(t.year?.toString() || '2025');
       setLanguage(t.language || 'Tamil');
