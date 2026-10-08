@@ -540,8 +540,14 @@ router.post('/admin/:id/toggle-publish', async (req: Request, res: Response, nex
 router.get('/admin/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const titleId = (req.params as any).id as string;
-    const title = await prisma.title.findUnique({
-      where: { id: titleId },
+    const title = await prisma.title.findFirst({
+      where: {
+        OR: [
+          { id: titleId },
+          { slug: titleId },
+          { slug: { contains: titleId } },
+        ],
+      },
       include: {
         genres: { include: { genre: true } },
         tags: { include: { tag: true } },
@@ -606,6 +612,47 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
     }
 
     const slugBase = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+    const existingDbTitle = await prisma.title.findFirst({
+      where: {
+        OR: [
+          { title: { equals: title.trim() } },
+          { slug: { startsWith: slugBase } },
+        ],
+      },
+    });
+
+    if (existingDbTitle) {
+      const updatedDbTitle = await prisma.title.update({
+        where: { id: existingDbTitle.id },
+        data: {
+          title: title.trim(),
+          description: effectiveDescription.trim(),
+          kind: kind as Kind,
+          orientation: orientation as Orientation,
+          status: status as Status,
+          posterUrl: effectivePosterUrl || existingDbTitle.posterUrl,
+          bannerUrl: bannerUrl || existingDbTitle.bannerUrl,
+          videoUrl: videoUrl || existingDbTitle.videoUrl,
+          trailerUrl: trailerUrl || existingDbTitle.trailerUrl,
+          streamType: videoUrl ? (videoUrl.includes('.m3u8') ? 'HLS' : 'MP4') : existingDbTitle.streamType,
+          creatorId: creatorId || existingDbTitle.creatorId,
+          creatorName: creatorName || existingDbTitle.creatorName,
+          tagline: tagline || existingDbTitle.tagline,
+          language: language || existingDbTitle.language,
+          year: year ? parseInt(year, 10) : existingDbTitle.year,
+          ageRating: ageRating || existingDbTitle.ageRating,
+          durationMin: durationMin ? parseInt(durationMin, 10) : existingDbTitle.durationMin,
+          editorRating: editorRating ? parseFloat(editorRating) : existingDbTitle.editorRating,
+          isFeatured: isFeatured !== undefined ? Boolean(isFeatured) : existingDbTitle.isFeatured,
+          fundingEnabled: fundingEnabled !== undefined ? Boolean(fundingEnabled) : existingDbTitle.fundingEnabled,
+          fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : existingDbTitle.fundingGoal,
+        },
+      });
+      res.json({ title: formatTitleResponse(updatedDbTitle) });
+      return;
+    }
+
     const slug = `${slugBase}-${Date.now().toString().slice(-4)}`;
 
     // Process Tags: find-or-create by lowercase name
@@ -741,7 +788,14 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
     const titleId = (req.params as any).id as string;
     const payload = req.body;
 
-    const existing = await prisma.title.findUnique({ where: { id: titleId } });
+    const existing = await prisma.title.findFirst({
+      where: {
+        OR: [
+          { id: titleId },
+          { slug: titleId },
+        ],
+      },
+    });
     if (!existing) {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Title not found' } });
       return;

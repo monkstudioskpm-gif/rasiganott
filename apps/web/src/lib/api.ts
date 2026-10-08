@@ -193,13 +193,16 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
     if (endpoint === '/titles/admin/creator-earnings') return FALLBACK_CREATOR_BREAKDOWN as unknown as T;
     if (endpoint === '/admin/payouts') return FALLBACK_PAYOUT_STATEMENTS as unknown as T;
     if (endpoint.startsWith('/titles/')) {
-      const slug = endpoint.replace('/titles/', '');
+      const cleanPath = endpoint.replace('/titles/admin/', '').replace('/titles/', '');
       const combined = getCombinedTitles();
-      const found = combined.find((t) => t.slug === slug || t.id === slug);
+      const found = combined.find((t) => t.id === cleanPath || t.slug === cleanPath || (t.slug && cleanPath.includes(t.slug)) || (t.slug && t.slug.includes(cleanPath)));
       if (found) {
         return { title: found } as unknown as T;
       }
-      return { title: combined[0] || FALLBACK_TITLES[0] } as unknown as T;
+      if (endpoint.includes('/list')) {
+        return { titles: combined, total: combined.length } as unknown as T;
+      }
+      return { title: null } as unknown as T;
     }
     if (endpoint.startsWith('/titles')) return { titles: FALLBACK_TITLES, pagination: { page: 1, totalPages: 1 } } as unknown as T;
     throw error;
@@ -297,22 +300,44 @@ export const getCombinedTitles = (): Title[] => {
   const featuredSet = new Set(appearance.featuredTitleIds || []);
 
   const map = new Map<string, Title>();
-  created.forEach((t) => {
-    const customRank = rankings[t.id] !== undefined ? rankings[t.id] : t.sortRank;
-    const isFeat = featuredSet.has(t.id) || t.isFeatured;
-    map.set(t.id, { ...t, sortRank: customRank, isFeatured: isFeat });
-  });
 
-  FALLBACK_TITLES.forEach((t) => {
-    if (!map.has(t.id) && !map.has(t.slug)) {
-      const customRank = rankings[t.id] !== undefined ? rankings[t.id] : t.sortRank;
-      const isFeat = featuredSet.has(t.id) || t.isFeatured;
-      map.set(t.id, { ...t, sortRank: customRank, isFeatured: isFeat });
+  const processTitle = (t: Title) => {
+    const slugKey = t.slug || t.id || t.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+    const existing = map.get(slugKey) || map.get(t.id);
+
+    const customRank = rankings[t.id] !== undefined ? rankings[t.id] : (rankings[slugKey] !== undefined ? rankings[slugKey] : (existing?.sortRank ?? t.sortRank));
+    const isFeat = featuredSet.has(t.id) || featuredSet.has(slugKey) || t.isFeatured || (existing?.isFeatured ?? false);
+
+    if (!existing) {
+      const item = { ...t, sortRank: customRank, isFeatured: isFeat };
+      map.set(slugKey, item);
+      if (t.id) map.set(t.id, item);
+    } else {
+      const preferNewVideo = t.videoUrl && (t.videoUrl.includes('youtube') || t.videoUrl.includes('vz-3f12b649') || !t.videoUrl.includes('BigBuckBunny'));
+      const preferNewPoster = t.posterUrl && (t.posterUrl.includes('youtube') || t.posterUrl.includes('img.youtube') || !t.posterUrl.includes('unsplash'));
+
+      const merged: Title = {
+        ...existing,
+        ...t,
+        id: t.id || existing.id,
+        posterUrl: (preferNewPoster ? t.posterUrl : existing.posterUrl) || t.posterUrl || existing.posterUrl,
+        videoUrl: (preferNewVideo ? t.videoUrl : existing.videoUrl) || t.videoUrl || existing.videoUrl,
+        verticalPosterUrl: t.verticalPosterUrl || existing.verticalPosterUrl,
+        bannerUrl: t.bannerUrl || existing.bannerUrl,
+        sortRank: customRank,
+        isFeatured: isFeat,
+      };
+      map.set(slugKey, merged);
+      if (merged.id) map.set(merged.id, merged);
+      if (existing.id) map.set(existing.id, merged);
     }
-  });
+  };
 
-  const list = Array.from(map.values());
-  return list.sort((a, b) => {
+  created.forEach(processTitle);
+  FALLBACK_TITLES.forEach(processTitle);
+
+  const uniqueList = Array.from(new Set(map.values()));
+  return uniqueList.sort((a, b) => {
     const rankA = a.sortRank !== undefined ? a.sortRank : 999;
     const rankB = b.sortRank !== undefined ? b.sortRank : 999;
     if (rankA !== rankB) return rankA - rankB;
@@ -835,9 +860,31 @@ export const adminApi = {
       const res = await fetcher<{ titles: Title[]; total: number }>(`/titles/admin/list${qStr ? `?${qStr}` : ''}`);
       if (res?.titles && res.titles.length > 0) {
         const created = getStoredCreatedTitles();
-        const map = new Map();
-        [...created, ...res.titles].forEach((t) => map.set(t.id, t));
-        let merged = Array.from(map.values());
+        const mapBySlug = new Map<string, Title>();
+
+        const addOrMerge = (t: Title) => {
+          const key = t.slug || t.id;
+          const existing = mapBySlug.get(key) || Array.from(mapBySlug.values()).find(item => item.id === t.id || item.slug === t.slug);
+          if (!existing) {
+            mapBySlug.set(key, t);
+          } else {
+            const preferTVideo = t.videoUrl && (t.videoUrl.includes('youtube') || t.videoUrl.includes('vz-3f12b649') || !t.videoUrl.includes('BigBuckBunny'));
+            const preferTPoster = t.posterUrl && (t.posterUrl.includes('youtube') || !t.posterUrl.includes('unsplash'));
+
+            const merged = {
+              ...existing,
+              ...t,
+              posterUrl: preferTPoster ? t.posterUrl : (existing.posterUrl || t.posterUrl),
+              videoUrl: preferTVideo ? t.videoUrl : (existing.videoUrl || t.videoUrl),
+            };
+            mapBySlug.set(existing.slug || existing.id, merged);
+          }
+        };
+
+        created.forEach(addOrMerge);
+        res.titles.forEach(addOrMerge);
+
+        let merged = Array.from(new Set(mapBySlug.values()));
         if (params?.status) merged = merged.filter((t) => t.status === params.status);
         if (params?.kind) merged = merged.filter((t) => t.kind === params.kind);
         if (params?.q) merged = merged.filter((t) => t.title.toLowerCase().includes(params.q!.toLowerCase()));
@@ -849,19 +896,16 @@ export const adminApi = {
   },
 
   getTitleById: async (id: string) => {
+    const combined = getCombinedTitles();
+    const foundLocal = combined.find((t) => t.id === id || t.slug === id || (t.slug && id.includes(t.slug)) || (t.slug && t.slug.includes(id)));
+
     try {
-      const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`);
-      if (res?.title) return res;
+      const res = await fetcher<{ title: Title | null }>(`/titles/admin/${id}`);
+      if (res?.title && (res.title.id === id || res.title.slug === id || (res.title.slug && id.includes(res.title.slug)) || (res.title.slug && res.title.slug.includes(id)))) {
+        return { title: res.title };
+      }
     } catch {}
 
-    const allTitlesRes = await adminApi.getAllTitles().catch(() => ({ titles: [] }));
-    const foundInAll = (allTitlesRes?.titles || []).find((t) => t.id === id || t.slug === id || id.includes(t.slug) || t.slug.includes(id));
-    if (foundInAll) {
-      return { title: foundInAll };
-    }
-
-    const combined = getCombinedTitles();
-    const foundLocal = combined.find((t) => t.id === id || t.slug === id || id.includes(t.slug) || t.slug.includes(id));
     if (foundLocal) {
       return { title: foundLocal };
     }
@@ -958,16 +1002,24 @@ export const adminApi = {
       return t;
     });
 
-    if (updatedTitle) {
-      localStorage.setItem('rasigan_created_titles', JSON.stringify(updatedList));
+    if (!updatedTitle) {
+      const combined = getCombinedTitles();
+      const fallbackMatch = combined.find((t) => t.id === id || t.slug === id);
+      updatedTitle = {
+        ...(fallbackMatch || { id, slug: id, kind: 'MOVIE', orientation: 'LANDSCAPE', status: 'PUBLISHED', title: payload.title || id }),
+        ...payload,
+      };
+      updatedList.unshift(updatedTitle);
     }
+
+    localStorage.setItem('rasigan_created_titles', JSON.stringify(updatedList));
 
     try {
       const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
       if (res?.title) return res;
     } catch {}
 
-    return { title: updatedTitle || { id, ...payload } as any };
+    return { title: updatedTitle };
   },
 
   updateTitleRankings: async (rankingsMap: Record<string, number>) => {
