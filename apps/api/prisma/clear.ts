@@ -17,6 +17,7 @@ async function main() {
   await prisma.season.deleteMany({});
   await prisma.title.deleteMany({});
   await prisma.person.deleteMany({});
+  await prisma.creatorPayout.deleteMany({});
 
   console.log('✓ All database content has been deleted successfully!');
 }

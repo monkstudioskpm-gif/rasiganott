@@ -4,53 +4,7 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 const prisma = new PrismaClient();
 
-// Seed initial payout statements if table is empty
-async function ensureInitialPayouts() {
-  const count = await prisma.creatorPayout.count();
-  if (count === 0) {
-    await prisma.creatorPayout.createMany({
-      data: [
-        {
-          statementNumber: 'STMT-2026-09-01',
-          creatorName: 'Studio 1 Originals',
-          cycle: 'September 2026',
-          period: '01 Sep 2026 - 30 Sep 2026',
-          grossEarningsInr: 75000,
-          platformFeeInr: 30000,
-          netPayableInr: 45000,
-          status: 'COMPLETED',
-          paymentUtrNumber: 'UTR982341029384',
-          paidAt: '01 Oct 2026',
-        },
-        {
-          statementNumber: 'STMT-2026-10-01',
-          creatorName: 'Studio 1 Originals',
-          cycle: 'October 2026 (Current)',
-          period: '01 Oct 2026 - 31 Oct 2026',
-          grossEarningsInr: 30833,
-          platformFeeInr: 12333,
-          netPayableInr: 18500,
-          status: 'PROCESSING',
-          paymentUtrNumber: null,
-          paidAt: null,
-        },
-        {
-          statementNumber: 'STMT-2026-09-02',
-          creatorName: 'Madurai Indie Films',
-          cycle: 'September 2026',
-          period: '01 Sep 2026 - 30 Sep 2026',
-          grossEarningsInr: 60000,
-          platformFeeInr: 24000,
-          netPayableInr: 36000,
-          status: 'COMPLETED',
-          paymentUtrNumber: 'UTR887123901234',
-          paidAt: '02 Oct 2026',
-        },
-      ],
-      skipDuplicates: true,
-    });
-  }
-}
+
 
 // GET /api/admin/genres
 router.get('/genres', async (_req: Request, res: Response, next: NextFunction) => {
@@ -135,7 +89,6 @@ router.delete('/genres/:id', async (req: Request, res: Response, next: NextFunct
 // GET /api/admin/payouts
 router.get('/payouts', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    await ensureInitialPayouts();
     const payouts = await prisma.creatorPayout.findMany({
       orderBy: { createdAt: 'desc' },
     });

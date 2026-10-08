@@ -15,156 +15,42 @@ export const FALLBACK_GENRES: Genre[] = [
 
 export const FALLBACK_TITLES: Title[] = [];
 
-export const FALLBACK_PEOPLE = [
-  { id: 'p1', name: 'Vijay Sethupathi', nameKey: 'vijay sethupathi', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80', bio: 'Acclaimed Indian actor working predominantly in Tamil cinema.', titlesCount: 8, rolesUsed: ['Actor'] },
-  { id: 'p2', name: 'Samantha Ruth Prabhu', nameKey: 'samantha ruth prabhu', photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80', bio: 'Award-winning actress known for powerhouse performances.', titlesCount: 8, rolesUsed: ['Actor'] },
-  { id: 'p3', name: 'Lokesh Kanagaraj', nameKey: 'lokesh kanagaraj', photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80', bio: 'Visionary filmmaker known for high-octane action blockbusters.', titlesCount: 52, rolesUsed: ['DIRECTOR'] },
-  { id: 'p4', name: 'Anirudh Ravichander', nameKey: 'anirudh ravichander', photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&auto=format&fit=crop&q=80', bio: 'Chart-topping music composer and playback singer.', titlesCount: 52, rolesUsed: ['MUSIC_DIRECTOR'] },
-  { id: 'p5', name: 'Suriya Sivakumar', nameKey: 'suriya sivakumar', photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80', bio: 'Versatile actor and film producer.', titlesCount: 8, rolesUsed: ['Actor'] },
-  { id: 'p6', name: 'Fahadh Faasil', nameKey: 'fahadh faasil', photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&auto=format&fit=crop&q=80', bio: 'National award winning actor known for intense role choices.', titlesCount: 8, rolesUsed: ['Actor'] },
-  { id: 'p7', name: 'Trisha Krishnan', nameKey: 'trisha krishnan', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80', bio: 'Leading actress with over two decades in South Indian cinema.', titlesCount: 8, rolesUsed: ['Actor'] },
-  { id: 'p8', name: 'Dhanush K', nameKey: 'dhanush k', photoUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=300&auto=format&fit=crop&q=80', bio: 'Multi-faceted actor, director, lyricist and producer.', titlesCount: 8, rolesUsed: ['Actor'] },
-  { id: 'p9', name: 'Nelson Dilipkumar', nameKey: 'nelson dilipkumar', photoUrl: null, bio: 'Director known for dark comedy action films.', titlesCount: 4, rolesUsed: ['DIRECTOR'] },
-  { id: 'p10', name: 'Santhosh Narayanan', nameKey: 'santhosh narayanan', photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80', bio: null, titlesCount: 4, rolesUsed: ['MUSIC_DIRECTOR'] },
-  { id: 'p11', name: 'Halitha Shameem', nameKey: 'halitha shameem', photoUrl: null, bio: null, titlesCount: 2, rolesUsed: ['DIRECTOR'] },
-  { id: 'p12', name: 'Karthik Subbaraj', nameKey: 'karthik subbaraj', photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=300&auto=format&fit=crop&q=80', bio: 'Pioneer of modern Tamil indie wave cinema.', titlesCount: 4, rolesUsed: ['DIRECTOR'] },
-  { id: 'p13', name: 'Manikandan R', nameKey: 'manikandan r', photoUrl: null, bio: 'Rising star actor and dialogue writer.', titlesCount: 4, rolesUsed: ['Actor'] },
-];
+export const FALLBACK_PEOPLE: any[] = [];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FALLBACK_HOME: HomeResponse = {
-  featured: FALLBACK_TITLES.filter((t) => t.isFeatured),
-  genres: FALLBACK_GENRES.map((cat) => ({
-    ...cat,
-    titles: FALLBACK_TITLES.filter((t) => t.genres?.some((c: any) => c.slug === cat.slug)),
-  })).filter((cat) => cat.titles.length > 0),
-  trending: FALLBACK_TITLES,
-  newReleases: FALLBACK_TITLES,
-  topRated: FALLBACK_TITLES,
-  mostSupported: FALLBACK_TITLES,
+  featured: [],
+  genres: [],
+  trending: [],
+  newReleases: [],
+  topRated: [],
+  mostSupported: [],
 };
 
 export const FALLBACK_ADMIN_STATS = {
   stats: {
-    totalTitles: 52,
-    publishedTitles: 52,
+    totalTitles: 0,
+    publishedTitles: 0,
     draftTitles: 0,
-    totalPeople: 13,
+    totalPeople: 0,
     totalGenres: 8,
-    totalTags: 20,
-    totalFundingRaised: 185000,
+    totalTags: 0,
+    totalFundingRaised: 0,
   },
 };
 
 export const FALLBACK_CREATOR_BREAKDOWN = {
   summary: {
-    totalCreatorsCount: 4,
-    totalGrossRaisedInr: 185000,
-    totalNetEarningsInr: 111000,
-    totalPlatformFeeInr: 74000,
+    totalCreatorsCount: 0,
+    totalGrossRaisedInr: 0,
+    totalNetEarningsInr: 0,
+    totalPlatformFeeInr: 0,
   },
-  creators: [
-    {
-      creatorName: 'Studio 1 Originals',
-      titlesCount: 8,
-      grossRaisedInr: 75000,
-      netEarningsInr: 45000,
-      platformFeeInr: 30000,
-      payoutStatus: 'PAID' as const,
-      titles: [
-        { id: 'title_fallback_1', title: 'Viking Wolf', posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
-      ],
-    },
-    {
-      creatorName: 'Indie Mobile Cinema',
-      titlesCount: 8,
-      grossRaisedInr: 50000,
-      netEarningsInr: 30000,
-      platformFeeInr: 20000,
-      payoutStatus: 'PAID' as const,
-      titles: [
-        { id: 'title_fallback_4', title: 'Night Call', posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80', kind: 'MOVIE', grossRaisedInr: 50000, netEarningsInr: 30000 },
-      ],
-    },
-    {
-      creatorName: 'Madras Digital Studio',
-      titlesCount: 8,
-      grossRaisedInr: 35000,
-      netEarningsInr: 21000,
-      platformFeeInr: 14000,
-      payoutStatus: 'PROCESSING' as const,
-      titles: [
-        { id: 'title_fallback_7', title: 'Chennai Chronicles', posterUrl: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=600&auto=format&fit=crop&q=80', kind: 'WEB_SERIES', grossRaisedInr: 35000, netEarningsInr: 21000 },
-      ],
-    },
-    {
-      creatorName: 'Kaveri Short Films',
-      titlesCount: 8,
-      grossRaisedInr: 25000,
-      netEarningsInr: 15000,
-      platformFeeInr: 10000,
-      payoutStatus: 'PAID' as const,
-      titles: [
-        { id: 'title_fallback_5', title: 'Kaadhal Kavithai', posterUrl: 'https://images.unsplash.com/photo-1518676599625-581335e23630?w=600&auto=format&fit=crop&q=80', kind: 'SHORT_FILM', grossRaisedInr: 25000, netEarningsInr: 15000 },
-      ],
-    },
-  ],
+  creators: [],
 };
 
 export const FALLBACK_PAYOUT_STATEMENTS = {
-  statements: [
-    {
-      id: 'stmt_2026_09_01',
-      statementNumber: 'PAY-2026-0901',
-      creatorName: 'Studio 1 Originals',
-      cycle: 'September 2026',
-      period: '01 Sep 2026 - 30 Sep 2026',
-      grossAmountInr: 75000,
-      netPayableInr: 45000,
-      status: 'COMPLETED' as const,
-      paymentUtrNumber: 'UTR982341029384',
-      paidAt: '01 Oct 2026',
-      titlesCount: 8,
-    },
-    {
-      id: 'stmt_2026_09_02',
-      statementNumber: 'PAY-2026-0902',
-      creatorName: 'Indie Mobile Cinema',
-      cycle: 'September 2026',
-      period: '01 Sep 2026 - 30 Sep 2026',
-      grossAmountInr: 50000,
-      netPayableInr: 30000,
-      status: 'COMPLETED' as const,
-      paymentUtrNumber: 'UTR887120394102',
-      paidAt: '01 Oct 2026',
-      titlesCount: 8,
-    },
-    {
-      id: 'stmt_2026_10_01',
-      statementNumber: 'PAY-2026-1001',
-      creatorName: 'Madras Digital Studio',
-      cycle: 'October 2026',
-      period: '01 Oct 2026 - 31 Oct 2026',
-      grossAmountInr: 35000,
-      netPayableInr: 21000,
-      status: 'PROCESSING' as const,
-      paymentUtrNumber: 'UTR-PROCESSING-BANK',
-      paidAt: 'Expected 01 Nov 2026',
-      titlesCount: 8,
-    },
-    {
-      id: 'stmt_2026_10_02',
-      statementNumber: 'PAY-2026-1002',
-      creatorName: 'Kaveri Short Films',
-      cycle: 'October 2026',
-      period: '01 Oct 2026 - 31 Oct 2026',
-      grossAmountInr: 25000,
-      netPayableInr: 15000,
-      status: 'COMPLETED' as const,
-      paymentUtrNumber: 'UTR449102837291',
-      paidAt: '05 Oct 2026',
-      titlesCount: 8,
-    },
-  ],
+  statements: [],
 };
 
 async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -529,11 +415,50 @@ export const adminApi = {
 
     return { person: newPerson, isDuplicateMatch: false };
   },
-  updatePerson: (id: string, data: { name?: string; photoUrl?: string | null; bio?: string | null }) =>
-    fetcher<{ person: any }>(`/admin/people/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updatePerson: async (id: string, data: { name?: string; photoUrl?: string | null; bio?: string | null }) => {
+    const stored = localStorage.getItem('rasigan_created_people');
+    let list = stored ? JSON.parse(stored) : [];
+    let updatedPerson: any = null;
+    let found = false;
+
+    list = list.map((p: any) => {
+      if (p.id === id) {
+        found = true;
+        updatedPerson = {
+          ...p,
+          name: data.name !== undefined ? data.name.trim() : p.name,
+          photoUrl: data.photoUrl !== undefined ? (data.photoUrl || null) : p.photoUrl,
+          bio: data.bio !== undefined ? (data.bio ? data.bio.slice(0, 300) : null) : p.bio,
+        };
+        return updatedPerson;
+      }
+      return p;
+    });
+
+    if (!found) {
+      updatedPerson = {
+        id,
+        name: data.name ? data.name.trim() : 'Artist Profile',
+        photoUrl: data.photoUrl || null,
+        bio: data.bio || null,
+        titlesCount: 0,
+      };
+      list.unshift(updatedPerson);
+    }
+    localStorage.setItem('rasigan_created_people', JSON.stringify(list));
+
+    try {
+      const res = await fetcher<{ person: any }>(`/admin/people/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      if (res?.person) return res;
+    } catch (err) {
+      console.warn('Backend update person warning:', err);
+    }
+
+    return { person: updatedPerson };
+  },
   deletePerson: (id: string, force = false) =>
     fetcher<{ success: boolean; deletedId?: string }>(`/admin/people/${id}${force ? '?force=true' : ''}`, {
       method: 'DELETE',
