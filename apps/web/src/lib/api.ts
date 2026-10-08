@@ -109,10 +109,10 @@ export interface AppearanceSettings {
 }
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
-  featuredTitleIds: ['title_fallback_1', 'title_fallback_2', 'title_fallback_3'],
-  featuredMovieIds: ['title_fallback_1', 'title_fallback_2'],
-  featuredShortFilmIds: ['title_fallback_5', 'title_fallback_6'],
-  featuredWebSeriesIds: ['title_fallback_7', 'title_fallback_8'],
+  featuredTitleIds: [],
+  featuredMovieIds: [],
+  featuredShortFilmIds: [],
+  featuredWebSeriesIds: [],
   homeSections: [
     { id: 'hero', name: 'Top Hero Banner Carousel', enabled: true, order: 1 },
     { id: 'trending', name: 'Popular & Trending Content', enabled: true, order: 2 },
