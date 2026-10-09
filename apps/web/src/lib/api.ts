@@ -293,8 +293,27 @@ export const saveTitleRankings = (rankingsMap: Record<string, number>): void => 
   }
 };
 
+export const getStoredDeletedTitleIds = (): string[] => {
+  try {
+    const stored = localStorage.getItem('rasigan_deleted_title_ids');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveDeletedTitleId = (idOrSlug: string): void => {
+  try {
+    const existing = getStoredDeletedTitleIds();
+    if (!existing.includes(idOrSlug)) {
+      localStorage.setItem('rasigan_deleted_title_ids', JSON.stringify([...existing, idOrSlug]));
+    }
+  } catch {}
+};
+
 export const getCombinedTitles = (): Title[] => {
   const created = getStoredCreatedTitles();
+  const deletedIds = new Set(getStoredDeletedTitleIds());
   const rankings = getStoredRankings();
   const appearance = getAppearanceSettings();
   const featuredSet = new Set(appearance.featuredTitleIds || []);
@@ -303,6 +322,9 @@ export const getCombinedTitles = (): Title[] => {
 
   const processTitle = (t: Title) => {
     const slugKey = t.slug || t.id || t.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+    if (deletedIds.has(t.id) || deletedIds.has(slugKey) || (t.slug && deletedIds.has(t.slug))) {
+      return;
+    }
     const existing = map.get(slugKey) || map.get(t.id);
 
     const customRank = rankings[t.id] !== undefined ? rankings[t.id] : (rankings[slugKey] !== undefined ? rankings[slugKey] : (existing?.sortRank ?? t.sortRank));
@@ -1014,9 +1036,23 @@ export const adminApi = {
 
     localStorage.setItem('rasigan_created_titles', JSON.stringify(updatedList));
 
+    const effectivePoster = payload.posterUrl || payload.verticalPosterUrl || payload.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80';
+    const effectiveDesc = payload.description || payload.title || 'Indie Content';
+
+    const normalizedPayload = {
+      ...payload,
+      posterUrl: effectivePoster,
+      description: effectiveDesc,
+    };
+
     try {
-      const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+      const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(normalizedPayload) });
       if (res?.title) return res;
+    } catch {}
+
+    try {
+      const resPost = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(normalizedPayload) });
+      if (resPost?.title) return resPost;
     } catch {}
 
     return { title: updatedTitle };
@@ -1065,12 +1101,25 @@ export const adminApi = {
   },
 
   deleteTitle: async (id: string) => {
+    saveDeletedTitleId(id);
+    const combined = getCombinedTitles();
+    const targetTitle = combined.find((t) => t.id === id || t.slug === id || (t.slug && id.includes(t.slug)));
+    if (targetTitle?.slug) {
+      saveDeletedTitleId(targetTitle.slug);
+    }
+    if (targetTitle?.id) {
+      saveDeletedTitleId(targetTitle.id);
+    }
+
     const existing = getStoredCreatedTitles();
-    const updated = existing.filter((t) => t.id !== id && t.slug !== id);
+    const updated = existing.filter((t) => t.id !== id && t.slug !== id && (targetTitle?.slug ? t.slug !== targetTitle.slug : true));
     localStorage.setItem('rasigan_created_titles', JSON.stringify(updated));
 
     try {
-      await fetcher<{ success: boolean }>(`/titles/admin/${id}`, { method: 'DELETE' });
+      await fetcher<{ success: boolean }>(`/titles/admin/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (targetTitle?.slug && targetTitle.slug !== id) {
+        await fetcher<{ success: boolean }>(`/titles/admin/${encodeURIComponent(targetTitle.slug)}`, { method: 'DELETE' }).catch(() => {});
+      }
     } catch {}
 
     return { success: true };

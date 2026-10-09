@@ -980,9 +980,53 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
 // DELETE /api/admin/titles/:id
 router.delete('/admin/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const titleId = (req.params as any).id as string;
-    await prisma.title.delete({ where: { id: titleId } });
-    res.json({ success: true, id: titleId });
+    const rawId = (req.params as any).id as string;
+    const titleId = decodeURIComponent(rawId);
+
+    const matchingTitles = await prisma.title.findMany({
+      where: {
+        OR: [
+          { id: titleId },
+          { slug: titleId },
+          { slug: { contains: titleId } },
+          { title: { equals: titleId } },
+        ],
+      },
+    });
+
+    if (matchingTitles.length === 0) {
+      const slugBase = titleId.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+      if (slugBase) {
+        const bySlugBase = await prisma.title.findMany({
+          where: {
+            slug: { startsWith: slugBase },
+          },
+        });
+        matchingTitles.push(...bySlugBase);
+      }
+    }
+
+    for (const t of matchingTitles) {
+      const targetId = t.id;
+      await prisma.titleCast.deleteMany({ where: { titleId: targetId } });
+      await prisma.titleCrew.deleteMany({ where: { titleId: targetId } });
+      await prisma.titleGenre.deleteMany({ where: { titleId: targetId } });
+      await prisma.titleTag.deleteMany({ where: { titleId: targetId } });
+      await prisma.watchlistItem.deleteMany({ where: { titleId: targetId } });
+      await prisma.reaction.deleteMany({ where: { titleId: targetId } });
+      await prisma.watchProgress.deleteMany({ where: { titleId: targetId } });
+      await prisma.funding.deleteMany({ where: { titleId: targetId } });
+
+      const seasons = await prisma.season.findMany({ where: { titleId: targetId } });
+      for (const s of seasons) {
+        await prisma.episode.deleteMany({ where: { seasonId: s.id } });
+      }
+      await prisma.season.deleteMany({ where: { titleId: targetId } });
+
+      await prisma.title.delete({ where: { id: targetId } });
+    }
+
+    res.json({ success: true, deletedCount: matchingTitles.length, id: titleId });
   } catch (err) {
     next(err);
   }

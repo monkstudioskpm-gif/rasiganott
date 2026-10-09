@@ -404,10 +404,11 @@ export function AdminDashboardPage() {
     try {
       setDeletingId(id);
       await adminApi.deleteTitle(id);
-      setTitles((prev) => prev.filter((t) => t.id !== id));
+      setTitles((prev) => prev.filter((t) => t.id !== id && t.slug !== id));
       if (stats) {
-        setStats({ ...stats, totalTitles: stats.totalTitles - 1 });
+        setStats({ ...stats, totalTitles: Math.max(0, stats.totalTitles - 1) });
       }
+      fetchDashboardData().catch(() => {});
     } catch (err: unknown) {
       console.error('Failed to delete title:', err);
       alert('Failed to delete title.');
