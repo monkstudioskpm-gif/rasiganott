@@ -49,7 +49,7 @@ export function AdminPeoplePage() {
   // Delete Prompt Modal State
   const [deletePrompt, setDeletePrompt] = useState<{ person: PersonItem; count: number } | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-people', search, filter, sort, page],
     queryFn: () => adminApi.getPeople({ q: search, filter, sort, page, limit: 24 }),
   });
@@ -241,7 +241,21 @@ export function AdminPeoplePage() {
       {isLoading ? (
         <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-          <p className="text-xs text-gray-400">Loading people dataset...</p>
+          <p className="text-xs text-gray-400">Loading people dataset from Supabase...</p>
+        </div>
+      ) : isError ? (
+        <div className="glass-card p-8 rounded-2xl text-center space-y-3 border border-rose-500/30 bg-rose-500/10">
+          <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />
+          <h3 className="text-base font-bold text-white">Database API Connection Error</h3>
+          <p className="text-xs text-rose-300 max-w-md mx-auto font-medium">
+            {(error as Error)?.message || 'Failed to communicate with Supabase PostgreSQL database via Express API.'}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-500/20"
+          >
+            Retry Database Query
+          </button>
         </div>
       ) : people.length === 0 ? (
         <div className="glass-card p-8 rounded-2xl text-center space-y-3">
