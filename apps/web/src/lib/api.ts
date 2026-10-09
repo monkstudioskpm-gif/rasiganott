@@ -483,80 +483,33 @@ export const adminApi = {
 
   createPerson: async (data: { name: string; photoUrl?: string | null; bio?: string | null; allowDuplicate?: boolean }) => {
     const trimmedName = data.name.trim();
-
-    try {
-      const res = await fetcher<{ person: any; isDuplicateMatch?: boolean }>('/admin/people', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      if (res?.person) {
-        const stored = localStorage.getItem('rasigan_created_people');
-        const existingList = stored ? JSON.parse(stored) : [];
-        const updatedList = [res.person, ...existingList.filter((p: any) => p.id !== res.person.id && p.name.toLowerCase() !== trimmedName.toLowerCase())];
-        localStorage.setItem('rasigan_created_people', JSON.stringify(updatedList));
-        return res;
-      }
-    } catch {}
-
-    const newPerson = {
-      id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      name: trimmedName,
-      nameKey: trimmedName.toLowerCase(),
-      photoUrl: data.photoUrl || null,
-      bio: data.bio || null,
-      titlesCount: 0,
-    };
-    const stored = localStorage.getItem('rasigan_created_people');
-    const existingList = stored ? JSON.parse(stored) : [];
-    const updatedList = [newPerson, ...existingList.filter((p: any) => p.name.toLowerCase() !== trimmedName.toLowerCase())];
-    localStorage.setItem('rasigan_created_people', JSON.stringify(updatedList));
-
-    return { person: newPerson, isDuplicateMatch: false };
-  },
-  updatePerson: async (id: string, data: { name?: string; photoUrl?: string | null; bio?: string | null }) => {
-    const stored = localStorage.getItem('rasigan_created_people');
-    let list = stored ? JSON.parse(stored) : [];
-    let updatedPerson: any = null;
-    let found = false;
-
-    list = list.map((p: any) => {
-      if (p.id === id) {
-        found = true;
-        updatedPerson = {
-          ...p,
-          name: data.name !== undefined ? data.name.trim() : p.name,
-          photoUrl: data.photoUrl !== undefined ? (data.photoUrl || null) : p.photoUrl,
-          bio: data.bio !== undefined ? (data.bio ? data.bio.slice(0, 300) : null) : p.bio,
-        };
-        return updatedPerson;
-      }
-      return p;
+    const res = await fetcher<{ person: any; isDuplicateMatch?: boolean }>('/admin/people', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
-
-    if (!found) {
-      updatedPerson = {
-        id,
-        name: data.name ? data.name.trim() : 'Artist Profile',
-        photoUrl: data.photoUrl || null,
-        bio: data.bio || null,
-        titlesCount: 0,
-      };
-      list.unshift(updatedPerson);
+    if (res?.person) {
+      const stored = localStorage.getItem('rasigan_created_people');
+      const existingList = stored ? JSON.parse(stored) : [];
+      const updatedList = [res.person, ...existingList.filter((p: any) => p.id !== res.person.id && p.name.toLowerCase() !== trimmedName.toLowerCase())];
+      localStorage.setItem('rasigan_created_people', JSON.stringify(updatedList));
     }
-    localStorage.setItem('rasigan_created_people', JSON.stringify(list));
-
-    try {
-      const res = await fetcher<{ person: any }>(`/admin/people/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-      if (res?.person) return res;
-    } catch (err) {
-      console.warn('Backend update person warning:', err);
-    }
-
-    return { person: updatedPerson };
+    return res;
   },
+
+  updatePerson: async (id: string, data: { name?: string; photoUrl?: string | null; bio?: string | null }) => {
+    const res = await fetcher<{ person: any }>(`/admin/people/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    if (res?.person) {
+      const stored = localStorage.getItem('rasigan_created_people');
+      let list = stored ? JSON.parse(stored) : [];
+      list = list.map((p: any) => (p.id === id ? { ...p, ...res.person } : p));
+      localStorage.setItem('rasigan_created_people', JSON.stringify(list));
+    }
+    return res;
+  },
+
   deletePerson: (id: string, force = false) =>
     fetcher<{ success: boolean; deletedId?: string }>(`/admin/people/${id}${force ? '?force=true' : ''}`, {
       method: 'DELETE',
@@ -582,53 +535,32 @@ export const adminApi = {
     }
     return { genres: FALLBACK_GENRES };
   },
+
   createGenre: async (data: { name: string; sortOrder?: number }) => {
-    const slug = data.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const newGenre = {
-      id: `g_${Date.now()}`,
-      name: data.name.trim(),
-      slug,
-      sortOrder: data.sortOrder || 0,
-      isActive: true,
-    };
-    const stored = localStorage.getItem('rasigan_genres');
-    let currentList = stored ? JSON.parse(stored) : [...FALLBACK_GENRES];
-    currentList = [newGenre, ...currentList.filter((g: any) => g.slug !== slug)];
-    localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
-
-    try {
-      const res = await fetcher<{ genre: any }>('/admin/genres', { method: 'POST', body: JSON.stringify(data) });
-      return res;
-    } catch {
-      return { genre: newGenre };
+    const res = await fetcher<{ genre: any }>('/admin/genres', { method: 'POST', body: JSON.stringify(data) });
+    if (res?.genre) {
+      const stored = localStorage.getItem('rasigan_genres');
+      let currentList = stored ? JSON.parse(stored) : [...FALLBACK_GENRES];
+      currentList = [res.genre, ...currentList.filter((g: any) => g.id !== res.genre.id && g.slug !== res.genre.slug)];
+      localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
     }
+    return res;
   },
+
   updateGenre: async (id: string, data: { name?: string; sortOrder?: number; isActive?: boolean }) => {
-    const stored = localStorage.getItem('rasigan_genres');
-    let currentList = stored ? JSON.parse(stored) : [...FALLBACK_GENRES];
-    currentList = currentList.map((g: any) => {
-      if (g.id === id || g.slug === id) {
-        return {
-          ...g,
-          name: data.name ? data.name.trim() : g.name,
-          slug: data.name ? data.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : g.slug,
-          sortOrder: data.sortOrder !== undefined ? data.sortOrder : g.sortOrder,
-          isActive: data.isActive !== undefined ? data.isActive : g.isActive,
-        };
+    const res = await fetcher<{ genre: any }>(`/admin/genres/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    if (res?.genre) {
+      const stored = localStorage.getItem('rasigan_genres');
+      if (stored) {
+        const currentList = JSON.parse(stored).map((g: any) => (g.id === id || g.slug === id ? { ...g, ...res.genre } : g));
+        localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
       }
-      return g;
-    });
-    localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
-
-    try {
-      const res = await fetcher<{ genre: any }>(`/admin/genres/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-      return res;
-    } catch {
-      const updated = currentList.find((g: any) => g.id === id) || { id, ...data };
-      return { genre: updated };
     }
+    return res;
   },
+
   deleteGenre: async (id: string) => {
+    const res = await fetcher<{ success: boolean }>(`/admin/genres/${id}`, { method: 'DELETE' });
     const stored = localStorage.getItem('rasigan_genres');
     if (stored) {
       try {
@@ -636,11 +568,7 @@ export const adminApi = {
         localStorage.setItem('rasigan_genres', JSON.stringify(currentList));
       } catch {}
     }
-    try {
-      return await fetcher<{ success: boolean }>(`/admin/genres/${id}`, { method: 'DELETE' });
-    } catch {
-      return { success: true };
-    }
+    return res;
   },
   suggestTags: (q: string) => fetcher<{ tags: string[] }>(`/admin/tags/suggest?q=${encodeURIComponent(q)}`),
 
@@ -907,45 +835,16 @@ export const adminApi = {
       description: effectiveDesc,
     };
 
-    try {
-      const res = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(normalizedPayload) });
-      if (res?.title) return res;
-    } catch {}
-
-    return { title: newTitle };
+    const res = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(normalizedPayload) });
+    if (res?.title) {
+      const existing = getStoredCreatedTitles();
+      const updated = [res.title, ...existing.filter((t) => t.slug !== slug && t.id !== res.title.id)];
+      localStorage.setItem('rasigan_created_titles', JSON.stringify(updated));
+    }
+    return res;
   },
 
   updateTitle: async (id: string, payload: any) => {
-    const existing = getStoredCreatedTitles();
-    let updatedTitle: Title | null = null;
-
-    const updatedList = existing.map((t) => {
-      if (t.id === id || t.slug === id) {
-        updatedTitle = {
-          ...t,
-          ...payload,
-          verticalPosterUrl: payload.verticalPosterUrl !== undefined ? payload.verticalPosterUrl : t.verticalPosterUrl,
-          sortRank: payload.sortRank !== undefined ? Number(payload.sortRank) : t.sortRank,
-          year: payload.year ? Number(payload.year) : t.year,
-          editorRating: payload.editorRating ? Number(payload.editorRating) : t.editorRating,
-        };
-        return updatedTitle;
-      }
-      return t;
-    });
-
-    if (!updatedTitle) {
-      const combined = getCombinedTitles();
-      const fallbackMatch = combined.find((t) => t.id === id || t.slug === id);
-      updatedTitle = {
-        ...(fallbackMatch || { id, slug: id, kind: 'MOVIE', orientation: 'LANDSCAPE', status: 'PUBLISHED', title: payload.title || id }),
-        ...payload,
-      };
-      updatedList.unshift(updatedTitle);
-    }
-
-    localStorage.setItem('rasigan_created_titles', JSON.stringify(updatedList));
-
     const effectivePoster = payload.posterUrl || payload.verticalPosterUrl || payload.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80';
     const effectiveDesc = payload.description || payload.title || 'Indie Content';
 
@@ -955,17 +854,13 @@ export const adminApi = {
       description: effectiveDesc,
     };
 
-    try {
-      const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(normalizedPayload) });
-      if (res?.title) return res;
-    } catch {}
-
-    try {
-      const resPost = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(normalizedPayload) });
-      if (resPost?.title) return resPost;
-    } catch {}
-
-    return { title: updatedTitle };
+    const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(normalizedPayload) });
+    if (res?.title) {
+      const existing = getStoredCreatedTitles();
+      const updatedList = existing.map((t) => (t.id === id || t.slug === id ? { ...t, ...res.title } : t));
+      localStorage.setItem('rasigan_created_titles', JSON.stringify(updatedList));
+    }
+    return res;
   },
 
   updateTitleRankings: async (rankingsMap: Record<string, number>) => {

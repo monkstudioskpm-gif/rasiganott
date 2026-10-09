@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, getPersonInitials } from '../../lib/api';
-import { User, Search, Plus, Trash2, Edit, Merge, AlertTriangle, Loader2 } from 'lucide-react';
+import { User, Search, Plus, Trash2, Edit, Merge, AlertTriangle, Loader2, CheckCircle2, X } from 'lucide-react';
 
 interface PersonItem {
   id: string;
@@ -21,6 +21,16 @@ export function AdminPeoplePage() {
   const [filter, setFilter] = useState<'all' | 'missing-photo' | 'missing-bio' | 'unused'>('all');
   const [sort, setSort] = useState<'name' | 'recent' | 'titles'>('name');
   const [page, setPage] = useState(1);
+
+  // Toast Notification Banner State
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Edit / Add Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -96,11 +106,23 @@ export function AdminPeoplePage() {
     },
     onSuccess: (res: { isDuplicateMatch?: boolean; person?: { name: string } }) => {
       if (res?.isDuplicateMatch && !allowDuplicate && res.person) {
-        setDuplicateWarning(`A person with name "${res.person.name}" already exists in database.`);
+        setDuplicateWarning(`A person with name "${res.person.name}" already exists in Supabase database.`);
         return;
       }
       queryClient.invalidateQueries({ queryKey: ['admin-people'] });
       setIsModalOpen(false);
+      setToast({
+        type: 'success',
+        title: 'Saved to Supabase DB',
+        message: `Successfully saved person "${res?.person?.name || formName}" to Supabase database!`,
+      });
+    },
+    onError: (err: Error) => {
+      setToast({
+        type: 'error',
+        title: 'Supabase DB Error',
+        message: err.message || 'Failed to save person to Supabase database.',
+      });
     },
   });
 
@@ -111,6 +133,11 @@ export function AdminPeoplePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-people'] });
       setDeletePrompt(null);
+      setToast({
+        type: 'success',
+        title: 'Deleted from Supabase DB',
+        message: 'Person record successfully removed from Supabase database.',
+      });
     },
     onError: (err: Error, variables) => {
       if (err.message?.includes('Used in')) {
@@ -120,6 +147,12 @@ export function AdminPeoplePage() {
         if (target) {
           setDeletePrompt({ person: target, count });
         }
+      } else {
+        setToast({
+          type: 'error',
+          title: 'Supabase DB Error',
+          message: err.message || 'Failed to delete person from Supabase database.',
+        });
       }
     },
   });
@@ -134,6 +167,18 @@ export function AdminPeoplePage() {
       setIsMergeOpen(false);
       setSourcePerson(null);
       setTargetPersonId('');
+      setToast({
+        type: 'success',
+        title: 'Merged in Supabase DB',
+        message: 'Person records successfully merged in Supabase database.',
+      });
+    },
+    onError: (err: Error) => {
+      setToast({
+        type: 'error',
+        title: 'Supabase DB Merge Error',
+        message: err.message || 'Failed to merge person records.',
+      });
     },
   });
 
@@ -465,6 +510,30 @@ export function AdminPeoplePage() {
                 Confirm Merge
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern Supabase Toast Banner */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 max-w-md w-full animate-in slide-in-from-top-5 duration-300">
+          <div className={`p-4 rounded-2xl glass-card border shadow-2xl flex items-start gap-3 backdrop-blur-md ${
+            toast.type === 'success'
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              : 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1 min-w-0">
+              <h4 className="font-extrabold text-sm text-white">{toast.title}</h4>
+              <p className="text-xs font-medium opacity-90 mt-0.5">{toast.message}</p>
+            </div>
+            <button onClick={() => setToast(null)} className="text-white/60 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

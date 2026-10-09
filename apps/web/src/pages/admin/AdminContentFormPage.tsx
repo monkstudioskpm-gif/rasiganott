@@ -347,8 +347,8 @@ export function AdminContentFormPage() {
         titleSlug: finalSlug,
         savedId: finalId,
         message: targetStatus === 'PUBLISHED'
-          ? `"${title}" has been successfully published to Rasigan OTT!`
-          : `"${title}" draft has been saved successfully!`,
+          ? `"${title}" has been successfully published to Supabase database!`
+          : `"${title}" draft has been successfully saved to Supabase database!`,
       });
     } catch (err: any) {
       setSubmitResult({
@@ -1026,7 +1026,7 @@ export function AdminContentFormPage() {
                   <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
                     <CheckCircle2 className="w-10 h-10" />
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-black text-white">Content Saved Successfully!</h2>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">Saved to Supabase Database!</h2>
                   <p className="text-xs text-gray-300 max-w-sm">{submitResult.message}</p>
                 </div>
 
