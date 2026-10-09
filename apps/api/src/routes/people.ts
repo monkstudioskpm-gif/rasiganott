@@ -241,10 +241,19 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 // PUT /api/admin/people/:id
 router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const personId = (req.params as any).id as string;
+    const rawId = (req.params as any).id as string;
+    const personId = decodeURIComponent(rawId);
     const { name, photoUrl, bio } = req.body;
 
-    const existing = await prisma.person.findUnique({ where: { id: personId } });
+    const existing = await prisma.person.findFirst({
+      where: {
+        OR: [
+          { id: personId },
+          { nameKey: toNameKey(personId) },
+          { name: { equals: personId } },
+        ],
+      },
+    });
     if (!existing) {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Person not found' } });
       return;
@@ -259,7 +268,7 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     if (bio !== undefined) updateData.bio = bio ? bio.slice(0, 300) : null;
 
     const updated = await prisma.person.update({
-      where: { id: personId },
+      where: { id: existing.id },
       data: updateData,
     });
 
@@ -272,11 +281,18 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // DELETE /api/admin/people/:id?force=true
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const personId = (req.params as any).id as string;
+    const rawId = (req.params as any).id as string;
+    const personId = decodeURIComponent(rawId);
     const force = req.query.force === 'true';
 
-    const person = await prisma.person.findUnique({
-      where: { id: personId },
+    const person = await prisma.person.findFirst({
+      where: {
+        OR: [
+          { id: personId },
+          { nameKey: toNameKey(personId) },
+          { name: { equals: personId } },
+        ],
+      },
       include: {
         _count: { select: { cast: true, crew: true } },
       },
@@ -287,6 +303,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
       return;
     }
 
+    const targetId = person.id;
     const totalTitles = person._count.cast + person._count.crew;
 
     if (totalTitles > 0 && !force) {
@@ -301,12 +318,12 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     }
 
     await prisma.$transaction([
-      prisma.titleCast.deleteMany({ where: { personId: personId } }),
-      prisma.titleCrew.deleteMany({ where: { personId: personId } }),
-      prisma.person.delete({ where: { id: personId } }),
+      prisma.titleCast.deleteMany({ where: { personId: targetId } }),
+      prisma.titleCrew.deleteMany({ where: { personId: targetId } }),
+      prisma.person.delete({ where: { id: targetId } }),
     ]);
 
-    res.json({ success: true, deletedId: personId });
+    res.json({ success: true, deletedId: targetId });
   } catch (err) {
     next(err);
   }

@@ -229,5 +229,52 @@ router.post('/creators', async (req: Request, res: Response, next: NextFunction)
   }
 });
 
+// PUT /api/admin/creators/:id
+router.put('/creators/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawId = (req.params as any).id as string;
+    const id = decodeURIComponent(rawId);
+    const { creatorName } = req.body;
+    if (!creatorName || !creatorName.trim()) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Creator name is required' } });
+      return;
+    }
+
+    const updated = await prisma.creatorPayout.updateMany({
+      where: {
+        OR: [
+          { id },
+          { creatorName: id },
+        ],
+      },
+      data: { creatorName: creatorName.trim() },
+    });
+
+    res.json({ success: true, updatedCount: updated.count, creatorName: creatorName.trim() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/admin/creators/:id
+router.delete('/creators/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawId = (req.params as any).id as string;
+    const id = decodeURIComponent(rawId);
+    await prisma.creatorPayout.deleteMany({
+      where: {
+        OR: [
+          { id },
+          { creatorName: id },
+        ],
+      },
+    });
+
+    res.json({ success: true, id });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
 

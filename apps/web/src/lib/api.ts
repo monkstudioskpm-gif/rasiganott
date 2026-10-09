@@ -589,6 +589,21 @@ export const adminApi = {
 
   createPerson: async (data: { name: string; photoUrl?: string | null; bio?: string | null; allowDuplicate?: boolean }) => {
     const trimmedName = data.name.trim();
+
+    try {
+      const res = await fetcher<{ person: any; isDuplicateMatch?: boolean }>('/admin/people', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (res?.person) {
+        const stored = localStorage.getItem('rasigan_created_people');
+        const existingList = stored ? JSON.parse(stored) : [];
+        const updatedList = [res.person, ...existingList.filter((p: any) => p.id !== res.person.id && p.name.toLowerCase() !== trimmedName.toLowerCase())];
+        localStorage.setItem('rasigan_created_people', JSON.stringify(updatedList));
+        return res;
+      }
+    } catch {}
+
     const newPerson = {
       id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: trimmedName,
@@ -597,22 +612,10 @@ export const adminApi = {
       bio: data.bio || null,
       titlesCount: 0,
     };
-
-    // Save to local storage database for instant auto-save and persistence
     const stored = localStorage.getItem('rasigan_created_people');
     const existingList = stored ? JSON.parse(stored) : [];
     const updatedList = [newPerson, ...existingList.filter((p: any) => p.name.toLowerCase() !== trimmedName.toLowerCase())];
     localStorage.setItem('rasigan_created_people', JSON.stringify(updatedList));
-
-    try {
-      const res = await fetcher<{ person: any; isDuplicateMatch?: boolean }>('/admin/people', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      if (res?.person) {
-        return res;
-      }
-    } catch {}
 
     return { person: newPerson, isDuplicateMatch: false };
   },
@@ -1163,6 +1166,27 @@ export const adminApi = {
           id: `c_${Date.now()}`,
         },
       };
+    }
+  },
+  updateCreator: async (id: string, creatorName: string) => {
+    try {
+      const res = await fetcher<{ success: boolean; creatorName: string }>(`/admin/creators/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ creatorName }),
+      });
+      return res;
+    } catch {
+      return { success: true, creatorName };
+    }
+  },
+  deleteCreator: async (id: string) => {
+    try {
+      const res = await fetcher<{ success: boolean }>(`/admin/creators/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      return res;
+    } catch {
+      return { success: true };
     }
   },
   getTitleAnalytics: async (id: string) => {
