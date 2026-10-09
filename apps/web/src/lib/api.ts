@@ -700,6 +700,13 @@ export const adminApi = {
   // Title & Earnings Management
   getStats: () =>
     fetcher<{ stats: { totalTitles: number; publishedTitles: number; draftTitles: number; totalPeople: number; totalGenres: number; totalTags: number; totalFundingRaised: number } }>('/titles/admin/stats'),
+  getCreators: async () => {
+    try {
+      const res = await fetcher<{ creators: Array<{ id?: string; creatorName: string }> }>('/admin/creators');
+      if (res?.creators) return res;
+    } catch {}
+    return { creators: [] };
+  },
   getCreatorEarningsBreakdown: () =>
     fetcher<{
       summary: { totalCreatorsCount: number; totalGrossRaisedInr: number; totalNetEarningsInr: number; totalPlatformFeeInr: number };

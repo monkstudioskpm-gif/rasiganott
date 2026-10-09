@@ -200,6 +200,35 @@ router.get('/users/search', async (req: Request, res: Response, next: NextFuncti
   }
 });
 
+// GET /api/admin/creators
+router.get('/creators', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const payouts = await prisma.creatorPayout.findMany({
+      select: { id: true, creatorName: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const titles = await prisma.title.findMany({
+      where: { creatorName: { not: null } },
+      select: { creatorName: true },
+      distinct: ['creatorName'],
+    });
+
+    const set = new Set<string>();
+    payouts.forEach((p) => {
+      if (p.creatorName && p.creatorName.trim()) set.add(p.creatorName.trim());
+    });
+    titles.forEach((t) => {
+      if (t.creatorName && t.creatorName.trim()) set.add(t.creatorName.trim());
+    });
+
+    const creators = Array.from(set).map((name) => ({ creatorName: name }));
+    res.json({ creators });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/admin/creators
 router.post('/creators', async (req: Request, res: Response, next: NextFunction) => {
   try {

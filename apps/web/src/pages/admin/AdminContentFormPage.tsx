@@ -88,6 +88,10 @@ export function AdminContentFormPage() {
   const { data: genresData } = useQuery({ queryKey: ['admin-genres'], queryFn: adminApi.getGenres });
   const allGenres = genresData?.genres || [];
 
+  // Fetch Registered Creators from Database
+  const { data: creatorsData } = useQuery({ queryKey: ['admin-creators-list'], queryFn: adminApi.getCreators });
+  const registeredCreators = creatorsData?.creators || [];
+
   // Fetch Title details if editing
   const { data: existingTitleData } = useQuery({
     queryKey: ['admin-title-detail', id],
@@ -719,11 +723,11 @@ export function AdminContentFormPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none font-semibold focus:border-sky-400"
                 >
                   <option value="">-- Choose Studio / Creator --</option>
-                  <option value="Studio 1 Originals">Studio 1 Originals</option>
-                  <option value="Indie Mobile Cinema">Indie Mobile Cinema</option>
-                  <option value="Madras Digital Studio">Madras Digital Studio</option>
-                  <option value="Kaveri Short Films">Kaveri Short Films</option>
-                  <option value="Vetrivelo Pictures">Vetrivelo Pictures</option>
+                  {registeredCreators.map((c: any, i: number) => (
+                    <option key={i} value={c.creatorName}>
+                      {c.creatorName}
+                    </option>
+                  ))}
                 </select>
               </div>
 
