@@ -514,8 +514,16 @@ router.get('/admin/list', async (req: Request, res: Response, next: NextFunction
 // POST /api/titles/admin/:id/toggle-publish
 router.post('/admin/:id/toggle-publish', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const titleId = (req.params as any).id as string;
-    const existing = await prisma.title.findUnique({ where: { id: titleId } });
+    const rawId = (req.params as any).id as string;
+    const titleId = decodeURIComponent(rawId);
+    const existing = await prisma.title.findFirst({
+      where: {
+        OR: [
+          { id: titleId },
+          { slug: titleId },
+        ],
+      },
+    });
     if (!existing) {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Title not found' } });
       return;
@@ -523,14 +531,14 @@ router.post('/admin/:id/toggle-publish', async (req: Request, res: Response, nex
 
     const newStatus: Status = existing.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
     const updated = await prisma.title.update({
-      where: { id: titleId },
+      where: { id: existing.id },
       data: {
         status: newStatus,
         publishedAt: newStatus === 'PUBLISHED' ? new Date() : existing.publishedAt,
       },
     });
 
-    res.json({ title: updated, status: newStatus });
+    res.json({ title: formatTitleResponse(updated), status: newStatus });
   } catch (err) {
     next(err);
   }
@@ -785,7 +793,8 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
 // PUT /api/admin/titles/:id (Update Content)
 router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const titleId = (req.params as any).id as string;
+    const rawId = (req.params as any).id as string;
+    const titleId = decodeURIComponent(rawId);
     const payload = req.body;
 
     const existing = await prisma.title.findFirst({
@@ -793,6 +802,7 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
         OR: [
           { id: titleId },
           { slug: titleId },
+          { slug: { contains: titleId } },
         ],
       },
     });
@@ -800,6 +810,8 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Title not found' } });
       return;
     }
+
+    const targetId = existing.id; // Target actual PostgreSQL CUID primary key!
 
     const {
       title,
@@ -814,6 +826,7 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
       trailerUrl,
       seasons = [],
       posterUrl,
+      verticalPosterUrl,
       bannerUrl,
       creatorId,
       creatorName,
@@ -829,11 +842,13 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
       fundingGoal,
     } = payload;
 
+    const effectivePosterUrl = posterUrl || verticalPosterUrl || bannerUrl || existing.posterUrl;
+
     // Process Tags: find-or-create by lowercase name
     const tagIds: string[] = [];
     if (Array.isArray(tags)) {
       for (const tagName of tags) {
-        const lower = tagName.trim().toLowerCase();
+        const lower = typeof tagName === 'string' ? tagName.trim().toLowerCase() : (tagName.name ? tagName.name.trim().toLowerCase() : '');
         if (lower) {
           const tagRecord = await prisma.tag.upsert({
             where: { name: lower },
@@ -846,16 +861,16 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
     }
 
     await prisma.$transaction(async (tx) => {
-      // Update Title main fields
+      // Update Title main fields in PostgreSQL DB
       await tx.title.update({
-        where: { id: titleId },
+        where: { id: targetId },
         data: {
           title: title ? title.trim() : existing.title,
           description: description ? description.trim() : existing.description,
           kind: kind ? (kind as Kind) : existing.kind,
           orientation: orientation ? (orientation as Orientation) : existing.orientation,
           status: status ? (status as Status) : existing.status,
-          posterUrl: posterUrl || existing.posterUrl,
+          posterUrl: effectivePosterUrl,
           bannerUrl: bannerUrl !== undefined ? bannerUrl : existing.bannerUrl,
           videoUrl: videoUrl !== undefined ? videoUrl : existing.videoUrl,
           trailerUrl: trailerUrl !== undefined ? trailerUrl : existing.trailerUrl,
@@ -877,29 +892,29 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
 
       // Update Genres
       if (Array.isArray(genreIds)) {
-        await tx.titleGenre.deleteMany({ where: { titleId: titleId } });
+        await tx.titleGenre.deleteMany({ where: { titleId: targetId } });
         for (const gId of genreIds) {
-          await tx.titleGenre.create({ data: { titleId: titleId, genreId: gId } });
+          await tx.titleGenre.create({ data: { titleId: targetId, genreId: gId } });
         }
       }
 
       // Update Tags
       if (Array.isArray(tags)) {
-        await tx.titleTag.deleteMany({ where: { titleId: titleId } });
+        await tx.titleTag.deleteMany({ where: { titleId: targetId } });
         for (const tId of tagIds) {
-          await tx.titleTag.create({ data: { titleId: titleId, tagId: tId } });
+          await tx.titleTag.create({ data: { titleId: targetId, tagId: tId } });
         }
       }
 
       // Update Cast
       if (Array.isArray(cast)) {
-        await tx.titleCast.deleteMany({ where: { titleId: titleId } });
+        await tx.titleCast.deleteMany({ where: { titleId: targetId } });
         for (let i = 0; i < cast.length; i++) {
           const c = cast[i];
           if (c.personId) {
             await tx.titleCast.create({
               data: {
-                titleId: titleId,
+                titleId: targetId,
                 personId: c.personId,
                 order: c.order !== undefined ? c.order : i,
                 characterName: c.characterName || null,
@@ -911,12 +926,12 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
 
       // Update Crew
       if (Array.isArray(crew)) {
-        await tx.titleCrew.deleteMany({ where: { titleId: titleId } });
+        await tx.titleCrew.deleteMany({ where: { titleId: targetId } });
         for (const cr of crew) {
           if (cr.personId && cr.role) {
             await tx.titleCrew.create({
               data: {
-                titleId: titleId,
+                titleId: targetId,
                 personId: cr.personId,
                 role: cr.role as CrewRole,
                 customRole: cr.customRole || null,
@@ -928,11 +943,16 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
 
       // Update Seasons & Episodes
       if (Array.isArray(seasons)) {
-        await tx.season.deleteMany({ where: { titleId: titleId } });
+        const existingSeasons = await tx.season.findMany({ where: { titleId: targetId } });
+        for (const es of existingSeasons) {
+          await tx.episode.deleteMany({ where: { seasonId: es.id } });
+        }
+        await tx.season.deleteMany({ where: { titleId: targetId } });
+
         for (const s of seasons) {
           const seasonRecord = await tx.season.create({
             data: {
-              titleId: titleId,
+              titleId: targetId,
               number: s.number || 1,
               name: s.name || `Season ${s.number || 1}`,
             },
@@ -961,7 +981,7 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
     });
 
     const updatedTitle = await prisma.title.findUnique({
-      where: { id: titleId },
+      where: { id: targetId },
       include: {
         genres: { include: { genre: true } },
         tags: { include: { tag: true } },
