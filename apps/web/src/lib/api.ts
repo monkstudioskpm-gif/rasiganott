@@ -179,9 +179,6 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
     }
 
     const data = await response.json();
-    if (endpoint === '/titles/admin/list' && (!data?.titles || data.titles.length === 0)) {
-      return { titles: FALLBACK_TITLES, total: FALLBACK_TITLES.length } as unknown as T;
-    }
     return data;
   } catch (error) {
     console.warn(`API call to ${endpoint} failed, utilizing catalog fallback dataset:`, error);
@@ -189,7 +186,7 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
     if (endpoint === '/home') return FALLBACK_HOME as unknown as T;
     if (endpoint === '/categories' || endpoint === '/genres') return { categories: FALLBACK_GENRES, genres: FALLBACK_GENRES } as unknown as T;
     if (endpoint === '/titles/admin/stats') return FALLBACK_ADMIN_STATS as unknown as T;
-    if (endpoint.startsWith('/titles/admin/list') || endpoint === '/titles/admin/list') return { titles: FALLBACK_TITLES, total: FALLBACK_TITLES.length } as unknown as T;
+    if (endpoint.startsWith('/titles/admin/list') || endpoint === '/titles/admin/list') return { titles: [], total: 0 } as unknown as T;
     if (endpoint === '/titles/admin/creator-earnings') return FALLBACK_CREATOR_BREAKDOWN as unknown as T;
     if (endpoint === '/admin/payouts') return FALLBACK_PAYOUT_STATEMENTS as unknown as T;
     if (endpoint.startsWith('/titles/')) {
@@ -204,7 +201,7 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
       }
       return { title: null } as unknown as T;
     }
-    if (endpoint.startsWith('/titles')) return { titles: FALLBACK_TITLES, pagination: { page: 1, totalPages: 1 } } as unknown as T;
+    if (endpoint.startsWith('/titles')) return { titles: [], pagination: { page: 1, totalPages: 1 } } as unknown as T;
     throw error;
   }
 }
@@ -356,7 +353,9 @@ export const getCombinedTitles = (): Title[] => {
   };
 
   created.forEach(processTitle);
-  FALLBACK_TITLES.forEach(processTitle);
+  if (created.length === 0 && deletedIds.size === 0) {
+    FALLBACK_TITLES.forEach(processTitle);
+  }
 
   const uniqueList = Array.from(new Set(map.values()));
   return uniqueList.sort((a, b) => {
@@ -791,6 +790,8 @@ export const adminApi = {
     localStorage.removeItem('rasigan_created_titles');
     localStorage.removeItem('rasigan_title_rankings');
     localStorage.removeItem('rasigan_appearance_settings');
+    const fallbackSlugs = INITIAL_USER_TITLES.map((t) => t.slug).concat(INITIAL_USER_TITLES.map((t) => t.id));
+    localStorage.setItem('rasigan_deleted_title_ids', JSON.stringify(fallbackSlugs));
     try {
       await fetcher('/titles/admin/clear-all-content', { method: 'POST' });
     } catch (e) {
@@ -880,12 +881,17 @@ export const adminApi = {
       if (params?.q) query.set('q', params.q);
       const qStr = query.toString();
       const res = await fetcher<{ titles: Title[]; total: number }>(`/titles/admin/list${qStr ? `?${qStr}` : ''}`);
-      if (res?.titles && res.titles.length > 0) {
-        const created = getStoredCreatedTitles();
+      if (res && Array.isArray(res.titles)) {
+        const deletedIds = new Set(getStoredDeletedTitleIds());
+        const created = getStoredCreatedTitles().filter(t => !deletedIds.has(t.id) && !deletedIds.has(t.slug));
+        const dbTitles = res.titles.filter(t => !deletedIds.has(t.id) && !deletedIds.has(t.slug));
+
         const mapBySlug = new Map<string, Title>();
 
         const addOrMerge = (t: Title) => {
           const key = t.slug || t.id;
+          if (deletedIds.has(t.id) || deletedIds.has(key) || (t.slug && deletedIds.has(t.slug))) return;
+
           const existing = mapBySlug.get(key) || Array.from(mapBySlug.values()).find(item => item.id === t.id || item.slug === t.slug);
           if (!existing) {
             mapBySlug.set(key, t);
@@ -904,7 +910,7 @@ export const adminApi = {
         };
 
         created.forEach(addOrMerge);
-        res.titles.forEach(addOrMerge);
+        dbTitles.forEach(addOrMerge);
 
         let merged = Array.from(new Set(mapBySlug.values()));
         if (params?.status) merged = merged.filter((t) => t.status === params.status);
