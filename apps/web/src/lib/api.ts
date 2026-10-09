@@ -304,112 +304,17 @@ export const syncLocalTitlesToBackend = async () => {
 };
 
 export const api = {
-  getHome: async () => {
-    syncLocalTitlesToBackend().catch(() => {});
-    const combined = getCombinedTitles();
-    const published = combined.filter((t) => t.status === 'PUBLISHED');
-
-    try {
-      const res = await fetcher<HomeResponse>('/home');
-      if (res) {
-        const createdPublished = getStoredCreatedTitles().filter((t) => t.status === 'PUBLISHED');
-        if (createdPublished.length > 0) {
-          const mergedTrendingMap = new Map();
-          [...createdPublished, ...(res.trending || [])].forEach((t) => mergedTrendingMap.set(t.id, t));
-          const finalTrending = Array.from(mergedTrendingMap.values());
-
-          const updatedGenres = (res.genres || []).map((cat) => {
-            const matchingCreated = createdPublished.filter((t) =>
-              t.genres?.some((c: any) => c.slug === cat.slug || c.name?.toLowerCase() === cat.name?.toLowerCase())
-            );
-            return {
-              ...cat,
-              titles: [...matchingCreated, ...(cat.titles || [])],
-            };
-          });
-
-          return {
-            ...res,
-            featured: [...createdPublished.filter((t) => t.isFeatured), ...(res.featured || [])],
-            trending: finalTrending,
-            newReleases: [...createdPublished, ...(res.newReleases || [])],
-            genres: updatedGenres.length > 0 ? updatedGenres : res.genres || [],
-          };
-        }
-        return res;
-      }
-    } catch {}
-
-    const genres = FALLBACK_GENRES.map((cat) => ({
-      ...cat,
-      titles: published.filter((t) => t.genres?.some((c: any) => c.slug === cat.slug || c.id === cat.id || c.name?.toLowerCase() === cat.name.toLowerCase())),
-    })).filter((cat) => cat.titles.length > 0);
-
-    return {
-      featured: published.filter((t) => t.isFeatured),
-      trending: published,
-      newReleases: published,
-      topRated: [...published].sort((a, b) => (b.editorRating || 0) - (a.editorRating || 0)),
-      mostSupported: published,
-      genres,
-    };
-  },
+  getHome: () => fetcher<HomeResponse>('/home'),
 
   getGenres: () => fetcher<{ genres: Genre[]; categories: Category[] }>('/genres'),
   getCategories: () => fetcher<{ categories: Category[]; genres: Genre[] }>('/genres'),
 
   getTitles: async (params?: Record<string, string>) => {
-    syncLocalTitlesToBackend().catch(() => {});
-    const combined = getCombinedTitles();
-    let published = combined.filter((t) => t.status === 'PUBLISHED');
-
-    if (params?.kind) {
-      published = published.filter((t) => t.kind === params.kind);
-    }
-    if (params?.orientation) {
-      published = published.filter((t) => t.orientation === params.orientation);
-    }
-    if (params?.q) {
-      const qLower = params.q.toLowerCase();
-      published = published.filter(
-        (t) =>
-          t.title.toLowerCase().includes(qLower) ||
-          t.description?.toLowerCase().includes(qLower) ||
-          t.genres?.some((g: any) => g.name?.toLowerCase().includes(qLower))
-      );
-    }
-
-    try {
-      const query = new URLSearchParams(params).toString();
-      const res = await fetcher<{ titles: Title[]; pagination: { page: number; totalPages: number } }>(`/titles${query ? `?${query}` : ''}`);
-      if (res?.titles) {
-        const createdPublished = getStoredCreatedTitles().filter((t) => t.status === 'PUBLISHED');
-        const map = new Map();
-        [...createdPublished, ...res.titles].forEach((t) => map.set(t.id, t));
-        let merged = Array.from(map.values());
-        if (params?.kind) merged = merged.filter((t) => t.kind === params.kind);
-        if (params?.q) merged = merged.filter((t) => t.title.toLowerCase().includes(params.q!.toLowerCase()));
-        return { titles: merged, pagination: { page: 1, totalPages: 1 } };
-      }
-    } catch {}
-
-    return { titles: published, pagination: { page: 1, totalPages: 1 } };
+    const query = new URLSearchParams(params).toString();
+    return fetcher<{ titles: Title[]; pagination: { page: number; totalPages: number } }>(`/titles${query ? `?${query}` : ''}`);
   },
 
-  getTitleBySlug: async (slug: string) => {
-    const combined = getCombinedTitles();
-    const foundLocal = combined.find((t) => t.slug === slug || t.id === slug);
-    if (foundLocal) {
-      return { title: foundLocal };
-    }
-
-    try {
-      const res = await fetcher<{ title: Title }>(`/titles/${slug}`);
-      if (res?.title) return res;
-    } catch {}
-
-    return { title: combined[0] || FALLBACK_TITLES[0] };
-  },
+  getTitleBySlug: (slug: string) => fetcher<{ title: Title }>(`/titles/${slug}`),
 };
 
 export const getPersonInitials = (name: string): string => {
@@ -423,35 +328,9 @@ export const getPersonInitials = (name: string): string => {
 
 export const adminApi = {
   // People (Cast & Crew)
-  getPeople: async (params?: { q?: string; filter?: string; sort?: string; page?: number; limit?: number }) => {
+  getPeople: (params?: { q?: string; filter?: string; sort?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams(params as any).toString();
-    const stored = localStorage.getItem('rasigan_created_people');
-    const localPeople = stored ? JSON.parse(stored) : [];
-
-    try {
-      const res = await fetcher<{ people: any[]; pagination: { page: number; totalPages: number; total: number } }>(`/admin/people${query ? `?${query}` : ''}`);
-      if (res?.people) {
-        const uniqueMap = new Map();
-        [...localPeople, ...res.people].forEach((p) => uniqueMap.set(p.id, p));
-        let list = Array.from(uniqueMap.values());
-        if (params?.q) {
-          const qLower = params.q.toLowerCase();
-          list = list.filter((p) => p.name.toLowerCase().includes(qLower));
-        }
-        return { people: list, pagination: { page: 1, totalPages: 1, total: list.length } };
-      }
-    } catch {}
-
-    const merged = [...localPeople, ...FALLBACK_PEOPLE];
-    const uniqueMap = new Map();
-    merged.forEach((p) => uniqueMap.set(p.id, p));
-    let list = Array.from(uniqueMap.values());
-
-    if (params?.q) {
-      const qLower = params.q.toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(qLower));
-    }
-    return { people: list, pagination: { page: 1, totalPages: 1, total: list.length } };
+    return fetcher<{ people: any[]; pagination: { page: number; totalPages: number; total: number } }>(`/admin/people${query ? `?${query}` : ''}`);
   },
 
   suggestPeople: async (q: string, limit = 8) => {
@@ -687,91 +566,17 @@ export const adminApi = {
 
     return { success: true, statements };
   },
-  getAllTitles: async (params?: { status?: string; kind?: string; orientation?: string; q?: string }) => {
-    const combined = getCombinedTitles();
-    let list = combined;
-
-    if (params?.status) {
-      list = list.filter((t) => t.status === params.status);
-    }
-    if (params?.kind) {
-      list = list.filter((t) => t.kind === params.kind);
-    }
-    if (params?.orientation) {
-      list = list.filter((t) => t.orientation === params.orientation);
-    }
-    if (params?.q) {
-      const qLower = params.q.toLowerCase();
-      list = list.filter((t) => t.title.toLowerCase().includes(qLower) || t.description?.toLowerCase().includes(qLower));
-    }
-
-    try {
-      const query = new URLSearchParams();
-      if (params?.status) query.set('status', params.status);
-      if (params?.kind) query.set('kind', params.kind);
-      if (params?.orientation) query.set('orientation', params.orientation);
-      if (params?.q) query.set('q', params.q);
-      const qStr = query.toString();
-      const res = await fetcher<{ titles: Title[]; total: number }>(`/titles/admin/list${qStr ? `?${qStr}` : ''}`);
-      if (res && Array.isArray(res.titles)) {
-        const deletedIds = new Set(getStoredDeletedTitleIds());
-        const created = getStoredCreatedTitles().filter(t => !deletedIds.has(t.id) && !deletedIds.has(t.slug));
-        const dbTitles = res.titles.filter(t => !deletedIds.has(t.id) && !deletedIds.has(t.slug));
-
-        const mapBySlug = new Map<string, Title>();
-
-        const addOrMerge = (t: Title) => {
-          const key = t.slug || t.id;
-          if (deletedIds.has(t.id) || deletedIds.has(key) || (t.slug && deletedIds.has(t.slug))) return;
-
-          const existing = mapBySlug.get(key) || Array.from(mapBySlug.values()).find(item => item.id === t.id || item.slug === t.slug);
-          if (!existing) {
-            mapBySlug.set(key, t);
-          } else {
-            const preferTVideo = t.videoUrl && (t.videoUrl.includes('youtube') || t.videoUrl.includes('vz-3f12b649') || !t.videoUrl.includes('BigBuckBunny'));
-            const preferTPoster = t.posterUrl && (t.posterUrl.includes('youtube') || !t.posterUrl.includes('unsplash'));
-
-            const merged = {
-              ...existing,
-              ...t,
-              posterUrl: preferTPoster ? t.posterUrl : (existing.posterUrl || t.posterUrl),
-              videoUrl: preferTVideo ? t.videoUrl : (existing.videoUrl || t.videoUrl),
-            };
-            mapBySlug.set(existing.slug || existing.id, merged);
-          }
-        };
-
-        created.forEach(addOrMerge);
-        dbTitles.forEach(addOrMerge);
-
-        let merged = Array.from(new Set(mapBySlug.values()));
-        if (params?.status) merged = merged.filter((t) => t.status === params.status);
-        if (params?.kind) merged = merged.filter((t) => t.kind === params.kind);
-        if (params?.q) merged = merged.filter((t) => t.title.toLowerCase().includes(params.q!.toLowerCase()));
-        return { titles: merged, total: merged.length };
-      }
-    } catch {}
-
-    return { titles: list, total: list.length };
+  getAllTitles: (params?: { status?: string; kind?: string; orientation?: string; q?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.kind) query.set('kind', params.kind);
+    if (params?.orientation) query.set('orientation', params.orientation);
+    if (params?.q) query.set('q', params.q);
+    const qStr = query.toString();
+    return fetcher<{ titles: Title[]; total: number }>(`/titles/admin/list${qStr ? `?${qStr}` : ''}`);
   },
 
-  getTitleById: async (id: string) => {
-    const combined = getCombinedTitles();
-    const foundLocal = combined.find((t) => t.id === id || t.slug === id || (t.slug && id.includes(t.slug)) || (t.slug && t.slug.includes(id)));
-
-    try {
-      const res = await fetcher<{ title: Title | null }>(`/titles/admin/${id}`);
-      if (res?.title && (res.title.id === id || res.title.slug === id || (res.title.slug && id.includes(res.title.slug)) || (res.title.slug && res.title.slug.includes(id)))) {
-        return { title: res.title };
-      }
-    } catch {}
-
-    if (foundLocal) {
-      return { title: foundLocal };
-    }
-
-    return { title: combined[0] || FALLBACK_TITLES[0] };
-  },
+  getTitleById: (id: string) => fetcher<{ title: Title | null }>(`/titles/admin/${id}`),
 
   createTitle: async (payload: any) => {
     const slug = payload.slug || payload.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
