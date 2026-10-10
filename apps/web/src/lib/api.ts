@@ -951,6 +951,12 @@ export const adminApi = {
 
 
 export const creatorApi = {
+  getProfile: () => fetcher<{ creator: any }>('/creator/profile'),
+  updateProfile: (data: { upiId: string }) =>
+    fetcher<{ message: string; creator: any }>('/creator/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   getEarnings: () => fetcher<any>('/creator/earnings'),
   getPayouts: async () => {
     try {
@@ -975,31 +981,9 @@ export const creatorApi = {
       } catch {}
     }
 
-    return {
-      statements: [
-        {
-          id: 'stmt_2026_09_01',
-          cycle: 'September 2026',
-          period: '01 Sep 2026 - 30 Sep 2026',
-          earningsInr: 45000,
-          adjustmentsInr: 0,
-          netPayableInr: 45000,
-          status: 'PAID',
-          referenceUtr: 'UTR982341029384',
-        },
-        {
-          id: 'stmt_2026_10_01',
-          cycle: 'October 2026 (Pending)',
-          period: '01 Oct 2026 - 31 Oct 2026',
-          earningsInr: 21000,
-          adjustmentsInr: 0,
-          netPayableInr: 21000,
-          status: 'PROCESSING',
-          referenceUtr: 'UTR-PROCESSING-BANK',
-        },
-      ],
-    };
+    return { statements: [] };
   },
+  getTitleAnalytics: (id: string) => fetcher<{ analytics: any }>(`/creator/analytics/${id}`),
   getSupporters: () => fetcher<any>('/creator/supporters'),
 };
 
@@ -1040,5 +1024,33 @@ export const authApi = {
     });
   },
 };
+
+export const progressApi = {
+  getProgress: async (titleId: string): Promise<{ progress: any | null }> => {
+    try {
+      return await fetcher<{ progress: any | null }>(`/progress/${titleId}`);
+    } catch {
+      return { progress: null };
+    }
+  },
+  saveProgress: async (data: { titleId: string; episodeId?: string | null; positionSec: number; durationSec: number }): Promise<void> => {
+    try {
+      await fetcher('/progress', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      console.warn('Failed to save progress to server:', err);
+    }
+  },
+  getContinueWatching: async (): Promise<{ list: any[] }> => {
+    try {
+      return await fetcher<{ list: any[] }>('/progress');
+    } catch {
+      return { list: [] };
+    }
+  },
+};
+
 
 

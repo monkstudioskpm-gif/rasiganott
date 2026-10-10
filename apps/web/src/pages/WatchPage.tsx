@@ -301,6 +301,22 @@ export function WatchPage() {
     }
   }
 
+  const timeParam = searchParams.get('t');
+  let startPositionSec = timeParam ? parseInt(timeParam, 10) : 0;
+  if (isNaN(startPositionSec) || startPositionSec < 0) startPositionSec = 0;
+
+  if (!isTrailer && !timeParam && title?.id) {
+    try {
+      const saved = localStorage.getItem(`rasigan_watch_progress_${title.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.positionSec > 5 && !parsed.completed) {
+          startPositionSec = parsed.positionSec;
+        }
+      }
+    } catch {}
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black">
       <LandscapePlayer
@@ -309,6 +325,7 @@ export function WatchPage() {
         titleName={title.title}
         subtitleLabel={subtitleLabel}
         titleObj={title}
+        startPositionSec={startPositionSec}
         onBack={() => navigate(-1)}
       />
     </div>

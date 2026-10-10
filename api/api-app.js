@@ -577,7 +577,16 @@ router2.get("/creators", async (_req, res, next) => {
   try {
     const registry = await getCreatorsRegistry();
     const titles = await prisma.title.findMany({
-      select: { id: true, title: true, creatorName: true, posterUrl: true }
+      select: {
+        id: true,
+        title: true,
+        creatorName: true,
+        posterUrl: true,
+        fundings: {
+          where: { status: "PAID" },
+          select: { amountInr: true }
+        }
+      }
     });
     const payouts = await prisma.creatorPayout.findMany();
     const creatorsWithStats = registry.map((c) => {
@@ -587,7 +596,12 @@ router2.get("/creators", async (_req, res, next) => {
       const matchingPayouts = payouts.filter(
         (p) => p.creatorName.toLowerCase() === c.creatorName.toLowerCase()
       );
+      const grossRaisedInr = matchingTitles.reduce(
+        (sum, t) => sum + t.fundings.reduce((fSum, f) => fSum + f.amountInr, 0),
+        0
+      );
       const netPayable = matchingPayouts.reduce((sum, p) => sum + p.netPayableInr, 0);
+      const netEarningsInr = netPayable > 0 ? netPayable : Math.floor(grossRaisedInr * 0.6);
       return {
         id: c.id,
         creatorName: c.creatorName,
@@ -596,8 +610,8 @@ router2.get("/creators", async (_req, res, next) => {
         upiId: c.upiId || "",
         status: c.status || "ACTIVE",
         titlesCount: matchingTitles.length,
-        netEarningsInr: netPayable > 0 ? netPayable : matchingTitles.length * 11250,
-        grossRaisedInr: matchingTitles.length * 18750,
+        netEarningsInr,
+        grossRaisedInr,
         assignedTitleIds: c.assignedTitleIds && c.assignedTitleIds.length > 0 ? c.assignedTitleIds : matchingTitles.map((t) => t.id)
       };
     });
@@ -1080,7 +1094,7 @@ router3.get("/admin/stats", async (req, res, next) => {
         totalPeople,
         totalGenres,
         totalTags,
-        totalFundingRaised: fundings._sum.amountInr || 185e3
+        totalFundingRaised: fundings._sum.amountInr || 0
       }
     });
   } catch (err) {
@@ -1105,22 +1119,26 @@ router3.get("/admin/:id/analytics", async (req, res, next) => {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Title not found" } });
       return;
     }
-    const totalFundingRaisedInr = title.fundings.reduce((sum, f) => sum + f.amountInr, 0) || 5e4;
+    const [viewsCount, progressStats] = await Promise.all([
+      prisma.watchProgress.count({ where: { titleId: title.id } }),
+      prisma.watchProgress.aggregate({
+        where: { titleId: title.id },
+        _sum: { positionSec: true }
+      })
+    ]);
+    const totalFundingRaisedInr = title.fundings.reduce((sum, f) => sum + f.amountInr, 0);
     const payments = title.fundings.map((f) => ({
       id: f.id,
       amountInr: f.amountInr,
       donorName: f.isAnonymous ? "Anonymous Supporter" : f.user.name,
       donorEmail: f.isAnonymous ? "anonymous@privacy.org" : f.user.email,
-      razorpayPaymentId: f.razorpayPaymentId || `pay_rzp_${Math.floor(1e8 + Math.random() * 9e8)}`,
+      razorpayPaymentId: f.razorpayPaymentId || `pay_rzp_${f.id}`,
       paidAt: f.paidAt ? f.paidAt.toISOString() : f.createdAt.toISOString(),
       status: f.status,
       message: f.message || null
     }));
-    const samplePayments = payments.length > 0 ? payments : [
-      { id: "pay-1", amountInr: 1e4, donorName: "Ramesh Kumar", donorEmail: "ramesh@madras.in", razorpayPaymentId: "pay_Px892341029", paidAt: new Date(Date.now() - 864e5 * 2).toISOString(), status: "PAID", message: "Great Tamil cinema! All the best!" },
-      { id: "pay-2", amountInr: 25e3, donorName: "Deepa V", donorEmail: "deepa@gmail.com", razorpayPaymentId: "pay_Px892341088", paidAt: new Date(Date.now() - 864e5 * 5).toISOString(), status: "PAID", message: "Kudos to the director!" },
-      { id: "pay-3", amountInr: 15e3, donorName: "Anonymous Supporter", donorEmail: "anonymous@privacy.org", razorpayPaymentId: "pay_Px892341099", paidAt: new Date(Date.now() - 864e5 * 8).toISOString(), status: "PAID", message: null }
-    ];
+    const watchTimeSeconds = progressStats._sum.positionSec || 0;
+    const watchTimeHours = Math.round(watchTimeSeconds / 3600 * 10) / 10;
     res.json({
       analytics: {
         titleId: title.id,
@@ -1135,12 +1153,12 @@ router3.get("/admin/:id/analytics", async (req, res, next) => {
         fundingGoal: title.fundingGoal || 2e5,
         fundingRaised: totalFundingRaisedInr,
         fundingPercent: Math.min(100, Math.round(totalFundingRaisedInr / (title.fundingGoal || 2e5) * 100)),
-        supportersCount: samplePayments.length,
-        totalViews: 14250,
-        watchTimeHours: 412,
+        supportersCount: payments.length,
+        totalViews: viewsCount,
+        watchTimeHours,
         editorRating: title.editorRating ? Number(title.editorRating) : 9,
-        likesCount: title._count.reactions || 340,
-        payments: samplePayments
+        likesCount: title._count.reactions || 0,
+        payments
       }
     });
   } catch (err) {
@@ -1184,8 +1202,7 @@ router3.get("/admin/creator-earnings", async (req, res, next) => {
     });
     titles.forEach((t) => {
       const creatorName = t.creatorName || "Indie Studio";
-      const titleRaised = t.fundings.reduce((sum, f) => sum + f.amountInr, 0);
-      const grossRaised = titleRaised > 0 ? titleRaised : 25e3;
+      const grossRaised = t.fundings.reduce((sum, f) => sum + f.amountInr, 0);
       const netEarnings = Math.floor(grossRaised * 0.6);
       const platformFee = grossRaised - netEarnings;
       let targetKey = creatorName.toLowerCase();
@@ -1901,6 +1918,23 @@ var tags_default = router6;
 // apps/api/src/routes/creator.ts
 import { Router as Router7 } from "express";
 var router7 = Router7();
+async function getCreatorsRegistry2() {
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "CREATOR_REGISTRY" } });
+    if (setting?.value) {
+      return JSON.parse(setting.value);
+    }
+  } catch {
+  }
+  return [];
+}
+async function saveCreatorsRegistry2(registry) {
+  await prisma.setting.upsert({
+    where: { key: "CREATOR_REGISTRY" },
+    update: { value: JSON.stringify(registry) },
+    create: { key: "CREATOR_REGISTRY", value: JSON.stringify(registry) }
+  });
+}
 async function getRequestCreator(req) {
   const authHeader = req.headers.authorization;
   const cookieHeader = req.headers.cookie;
@@ -1926,12 +1960,7 @@ async function getRequestCreator(req) {
     } catch {
     }
   }
-  let registry = [];
-  try {
-    const setting = await prisma.setting.findUnique({ where: { key: "CREATOR_REGISTRY" } });
-    if (setting?.value) registry = JSON.parse(setting.value);
-  } catch {
-  }
+  const registry = await getCreatorsRegistry2();
   const matched = registry.find(
     (c) => userEmail && c.email && c.email.toLowerCase() === userEmail || userName && c.creatorName && c.creatorName.toLowerCase() === userName.toLowerCase()
   );
@@ -1942,6 +1971,57 @@ async function getRequestCreator(req) {
     matchedCreator: matched
   };
 }
+router7.get("/profile", async (req, res, next) => {
+  try {
+    const creatorInfo = await getRequestCreator(req);
+    res.json({
+      creator: {
+        creatorName: creatorInfo.creatorName,
+        email: creatorInfo.email,
+        upiId: creatorInfo.matchedCreator?.upiId || "",
+        status: creatorInfo.matchedCreator?.status || "ACTIVE",
+        assignedTitleIds: creatorInfo.matchedCreator?.assignedTitleIds || []
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router7.put("/profile", async (req, res, next) => {
+  try {
+    const creatorInfo = await getRequestCreator(req);
+    const { upiId } = req.body;
+    const registry = await getCreatorsRegistry2();
+    let updatedItem = null;
+    const targetIndex = registry.findIndex(
+      (c) => creatorInfo.email && c.email && c.email.toLowerCase() === creatorInfo.email || creatorInfo.creatorName && c.creatorName && c.creatorName.toLowerCase() === creatorInfo.creatorName.toLowerCase()
+    );
+    if (targetIndex >= 0) {
+      registry[targetIndex].upiId = (upiId || "").trim();
+      registry[targetIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      updatedItem = registry[targetIndex];
+    } else {
+      updatedItem = {
+        id: `c_${Date.now()}`,
+        creatorName: creatorInfo.creatorName,
+        email: creatorInfo.email || "",
+        upiId: (upiId || "").trim(),
+        status: "ACTIVE",
+        assignedTitleIds: [],
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      registry.push(updatedItem);
+    }
+    await saveCreatorsRegistry2(registry);
+    res.json({
+      message: "Creator profile updated successfully",
+      creator: updatedItem
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 router7.get("/earnings", async (req, res, next) => {
   try {
     const creatorInfo = await getRequestCreator(req);
@@ -1960,31 +2040,123 @@ router7.get("/earnings", async (req, res, next) => {
         id: true,
         title: true,
         posterUrl: true,
-        _count: { select: { fundings: true } }
+        fundings: {
+          where: { status: "PAID" },
+          select: { amountInr: true }
+        }
       }
     });
-    const titleEarnings = titles.map((t, index) => {
-      const supportersCount = t._count.fundings;
-      const totalRaised = supportersCount > 0 ? supportersCount * 500 : (index + 1) * 2500;
+    const titleIds = titles.map((t) => t.id);
+    const progressList = titleIds.length > 0 ? await prisma.watchProgress.findMany({
+      where: { titleId: { in: titleIds } },
+      select: { titleId: true, positionSec: true }
+    }) : [];
+    const viewsMap = /* @__PURE__ */ new Map();
+    const watchTimeSecMap = /* @__PURE__ */ new Map();
+    progressList.forEach((p) => {
+      viewsMap.set(p.titleId, (viewsMap.get(p.titleId) || 0) + 1);
+      watchTimeSecMap.set(p.titleId, (watchTimeSecMap.get(p.titleId) || 0) + p.positionSec);
+    });
+    const titleEarnings = titles.map((t) => {
+      const supportersCount = t.fundings.length;
+      const totalRaised = t.fundings.reduce((sum, f) => sum + f.amountInr, 0);
       const earningsInr = Math.floor(totalRaised * 0.6);
+      const viewsCount = viewsMap.get(t.id) || 0;
+      const watchTimeSec = watchTimeSecMap.get(t.id) || 0;
       return {
         titleId: t.id,
         title: t.title,
         posterUrl: t.posterUrl,
-        viewsCount: (index + 1) * 1420 + 850,
-        watchTimeMinutes: (index + 1) * 3200 + 410,
+        viewsCount,
+        watchTimeMinutes: Math.round(watchTimeSec / 60),
         supportersCount,
         earningsInr
       };
     });
+    const payouts = await prisma.creatorPayout.findMany({
+      where: {
+        creatorName: { equals: creatorInfo.creatorName, mode: "insensitive" }
+      }
+    });
+    const paidSoFarInr = payouts.filter((p) => p.status === "COMPLETED").reduce((sum, p) => sum + p.netPayableInr, 0);
     const totalEarnings = titleEarnings.reduce((acc, cur) => acc + cur.earningsInr, 0);
+    const pendingPayoutInr = Math.max(0, totalEarnings - paidSoFarInr);
     const dto = {
       earningsInr: totalEarnings,
-      pendingPayoutInr: Math.floor(totalEarnings * 0.25),
-      paidSoFarInr: Math.floor(totalEarnings * 0.75),
+      pendingPayoutInr,
+      paidSoFarInr,
       titles: titleEarnings
     };
     res.json(dto);
+  } catch (err) {
+    next(err);
+  }
+});
+router7.get("/analytics/:id", async (req, res, next) => {
+  try {
+    const titleId = req.params.id;
+    const creatorInfo = await getRequestCreator(req);
+    const title = await prisma.title.findFirst({
+      where: { OR: [{ id: titleId }, { slug: titleId }] },
+      include: {
+        fundings: {
+          where: { status: "PAID" },
+          include: {
+            user: { select: { id: true, name: true, email: true } }
+          },
+          orderBy: { createdAt: "desc" }
+        },
+        _count: { select: { reactions: true } }
+      }
+    });
+    if (!title) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Title not found" } });
+      return;
+    }
+    const isOwner = title.creatorName && title.creatorName.toLowerCase() === creatorInfo.creatorName.toLowerCase() || creatorInfo.email && title.creatorId === creatorInfo.email || creatorInfo.matchedCreator?.assignedTitleIds?.includes(title.id);
+    if (!isOwner) {
+      res.status(403).json({ error: { code: "FORBIDDEN", message: "Unauthorized access to title analytics" } });
+      return;
+    }
+    const [viewsCount, progressStats] = await Promise.all([
+      prisma.watchProgress.count({ where: { titleId: title.id } }),
+      prisma.watchProgress.aggregate({
+        where: { titleId: title.id },
+        _sum: { positionSec: true }
+      })
+    ]);
+    const totalFundingRaisedInr = title.fundings.reduce((sum, f) => sum + f.amountInr, 0);
+    const payments = title.fundings.map((f) => ({
+      id: f.id,
+      amountInr: f.amountInr,
+      donorName: f.isAnonymous ? "Anonymous Supporter" : f.user.name,
+      donorEmail: f.isAnonymous ? "anonymous@privacy.org" : f.user.email,
+      razorpayPaymentId: f.razorpayPaymentId || `pay_rzp_${f.id}`,
+      paidAt: f.paidAt ? f.paidAt.toISOString() : f.createdAt.toISOString(),
+      status: f.status,
+      message: f.message || null
+    }));
+    const watchTimeSeconds = progressStats._sum.positionSec || 0;
+    const watchTimeHours = Math.round(watchTimeSeconds / 3600 * 10) / 10;
+    res.json({
+      analytics: {
+        id: title.id,
+        title: title.title,
+        posterUrl: title.posterUrl,
+        kind: title.kind,
+        status: title.status,
+        creatorName: title.creatorName || creatorInfo.creatorName,
+        fundingGoal: title.fundingGoal || 2e5,
+        fundingRaised: totalFundingRaisedInr,
+        fundingPercent: Math.min(100, Math.round(totalFundingRaisedInr / (title.fundingGoal || 2e5) * 100)),
+        supportersCount: payments.length,
+        totalViews: viewsCount,
+        watchTimeHours,
+        editorRating: title.editorRating ? Number(title.editorRating) : 9,
+        likesCount: title._count.reactions || 0,
+        payments
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -2639,6 +2811,192 @@ router9.post("/logout", (_req, res) => {
 });
 var auth_default = router9;
 
+// apps/api/src/routes/progress.ts
+import { Router as Router10 } from "express";
+import crypto3 from "crypto";
+var router10 = Router10();
+var JWT_SECRET2 = process.env.JWT_SECRET || "dev-rasigan-secret-key-change-in-prod-123456789";
+function extractUser(req) {
+  const authHeader = req.headers.authorization;
+  let token = null;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7).trim();
+  } else if (req.headers.cookie) {
+    const match = req.headers.cookie.split(";").map((c) => c.trim()).find((c) => c.startsWith("rasigan_token="));
+    if (match) {
+      token = decodeURIComponent(match.split("=")[1]);
+    }
+  }
+  if (token) {
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const [b64Header, b64Payload, signature] = parts;
+        const expectedSignature = crypto3.createHmac("sha256", JWT_SECRET2).update(`${b64Header}.${b64Payload}`).digest("base64url");
+        if (signature === expectedSignature) {
+          const payload = JSON.parse(Buffer.from(b64Payload, "base64url").toString("utf8"));
+          if (!payload.exp || payload.exp > Math.floor(Date.now() / 1e3)) {
+            return {
+              id: payload.id,
+              email: payload.email,
+              name: payload.name
+            };
+          }
+        }
+      }
+    } catch {
+    }
+  }
+  const headerEmail = req.headers["x-user-email"] || req.query.email || req.body?.userEmail;
+  const headerUserId = req.headers["x-user-id"] || req.query.userId || req.body?.userId;
+  const headerName = req.headers["x-user-name"] || req.query.name || req.body?.userName;
+  if (headerUserId || headerEmail) {
+    return {
+      id: headerUserId,
+      email: headerEmail?.toLowerCase().trim(),
+      name: headerName?.trim()
+    };
+  }
+  return null;
+}
+async function resolveUserId(userObj) {
+  if (userObj?.id) {
+    const existing = await prisma.user.findUnique({ where: { id: userObj.id } });
+    if (existing) return existing.id;
+  }
+  if (userObj?.email) {
+    const existing = await prisma.user.findUnique({ where: { email: userObj.email } });
+    if (existing) return existing.id;
+    const created = await prisma.user.create({
+      data: {
+        email: userObj.email,
+        googleId: `google_user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        name: userObj.name || userObj.email.split("@")[0],
+        role: "USER"
+      }
+    });
+    return created.id;
+  }
+  const guestEmail = "guest@rasigan.local";
+  let guest = await prisma.user.findUnique({ where: { email: guestEmail } });
+  if (!guest) {
+    guest = await prisma.user.create({
+      data: {
+        email: guestEmail,
+        googleId: "guest_rasigan_viewer",
+        name: "Guest Viewer",
+        role: "USER"
+      }
+    });
+  }
+  return guest.id;
+}
+router10.get("/:titleId", async (req, res, next) => {
+  try {
+    const titleId = req.params.titleId;
+    const user = extractUser(req);
+    if (!user) {
+      res.json({ progress: null });
+      return;
+    }
+    const userId = await resolveUserId(user);
+    const progress = await prisma.watchProgress.findFirst({
+      where: {
+        userId,
+        titleId
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+    res.json({ progress });
+  } catch (err) {
+    next(err);
+  }
+});
+router10.get("/", async (req, res, next) => {
+  try {
+    const user = extractUser(req);
+    if (!user) {
+      res.json({ list: [] });
+      return;
+    }
+    const userId = await resolveUserId(user);
+    const progressList = await prisma.watchProgress.findMany({
+      where: {
+        userId,
+        completed: false,
+        positionSec: { gt: 5 }
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+      include: {
+        title: {
+          select: {
+            id: true,
+            title: true,
+            posterUrl: true,
+            verticalPosterUrl: true,
+            bannerUrl: true,
+            durationMin: true,
+            kind: true,
+            genres: true
+          }
+        }
+      }
+    });
+    res.json({ list: progressList });
+  } catch (err) {
+    next(err);
+  }
+});
+router10.put("/", async (req, res, next) => {
+  try {
+    const { titleId, episodeId, positionSec, durationSec } = req.body;
+    if (!titleId || typeof positionSec !== "number") {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "titleId and positionSec are required" } });
+      return;
+    }
+    const user = extractUser(req);
+    const userId = await resolveUserId(user);
+    const pos = Math.max(0, Math.floor(positionSec));
+    const dur = Math.max(1, Math.floor(durationSec || 0));
+    const completed = dur > 10 ? pos >= dur - 15 : false;
+    const existing = await prisma.watchProgress.findFirst({
+      where: {
+        userId,
+        titleId,
+        episodeId: episodeId || null
+      }
+    });
+    let saved;
+    if (existing) {
+      saved = await prisma.watchProgress.update({
+        where: { id: existing.id },
+        data: {
+          positionSec: pos,
+          durationSec: dur,
+          completed,
+          updatedAt: /* @__PURE__ */ new Date()
+        }
+      });
+    } else {
+      saved = await prisma.watchProgress.create({
+        data: {
+          userId,
+          titleId,
+          episodeId: episodeId || null,
+          positionSec: pos,
+          durationSec: dur,
+          completed
+        }
+      });
+    }
+    res.json({ progress: saved });
+  } catch (err) {
+    next(err);
+  }
+});
+var progress_default = router10;
+
 // apps/api/src/index.ts
 dotenv.config();
 var app = express();
@@ -2665,6 +3023,7 @@ app.use("/api/admin/tags", tags_default);
 app.use("/api/creator", creator_default);
 app.use("/api/funding", funding_default);
 app.use("/api/auth", auth_default);
+app.use("/api/progress", progress_default);
 app.use("/api/*", (_req, res) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Endpoint not found" } });
 });

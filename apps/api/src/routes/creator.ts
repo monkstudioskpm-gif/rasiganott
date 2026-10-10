@@ -4,6 +4,36 @@ import { prisma } from '../db.js';
 
 const router = Router();
 
+interface CreatorRegistryItem {
+  id: string;
+  creatorName: string;
+  email: string;
+  userId?: string | null;
+  upiId?: string;
+  status?: 'ACTIVE' | 'PENDING' | 'SUSPENDED';
+  assignedTitleIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+async function getCreatorsRegistry(): Promise<CreatorRegistryItem[]> {
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: 'CREATOR_REGISTRY' } });
+    if (setting?.value) {
+      return JSON.parse(setting.value);
+    }
+  } catch {}
+  return [];
+}
+
+async function saveCreatorsRegistry(registry: CreatorRegistryItem[]) {
+  await prisma.setting.upsert({
+    where: { key: 'CREATOR_REGISTRY' },
+    update: { value: JSON.stringify(registry) },
+    create: { key: 'CREATOR_REGISTRY', value: JSON.stringify(registry) },
+  });
+}
+
 async function getRequestCreator(req: Request) {
   const authHeader = req.headers.authorization;
   const cookieHeader = req.headers.cookie;
@@ -32,12 +62,7 @@ async function getRequestCreator(req: Request) {
     } catch {}
   }
 
-  // Look up creator in database Setting registry
-  let registry: any[] = [];
-  try {
-    const setting = await prisma.setting.findUnique({ where: { key: 'CREATOR_REGISTRY' } });
-    if (setting?.value) registry = JSON.parse(setting.value);
-  } catch {}
+  const registry = await getCreatorsRegistry();
 
   const matched = registry.find(
     (c) =>
@@ -52,6 +77,68 @@ async function getRequestCreator(req: Request) {
     matchedCreator: matched,
   };
 }
+
+// GET /api/creator/profile
+router.get('/profile', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const creatorInfo = await getRequestCreator(req);
+    res.json({
+      creator: {
+        creatorName: creatorInfo.creatorName,
+        email: creatorInfo.email,
+        upiId: creatorInfo.matchedCreator?.upiId || '',
+        status: creatorInfo.matchedCreator?.status || 'ACTIVE',
+        assignedTitleIds: creatorInfo.matchedCreator?.assignedTitleIds || [],
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/creator/profile (Update UPI ID)
+router.put('/profile', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const creatorInfo = await getRequestCreator(req);
+    const { upiId } = req.body;
+
+    const registry = await getCreatorsRegistry();
+    let updatedItem: CreatorRegistryItem | null = null;
+
+    const targetIndex = registry.findIndex(
+      (c) =>
+        (creatorInfo.email && c.email && c.email.toLowerCase() === creatorInfo.email) ||
+        (creatorInfo.creatorName && c.creatorName && c.creatorName.toLowerCase() === creatorInfo.creatorName.toLowerCase())
+    );
+
+    if (targetIndex >= 0) {
+      registry[targetIndex].upiId = (upiId || '').trim();
+      registry[targetIndex].updatedAt = new Date().toISOString();
+      updatedItem = registry[targetIndex];
+    } else {
+      updatedItem = {
+        id: `c_${Date.now()}`,
+        creatorName: creatorInfo.creatorName,
+        email: creatorInfo.email || '',
+        upiId: (upiId || '').trim(),
+        status: 'ACTIVE',
+        assignedTitleIds: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      registry.push(updatedItem);
+    }
+
+    await saveCreatorsRegistry(registry);
+
+    res.json({
+      message: 'Creator profile updated successfully',
+      creator: updatedItem,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/creator/earnings
 router.get('/earnings', async (req: Request, res: Response, next: NextFunction) => {
@@ -74,36 +161,150 @@ router.get('/earnings', async (req: Request, res: Response, next: NextFunction) 
         id: true,
         title: true,
         posterUrl: true,
-        _count: { select: { fundings: true } },
+        fundings: {
+          where: { status: 'PAID' },
+          select: { amountInr: true },
+        },
       },
     });
 
-    const titleEarnings = titles.map((t, index) => {
-      const supportersCount = t._count.fundings;
-      const totalRaised = supportersCount > 0 ? supportersCount * 500 : (index + 1) * 2500;
+    const titleIds = titles.map((t) => t.id);
+    const progressList = titleIds.length > 0
+      ? await prisma.watchProgress.findMany({
+          where: { titleId: { in: titleIds } },
+          select: { titleId: true, positionSec: true },
+        })
+      : [];
+
+    const viewsMap = new Map<string, number>();
+    const watchTimeSecMap = new Map<string, number>();
+    progressList.forEach((p) => {
+      viewsMap.set(p.titleId, (viewsMap.get(p.titleId) || 0) + 1);
+      watchTimeSecMap.set(p.titleId, (watchTimeSecMap.get(p.titleId) || 0) + p.positionSec);
+    });
+
+    const titleEarnings = titles.map((t) => {
+      const supportersCount = t.fundings.length;
+      const totalRaised = t.fundings.reduce((sum, f) => sum + f.amountInr, 0);
       const earningsInr = Math.floor(totalRaised * 0.6);
+      const viewsCount = viewsMap.get(t.id) || 0;
+      const watchTimeSec = watchTimeSecMap.get(t.id) || 0;
 
       return {
         titleId: t.id,
         title: t.title,
         posterUrl: t.posterUrl,
-        viewsCount: (index + 1) * 1420 + 850,
-        watchTimeMinutes: (index + 1) * 3200 + 410,
+        viewsCount,
+        watchTimeMinutes: Math.round(watchTimeSec / 60),
         supportersCount,
         earningsInr,
       };
     });
 
+    // Real payouts from database
+    const payouts = await prisma.creatorPayout.findMany({
+      where: {
+        creatorName: { equals: creatorInfo.creatorName, mode: 'insensitive' },
+      },
+    });
+    const paidSoFarInr = payouts
+      .filter((p) => p.status === 'COMPLETED')
+      .reduce((sum, p) => sum + p.netPayableInr, 0);
+
     const totalEarnings = titleEarnings.reduce((acc, cur) => acc + cur.earningsInr, 0);
+    const pendingPayoutInr = Math.max(0, totalEarnings - paidSoFarInr);
 
     const dto: CreatorEarningsSummaryDto = {
       earningsInr: totalEarnings,
-      pendingPayoutInr: Math.floor(totalEarnings * 0.25),
-      paidSoFarInr: Math.floor(totalEarnings * 0.75),
+      pendingPayoutInr,
+      paidSoFarInr,
       titles: titleEarnings,
     };
 
     res.json(dto);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/creator/analytics/:id (Title studio analytics for creator)
+router.get('/analytics/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const titleId = (req.params as any).id as string;
+    const creatorInfo = await getRequestCreator(req);
+
+    const title = await prisma.title.findFirst({
+      where: { OR: [{ id: titleId }, { slug: titleId }] },
+      include: {
+        fundings: {
+          where: { status: 'PAID' },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        _count: { select: { reactions: true } },
+      },
+    });
+
+    if (!title) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Title not found' } });
+      return;
+    }
+
+    const isOwner =
+      (title.creatorName && title.creatorName.toLowerCase() === creatorInfo.creatorName.toLowerCase()) ||
+      (creatorInfo.email && title.creatorId === creatorInfo.email) ||
+      (creatorInfo.matchedCreator?.assignedTitleIds?.includes(title.id));
+
+    if (!isOwner) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Unauthorized access to title analytics' } });
+      return;
+    }
+
+    const [viewsCount, progressStats] = await Promise.all([
+      prisma.watchProgress.count({ where: { titleId: title.id } }),
+      prisma.watchProgress.aggregate({
+        where: { titleId: title.id },
+        _sum: { positionSec: true },
+      }),
+    ]);
+
+    const totalFundingRaisedInr = title.fundings.reduce((sum, f) => sum + f.amountInr, 0);
+
+    const payments = title.fundings.map((f) => ({
+      id: f.id,
+      amountInr: f.amountInr,
+      donorName: f.isAnonymous ? 'Anonymous Supporter' : f.user.name,
+      donorEmail: f.isAnonymous ? 'anonymous@privacy.org' : f.user.email,
+      razorpayPaymentId: f.razorpayPaymentId || `pay_rzp_${f.id}`,
+      paidAt: f.paidAt ? f.paidAt.toISOString() : f.createdAt.toISOString(),
+      status: f.status,
+      message: f.message || null,
+    }));
+
+    const watchTimeSeconds = progressStats._sum.positionSec || 0;
+    const watchTimeHours = Math.round((watchTimeSeconds / 3600) * 10) / 10;
+
+    res.json({
+      analytics: {
+        id: title.id,
+        title: title.title,
+        posterUrl: title.posterUrl,
+        kind: title.kind,
+        status: title.status,
+        creatorName: title.creatorName || creatorInfo.creatorName,
+        fundingGoal: title.fundingGoal || 200000,
+        fundingRaised: totalFundingRaisedInr,
+        fundingPercent: Math.min(100, Math.round((totalFundingRaisedInr / (title.fundingGoal || 200000)) * 100)),
+        supportersCount: payments.length,
+        totalViews: viewsCount,
+        watchTimeHours,
+        editorRating: title.editorRating ? Number(title.editorRating) : 9.0,
+        likesCount: title._count.reactions || 0,
+        payments,
+      },
+    });
   } catch (err) {
     next(err);
   }

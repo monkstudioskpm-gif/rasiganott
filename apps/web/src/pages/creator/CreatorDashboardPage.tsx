@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { creatorApi, adminApi } from '../../lib/api';
 import { CreatorEarningsSummaryDto, CreatorPayoutStatementDto } from '@rasigan/shared';
-import { FileText, Loader2, BarChart3, X, Eye, TrendingUp, Users, Star, CreditCard } from 'lucide-react';
+import { FileText, Loader2, BarChart3, X, Eye, TrendingUp, Users, Star, CreditCard, Wallet, Edit3, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface SupporterItem {
   id: string;
@@ -13,8 +13,20 @@ interface SupporterItem {
 
 export function CreatorDashboardPage() {
   const [selectedAnalyticsData, setSelectedAnalyticsData] = useState<any | null>(null);
+  const [loadingAnalyticsId, setLoadingAnalyticsId] = useState<string | null>(null);
 
-  const { data: summary, isLoading: isLoadingSummary } = useQuery<CreatorEarningsSummaryDto>({
+  // Creator profile & UPI state
+  const [isEditingUpi, setIsEditingUpi] = useState(false);
+  const [upiInput, setUpiInput] = useState('');
+  const [isSavingUpi, setIsSavingUpi] = useState(false);
+  const [upiSuccessMessage, setUpiSuccessMessage] = useState<string | null>(null);
+
+  const { data: profileData, refetch: refetchProfile } = useQuery<{ creator: any }>({
+    queryKey: ['creator-profile'],
+    queryFn: creatorApi.getProfile,
+  });
+
+  const { data: summary, isLoading: isLoadingSummary, isError: isSummaryError, refetch: refetchSummary } = useQuery<CreatorEarningsSummaryDto>({
     queryKey: ['creator-earnings'],
     queryFn: creatorApi.getEarnings,
   });
@@ -30,13 +42,35 @@ export function CreatorDashboardPage() {
   });
 
   const openAnalytics = async (titleId: string) => {
+    setLoadingAnalyticsId(titleId);
     try {
-      const res = await adminApi.getTitleAnalytics(titleId);
+      const res = await creatorApi.getTitleAnalytics(titleId).catch(() => adminApi.getTitleAnalytics(titleId));
       if (res?.analytics) {
         setSelectedAnalyticsData(res.analytics);
       }
     } catch (err) {
       console.error('Failed to load title analytics:', err);
+    } finally {
+      setLoadingAnalyticsId(null);
+    }
+  };
+
+  const handleSaveUpi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!upiInput.trim()) return;
+
+    setIsSavingUpi(true);
+    setUpiSuccessMessage(null);
+    try {
+      await creatorApi.updateProfile({ upiId: upiInput.trim() });
+      await refetchProfile();
+      setIsEditingUpi(false);
+      setUpiSuccessMessage('UPI ID for payouts updated successfully!');
+      setTimeout(() => setUpiSuccessMessage(null), 4000);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update UPI ID');
+    } finally {
+      setIsSavingUpi(false);
     }
   };
 
@@ -49,43 +83,130 @@ export function CreatorDashboardPage() {
     );
   }
 
+  if (isSummaryError) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-center p-6">
+        <AlertCircle className="w-10 h-10 text-rose-400" />
+        <div>
+          <h2 className="text-lg font-bold text-white">Could not load Creator Dashboard</h2>
+          <p className="text-xs text-gray-400 mt-1">Please make sure you are signed in with your creator account.</p>
+        </div>
+        <button
+          onClick={() => refetchSummary()}
+          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const creator = profileData?.creator;
   const statements = payoutsData?.statements || [];
   const supporters = supportersData?.supporters || [];
 
   return (
     <div className="space-y-8 pb-16 pt-4 max-w-7xl mx-auto px-4 text-gray-100">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Creator Analytics & Earnings Portal</h1>
-        <p className="text-xs text-gray-400 mt-1">Track content performance, watch time, supporters, and payout status.</p>
+      {/* Header with Creator Info & Payout Details */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-extrabold uppercase tracking-wider mb-2">
+            <span>Creator Studio</span>
+            {creator?.creatorName && <span>• {creator.creatorName}</span>}
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Creator Analytics & Earnings Portal</h1>
+          <p className="text-xs text-gray-400 mt-1">Track content performance, watch time, supporters, and payout status.</p>
+        </div>
+
+        {/* UPI ID Payout Configuration Card */}
+        <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 flex items-center justify-center flex-none">
+            <Wallet className="w-4 h-4" />
+          </div>
+          <div className="text-xs space-y-0.5 min-w-[180px]">
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Payout UPI Account</span>
+            {isEditingUpi ? (
+              <form onSubmit={handleSaveUpi} className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  value={upiInput}
+                  onChange={(e) => setUpiInput(e.target.value)}
+                  placeholder="yourname@okhdfcbank"
+                  className="px-2.5 py-1 rounded-lg bg-black/60 border border-purple-500/40 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-400"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={isSavingUpi}
+                  className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs disabled:opacity-50"
+                >
+                  {isSavingUpi ? '...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingUpi(false)}
+                  className="px-2 py-1 text-gray-400 hover:text-white text-xs"
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="font-mono font-bold text-white">
+                  {creator?.upiId || 'Not set (payouts hold)'}
+                </p>
+                <button
+                  onClick={() => {
+                    setUpiInput(creator?.upiId || '');
+                    setIsEditingUpi(true);
+                  }}
+                  className="text-purple-400 hover:text-purple-300 text-[11px] underline flex items-center gap-0.5"
+                  title="Edit UPI ID"
+                >
+                  <Edit3 className="w-3 h-3" />
+                  <span>Edit</span>
+                </button>
+              </div>
+            )}
+            {upiSuccessMessage && (
+              <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold pt-0.5">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>{upiSuccessMessage}</span>
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
+      {/* Top 3 Stats Cards: Real Razorpay Earnings */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-6 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-slate-900 to-slate-950 space-y-1 shadow-xl">
           <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Total Earnings</span>
           <h2 className="text-3xl font-black text-white">₹{(summary?.earningsInr || 0).toLocaleString('en-IN')}</h2>
-          <p className="text-[10px] text-gray-400 pt-1">Accumulated net earnings across all published titles</p>
+          <p className="text-[10px] text-gray-400 pt-1">Accumulated net earnings (60%) from verified Razorpay supporters</p>
         </div>
 
         <div className="p-6 rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-slate-900 to-slate-950 space-y-1 shadow-xl">
           <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Pending Payout</span>
           <h2 className="text-3xl font-black text-white">₹{(summary?.pendingPayoutInr || 0).toLocaleString('en-IN')}</h2>
-          <p className="text-[10px] text-gray-400 pt-1">Scheduled for next monthly bank transfer</p>
+          <p className="text-[10px] text-gray-400 pt-1">Available balance pending next transfer cycle to your UPI</p>
         </div>
 
         <div className="p-6 rounded-3xl border border-sky-500/20 bg-gradient-to-br from-sky-500/10 via-slate-900 to-slate-950 space-y-1 shadow-xl">
           <span className="text-xs font-bold text-sky-400 uppercase tracking-wider">Paid So Far</span>
           <h2 className="text-3xl font-black text-white">₹{(summary?.paidSoFarInr || 0).toLocaleString('en-IN')}</h2>
-          <p className="text-[10px] text-gray-400 pt-1">Transferred directly to registered bank account</p>
+          <p className="text-[10px] text-gray-400 pt-1">Completed payout settlements transferred to your account</p>
         </div>
       </div>
 
+      {/* Per-Title Studio Performance Table */}
       <div className="p-6 rounded-3xl bg-slate-900/80 border border-white/10 space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-amber-400" />
             <span>Per-Title Studio Performance Analytics</span>
           </h3>
-          <span className="text-xs text-gray-400 font-medium">Click analytics icon to view YouTube Studio breakdown</span>
+          <span className="text-xs text-gray-400 font-medium hidden sm:inline">Click analytics icon to view YouTube Studio breakdown</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -105,7 +226,7 @@ export function CreatorDashboardPage() {
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-gray-400">
                     <p className="font-bold text-sm text-gray-300">No titles assigned to your studio yet</p>
-                    <p className="text-xs text-gray-500 mt-1">When an administrator assigns catalog titles to your studio or email, your watch time, backer stats, and earnings will appear here.</p>
+                    <p className="text-xs text-gray-500 mt-1">When an administrator assigns catalog titles to your studio or email, your real watch time, backer stats, and earnings will appear here.</p>
                   </td>
                 </tr>
               ) : (
@@ -124,10 +245,15 @@ export function CreatorDashboardPage() {
                     <td className="py-3 px-4 text-right">
                       <button
                         onClick={() => openAnalytics(t.titleId)}
-                        className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-colors"
+                        disabled={loadingAnalyticsId === t.titleId}
+                        className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-colors cursor-pointer"
                         title="View YouTube Studio Analytics & Payment Captures"
                       >
-                        <BarChart3 className="w-4 h-4" />
+                        {loadingAnalyticsId === t.titleId ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                        ) : (
+                          <BarChart3 className="w-4 h-4" />
+                        )}
                       </button>
                     </td>
                   </tr>
@@ -138,6 +264,7 @@ export function CreatorDashboardPage() {
         </div>
       </div>
 
+      {/* Payout Statements */}
       <div className="p-6 rounded-3xl bg-slate-900/80 border border-white/10 space-y-4 shadow-xl">
         <h3 className="text-lg font-bold text-white tracking-tight">Payout Statements & Bank Reference UTR</h3>
 
@@ -171,6 +298,7 @@ export function CreatorDashboardPage() {
         </div>
       </div>
 
+      {/* Supporters Cheer Notes */}
       <div className="p-6 rounded-3xl bg-slate-900/80 border border-white/10 space-y-4 shadow-xl">
         <h3 className="text-lg font-bold text-white tracking-tight">Recent Supporters & Cheer Notes</h3>
 
@@ -200,7 +328,7 @@ export function CreatorDashboardPage() {
           <div className="w-full max-w-3xl bg-[#0B0F19] border border-purple-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setSelectedAnalyticsData(null)}
-              className="absolute top-5 right-5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors z-10"
+              className="absolute top-5 right-5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors z-10 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -218,7 +346,8 @@ export function CreatorDashboardPage() {
                 </div>
                 <h2 className="text-2xl font-black text-white">{selectedAnalyticsData.title}</h2>
                 <div className="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                  <span>Format: <strong className="text-purple-300">{selectedAnalyticsData.kind} ({selectedAnalyticsData.orientation})</strong></span>
+                  <span>Format: <strong className="text-purple-300">{selectedAnalyticsData.kind}</strong></span>
+                  <span>• Creator: <strong className="text-gray-200">{selectedAnalyticsData.creatorName}</strong></span>
                 </div>
               </div>
             </div>
@@ -291,28 +420,36 @@ export function CreatorDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {selectedAnalyticsData.payments.map((p: any) => (
-                      <tr key={p.id} className="hover:bg-white/[0.02]">
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-white">{p.donorName}</div>
-                          {p.message && <div className="text-[10px] text-rose-300 italic mt-0.5">"{p.message}"</div>}
-                        </td>
-
-                        <td className="py-3 px-3 font-mono text-purple-300 text-xs">
-                          {p.razorpayPaymentId}
-                        </td>
-
-                        <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                            {p.status}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-3 text-[11px] text-gray-400 whitespace-nowrap">
-                          {new Date(p.paidAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {!selectedAnalyticsData.payments || selectedAnalyticsData.payments.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-gray-500 font-medium">
+                          No supporters have backed this title yet.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      selectedAnalyticsData.payments.map((p: any) => (
+                        <tr key={p.id} className="hover:bg-white/[0.02]">
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-white">{p.donorName}</div>
+                            {p.message && <div className="text-[10px] text-rose-300 italic mt-0.5">"{p.message}"</div>}
+                          </td>
+
+                          <td className="py-3 px-3 font-mono text-purple-300 text-xs">
+                            {p.razorpayPaymentId}
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                              {p.status}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3 text-[11px] text-gray-400 whitespace-nowrap">
+                            {new Date(p.paidAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

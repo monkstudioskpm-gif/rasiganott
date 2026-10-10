@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api, getPersonInitials } from '../lib/api';
-import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Loader2, Tv } from 'lucide-react';
+import { api, getPersonInitials, progressApi } from '../lib/api';
+import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Loader2, Tv, RotateCcw } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
 import { getSeasonsForTitle } from '../lib/seasons';
@@ -67,13 +67,38 @@ export function TitleDetailPage() {
     (item: any) => item.id !== title?.id && item.slug !== title?.slug
   );
 
-  // Check if saved to Watchlist
+  const [savedProgress, setSavedProgress] = useState<{ positionSec: number; durationSec: number; completed?: boolean } | null>(null);
+
+  // Check if saved to Watchlist & fetch watch progress
   useEffect(() => {
     if (title) {
       const watchlist = JSON.parse(localStorage.getItem('rasigan_watchlist') || '[]');
       setIsSaved(watchlist.some((item: any) => item.id === title.id));
+
+      try {
+        const local = localStorage.getItem(`rasigan_watch_progress_${title.id}`);
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed.positionSec > 5 && !parsed.completed) {
+            setSavedProgress(parsed);
+          }
+        }
+      } catch {}
+
+      progressApi.getProgress(title.id).then((res) => {
+        if (res?.progress && res.progress.positionSec > 5 && !res.progress.completed) {
+          setSavedProgress(res.progress);
+        }
+      }).catch(() => {});
     }
   }, [title]);
+
+  const formatDuration = (seconds: number) => {
+    if (isNaN(seconds) || seconds <= 0) return '00:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   const handleToggleSave = () => {
     if (!title) return;
@@ -125,6 +150,31 @@ export function TitleDetailPage() {
   const trailerUrl = title.trailerUrl || title.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
   const seasons = getSeasonsForTitle(title);
   const selectedSeason = seasons.find((s) => s.number === selectedSeasonNumber) || seasons[0];
+
+  const handleResumeClick = (posSec: number) => {
+    if (title.orientation === 'VERTICAL') {
+      navigate(`/reels?titleId=${title.id}`);
+      return;
+    }
+    navigate(`/watch/${title.id}?t=${Math.floor(posSec)}`);
+  };
+
+  const handleStartOverClick = () => {
+    try {
+      localStorage.removeItem(`rasigan_watch_progress_${title.id}`);
+    } catch {}
+    setSavedProgress(null);
+    progressApi.saveProgress({
+      titleId: title.id,
+      positionSec: 0,
+      durationSec: title.durationMin ? title.durationMin * 60 : 600,
+    });
+    if (title.orientation === 'VERTICAL') {
+      navigate(`/reels?titleId=${title.id}`);
+      return;
+    }
+    navigate(`/watch/${title.id}?t=0`);
+  };
 
   const handleWatchClick = (episodeId?: string, isTrailer = false) => {
     if (title.orientation === 'VERTICAL') {
@@ -224,45 +274,100 @@ export function TitleDetailPage() {
             </span>
           </div>
 
-          {/* Three Aligned Action Buttons Row */}
-          <div className="grid grid-cols-3 gap-2 pt-1">
-            {/* Button 1: Watch Now (Blue Theme) */}
-            <button
-              onClick={() => handleWatchClick(selectedSeason?.episodes?.[0]?.id)}
-              className="h-10 px-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs transition-all shadow-md shadow-blue-600/35 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Watch Now</span>
-            </button>
+          {/* Action Buttons Row */}
+          {savedProgress && savedProgress.positionSec > 5 && !savedProgress.completed ? (
+            <div className="space-y-2 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Resume Watch Button */}
+                <button
+                  onClick={() => handleResumeClick(savedProgress.positionSec)}
+                  className="h-11 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-blue-600/35 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Resume Watch ({formatDuration(savedProgress.positionSec)})</span>
+                </button>
 
-            {/* Button 2: Watch Trailer */}
-            <button
-              onClick={() => handleWatchClick(undefined, true)}
-              className="h-10 px-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white font-bold text-xs border border-white/15 transition-all active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
-            >
-              <Film className="w-3.5 h-3.5 text-sky-400" />
-              <span>Trailer</span>
-            </button>
+                {/* Start Over Button */}
+                <button
+                  onClick={handleStartOverClick}
+                  className="h-11 px-4 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-gray-200 hover:text-white font-bold text-xs sm:text-sm border border-white/15 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  title="Restart from beginning"
+                >
+                  <RotateCcw className="w-4 h-4 text-amber-400" />
+                  <span>Start Over</span>
+                </button>
+              </div>
 
-            {/* Button 3: Support Creator (₹) or Save */}
-            {title.fundingEnabled ? (
+              <div className="grid grid-cols-2 gap-2">
+                {/* Trailer Button */}
+                <button
+                  onClick={() => handleWatchClick(undefined, true)}
+                  className="h-10 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-bold text-xs border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Film className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Watch Trailer</span>
+                </button>
+
+                {/* Support Creator Button */}
+                {title.fundingEnabled ? (
+                  <button
+                    onClick={() => setIsSupportOpen(true)}
+                    className="h-10 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-bold text-xs transition-all shadow-md shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <IndianRupee className="w-3.5 h-3.5" />
+                    <span>Support</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleToggleSave}
+                    className="h-10 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-gray-200 font-bold text-xs border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${isSaved ? 'text-rose-500 fill-current' : ''}`} />
+                    <span>{isSaved ? 'Saved' : 'Save'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {/* Button 1: Watch Now (Blue Theme) */}
               <button
-                onClick={() => setIsSupportOpen(true)}
-                className="h-10 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-bold text-xs transition-all shadow-md shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
+                onClick={() => handleWatchClick(selectedSeason?.episodes?.[0]?.id)}
+                className="h-10 px-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs transition-all shadow-md shadow-blue-600/35 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
               >
-                <IndianRupee className="w-3.5 h-3.5" />
-                <span>Support</span>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Watch Now</span>
               </button>
-            ) : (
+
+              {/* Button 2: Watch Trailer */}
               <button
-                onClick={handleToggleSave}
-                className="h-10 px-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-gray-200 font-bold text-xs border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap"
+                onClick={() => handleWatchClick(undefined, true)}
+                className="h-10 px-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white font-bold text-xs border border-white/15 transition-all active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
               >
-                <Heart className={`w-3.5 h-3.5 ${isSaved ? 'text-rose-500 fill-current' : ''}`} />
-                <span>{isSaved ? 'Saved' : 'Save'}</span>
+                <Film className="w-3.5 h-3.5 text-sky-400" />
+                <span>Trailer</span>
               </button>
-            )}
-          </div>
+
+              {/* Button 3: Support Creator (₹) or Save */}
+              {title.fundingEnabled ? (
+                <button
+                  onClick={() => setIsSupportOpen(true)}
+                  className="h-10 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-bold text-xs transition-all shadow-md shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  <IndianRupee className="w-3.5 h-3.5" />
+                  <span>Support</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleToggleSave}
+                  className="h-10 px-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-gray-200 font-bold text-xs border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  <Heart className={`w-3.5 h-3.5 ${isSaved ? 'text-rose-500 fill-current' : ''}`} />
+                  <span>{isSaved ? 'Saved' : 'Save'}</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* About Section (ZETTA Style) */}
           <div className="space-y-2 pt-2">

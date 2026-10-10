@@ -4,6 +4,7 @@ import { useVideoEngine } from './useVideoEngine';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Settings, ArrowLeft, Gauge, IndianRupee, Heart, Tv, X } from 'lucide-react';
 import { SupportModal } from '../../components/SupportModal';
 import { Title } from '@rasigan/shared';
+import { progressApi } from '../../lib/api';
 
 interface Props {
   videoUrl: string;
@@ -11,10 +12,11 @@ interface Props {
   titleName: string;
   subtitleLabel?: string;
   titleObj?: Title | null;
+  startPositionSec?: number;
   onBack?: () => void;
 }
 
-export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subtitleLabel, titleObj, onBack }: Props) {
+export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subtitleLabel, titleObj, startPositionSec = 0, onBack }: Props) {
   const navigate = useNavigate();
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
   const [showControls, setShowControls] = useState(true);
@@ -24,6 +26,66 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
   const [dismissSupportPopup, setDismissSupportPopup] = useState(false);
   const [activeTab, setActiveTab] = useState<'quality' | 'speed'>('quality');
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const lastSavedTimeRef = useRef<number>(0);
+  const lastServerSaveRef = useRef<number>(0);
+  const currentTimeRef = useRef<number>(0);
+  const durationRef = useRef<number>(0);
+
+  const handleTimeUpdate = (curTime: number, dur: number) => {
+    currentTimeRef.current = curTime;
+    durationRef.current = dur;
+
+    if (!titleObj?.id || curTime < 3) return;
+
+    const now = Date.now();
+    // Save locally every 4s
+    if (now - lastSavedTimeRef.current > 4000) {
+      lastSavedTimeRef.current = now;
+      try {
+        localStorage.setItem(
+          `rasigan_watch_progress_${titleObj.id}`,
+          JSON.stringify({
+            positionSec: Math.floor(curTime),
+            durationSec: Math.floor(dur || 0),
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      } catch {}
+    }
+
+    // Save to server every 12s
+    if (now - lastServerSaveRef.current > 12000) {
+      lastServerSaveRef.current = now;
+      progressApi.saveProgress({
+        titleId: titleObj.id,
+        positionSec: Math.floor(curTime),
+        durationSec: Math.floor(dur || 0),
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (titleObj?.id && currentTimeRef.current > 3) {
+        try {
+          localStorage.setItem(
+            `rasigan_watch_progress_${titleObj.id}`,
+            JSON.stringify({
+              positionSec: Math.floor(currentTimeRef.current),
+              durationSec: Math.floor(durationRef.current || 0),
+              updatedAt: new Date().toISOString(),
+            })
+          );
+        } catch {}
+        progressApi.saveProgress({
+          titleId: titleObj.id,
+          positionSec: Math.floor(currentTimeRef.current),
+          durationSec: Math.floor(durationRef.current || 0),
+        });
+      }
+    };
+  }, [titleObj?.id]);
 
   const {
     videoRef,
@@ -47,6 +109,8 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
     src: videoUrl,
     streamType,
     autoPlay: true,
+    startPositionSec,
+    onTimeUpdate: handleTimeUpdate,
   });
 
   const handleMouseMove = () => {

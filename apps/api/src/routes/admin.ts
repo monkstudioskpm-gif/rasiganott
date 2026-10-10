@@ -254,7 +254,16 @@ router.get('/creators', async (_req: Request, res: Response, next: NextFunction)
   try {
     const registry = await getCreatorsRegistry();
     const titles = await prisma.title.findMany({
-      select: { id: true, title: true, creatorName: true, posterUrl: true },
+      select: {
+        id: true,
+        title: true,
+        creatorName: true,
+        posterUrl: true,
+        fundings: {
+          where: { status: 'PAID' },
+          select: { amountInr: true },
+        },
+      },
     });
     const payouts = await prisma.creatorPayout.findMany();
 
@@ -268,7 +277,12 @@ router.get('/creators', async (_req: Request, res: Response, next: NextFunction)
       const matchingPayouts = payouts.filter(
         (p) => p.creatorName.toLowerCase() === c.creatorName.toLowerCase()
       );
+      const grossRaisedInr = matchingTitles.reduce(
+        (sum, t) => sum + t.fundings.reduce((fSum, f) => fSum + f.amountInr, 0),
+        0
+      );
       const netPayable = matchingPayouts.reduce((sum, p) => sum + p.netPayableInr, 0);
+      const netEarningsInr = netPayable > 0 ? netPayable : Math.floor(grossRaisedInr * 0.6);
 
       return {
         id: c.id,
@@ -278,8 +292,8 @@ router.get('/creators', async (_req: Request, res: Response, next: NextFunction)
         upiId: c.upiId || '',
         status: c.status || 'ACTIVE',
         titlesCount: matchingTitles.length,
-        netEarningsInr: netPayable > 0 ? netPayable : matchingTitles.length * 11250,
-        grossRaisedInr: matchingTitles.length * 18750,
+        netEarningsInr,
+        grossRaisedInr,
         assignedTitleIds: c.assignedTitleIds && c.assignedTitleIds.length > 0 ? c.assignedTitleIds : matchingTitles.map((t) => t.id),
       };
     });

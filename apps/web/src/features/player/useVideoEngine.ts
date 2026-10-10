@@ -93,6 +93,20 @@ export function useVideoEngine({
       }
     };
 
+    const applyStartTime = () => {
+      if (startPositionSec > 0 && video) {
+        try {
+          if (Math.abs(video.currentTime - startPositionSec) > 1) {
+            video.currentTime = startPositionSec;
+          }
+        } catch (e) {
+          console.warn('Could not set initial video time:', e);
+        }
+      }
+    };
+
+    video.addEventListener('loadedmetadata', applyStartTime);
+
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -116,10 +130,7 @@ export function useVideoEngine({
         }));
         setQualities(parsedQualities);
 
-        if (startPositionSec > 0) {
-          video.currentTime = startPositionSec;
-        }
-
+        applyStartTime();
         triggerAutoplay();
       });
 
@@ -146,19 +157,16 @@ export function useVideoEngine({
     } else if (video.canPlayType('application/vnd.apple.mpegurl') || isHls) {
       // Native HLS (Safari iOS/macOS)
       video.src = src;
-      if (startPositionSec > 0) {
-        video.currentTime = startPositionSec;
-      }
+      applyStartTime();
       triggerAutoplay();
     } else {
       video.src = src;
-      if (startPositionSec > 0) {
-        video.currentTime = startPositionSec;
-      }
+      applyStartTime();
       triggerAutoplay();
     }
 
     return () => {
+      video.removeEventListener('loadedmetadata', applyStartTime);
       cleanupEngine();
       if (video) {
         video.removeAttribute('src');

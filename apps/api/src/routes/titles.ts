@@ -423,7 +423,7 @@ router.get('/admin/stats', async (req: Request, res: Response, next: NextFunctio
         totalPeople,
         totalGenres,
         totalTags,
-        totalFundingRaised: fundings._sum.amountInr || 185000,
+        totalFundingRaised: fundings._sum.amountInr || 0,
       },
     });
   } catch (err) {
@@ -452,24 +452,30 @@ router.get('/admin/:id/analytics', async (req: Request, res: Response, next: Nex
       return;
     }
 
-    const totalFundingRaisedInr = title.fundings.reduce((sum, f) => sum + f.amountInr, 0) || 50000;
+    // Query real watch progress metrics
+    const [viewsCount, progressStats] = await Promise.all([
+      prisma.watchProgress.count({ where: { titleId: title.id } }),
+      prisma.watchProgress.aggregate({
+        where: { titleId: title.id },
+        _sum: { positionSec: true },
+      }),
+    ]);
+
+    const totalFundingRaisedInr = title.fundings.reduce((sum, f) => sum + f.amountInr, 0);
 
     const payments = title.fundings.map((f) => ({
       id: f.id,
       amountInr: f.amountInr,
       donorName: f.isAnonymous ? 'Anonymous Supporter' : f.user.name,
       donorEmail: f.isAnonymous ? 'anonymous@privacy.org' : f.user.email,
-      razorpayPaymentId: f.razorpayPaymentId || `pay_rzp_${Math.floor(100000000 + Math.random() * 900000000)}`,
+      razorpayPaymentId: f.razorpayPaymentId || `pay_rzp_${f.id}`,
       paidAt: f.paidAt ? f.paidAt.toISOString() : f.createdAt.toISOString(),
       status: f.status,
       message: f.message || null,
     }));
 
-    const samplePayments = payments.length > 0 ? payments : [
-      { id: 'pay-1', amountInr: 10000, donorName: 'Ramesh Kumar', donorEmail: 'ramesh@madras.in', razorpayPaymentId: 'pay_Px892341029', paidAt: new Date(Date.now() - 86400000 * 2).toISOString(), status: 'PAID', message: 'Great Tamil cinema! All the best!' },
-      { id: 'pay-2', amountInr: 25000, donorName: 'Deepa V', donorEmail: 'deepa@gmail.com', razorpayPaymentId: 'pay_Px892341088', paidAt: new Date(Date.now() - 86400000 * 5).toISOString(), status: 'PAID', message: 'Kudos to the director!' },
-      { id: 'pay-3', amountInr: 15000, donorName: 'Anonymous Supporter', donorEmail: 'anonymous@privacy.org', razorpayPaymentId: 'pay_Px892341099', paidAt: new Date(Date.now() - 86400000 * 8).toISOString(), status: 'PAID', message: null },
-    ];
+    const watchTimeSeconds = progressStats._sum.positionSec || 0;
+    const watchTimeHours = Math.round((watchTimeSeconds / 3600) * 10) / 10;
 
     res.json({
       analytics: {
@@ -485,12 +491,12 @@ router.get('/admin/:id/analytics', async (req: Request, res: Response, next: Nex
         fundingGoal: title.fundingGoal || 200000,
         fundingRaised: totalFundingRaisedInr,
         fundingPercent: Math.min(100, Math.round((totalFundingRaisedInr / (title.fundingGoal || 200000)) * 100)),
-        supportersCount: samplePayments.length,
-        totalViews: 14250,
-        watchTimeHours: 412,
+        supportersCount: payments.length,
+        totalViews: viewsCount,
+        watchTimeHours,
         editorRating: title.editorRating ? Number(title.editorRating) : 9.0,
-        likesCount: title._count.reactions || 340,
-        payments: samplePayments,
+        likesCount: title._count.reactions || 0,
+        payments,
       },
     });
   } catch (err) {
@@ -554,9 +560,7 @@ router.get('/admin/creator-earnings', async (req: Request, res: Response, next: 
 
     titles.forEach((t) => {
       const creatorName = t.creatorName || 'Indie Studio';
-      const titleRaised = t.fundings.reduce((sum, f) => sum + f.amountInr, 0);
-      // Mock seed fallback for realistic demo visualization if no funding records exist yet
-      const grossRaised = titleRaised > 0 ? titleRaised : 25000;
+      const grossRaised = t.fundings.reduce((sum, f) => sum + f.amountInr, 0);
       const netEarnings = Math.floor(grossRaised * 0.6);
       const platformFee = grossRaised - netEarnings;
 
