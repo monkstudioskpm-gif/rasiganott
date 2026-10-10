@@ -11,9 +11,14 @@
     "lint": "eslint src/"
   },
   "dependencies": {
+    "@prisma/client": "^6.4.1",
     "@rasigan/shared": "*",
     "@tanstack/react-query": "^5.66.0",
     "clsx": "^2.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
     "hls.js": "^1.7.3",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
