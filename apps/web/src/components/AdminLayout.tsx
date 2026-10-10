@@ -306,14 +306,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </button>
 
             {/* Breadcrumb Path */}
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
-              <Grid className="w-4 h-4 text-purple-400" />
-              <span>{getBreadcrumb()}</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-semibold text-gray-400 min-w-0">
+              <Grid className="w-4 h-4 text-purple-400 shrink-0" />
+              <span className="truncate max-w-[120px] xs:max-w-[160px] sm:max-w-none text-[11px] sm:text-xs">{getBreadcrumb()}</span>
             </div>
           </div>
 
           {/* Header Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Mobile-only compact Add button */}
+            <Link
+              to="/admin/titles/new"
+              className="sm:hidden p-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md active:scale-95 transition-all"
+              title="Add Series / Content"
+            >
+              <Plus className="w-4 h-4" />
+            </Link>
+
             <Link
               to="/admin/titles/new"
               className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-purple-500/25 active:scale-95 transition-all"
@@ -324,7 +333,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
             <Link
               to="/"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
               title="View Main App"
             >
               <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
@@ -333,7 +342,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
             <button
               onClick={handleSignOutAdmin}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-bold transition-all"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-bold transition-all"
+              title="Exit Admin"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Exit Admin</span>
@@ -342,7 +352,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         {/* Main Content View Container */}
-        <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0 overflow-x-hidden">
           {children}
         </main>
       </div>

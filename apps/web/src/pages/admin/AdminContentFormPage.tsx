@@ -469,9 +469,9 @@ export function AdminContentFormPage() {
           </div>
 
           {/* Field 3: Category Segmented Control */}
-          <div className="glass-card p-6 rounded-3xl space-y-4 border border-white/10">
+          <div className="glass-card p-4 sm:p-6 rounded-3xl space-y-4 border border-white/10">
             <h3 className="text-base font-bold text-white">3. Category (Content Kind) *</h3>
-            <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-dark-card border border-white/15">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 rounded-2xl bg-dark-card border border-white/15">
               {(['MOVIE', 'SHORT_FILM', 'WEB_SERIES'] as const).map((k) => (
                 <button
                   key={k}

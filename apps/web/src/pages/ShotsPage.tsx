@@ -33,6 +33,8 @@ export function ShotsPage() {
   const [supportTarget, setSupportTarget] = useState<Title | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [isFeedMuted, setIsFeedMuted] = useState(true);
+
   // Telemetry events buffer
   const eventsBufferRef = useRef<Record<string, unknown>[]>([]);
 
@@ -231,7 +233,7 @@ export function ShotsPage() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="w-full h-[calc(100dvh-5rem)] md:max-w-md md:h-[86vh] md:my-2 mx-auto overflow-y-scroll snap-y snap-mandatory no-scrollbar rounded-none md:rounded-3xl border-0 md:border md:border-white/10 glass-panel shadow-2xl relative bg-black select-none"
+        className="w-full h-[100dvh] md:max-w-md md:h-[90vh] md:my-auto mx-auto overflow-y-scroll snap-y snap-mandatory no-scrollbar rounded-none md:rounded-3xl border-0 md:border md:border-white/10 shadow-2xl relative bg-black select-none"
       >
         {items.map((item, idx) => (
           <ShotItem
@@ -240,6 +242,8 @@ export function ShotsPage() {
             position={idx}
             isActive={idx === activeIndex}
             isLiked={!!likedMap[item.titleId]}
+            isFeedMuted={isFeedMuted}
+            onToggleMute={() => setIsFeedMuted((m) => !m)}
             onToggleLike={() => toggleLike(item.titleId)}
             onOpenSupport={() => openSupportModal(item)}
             onSkipNext={handleSkipNext}
@@ -264,6 +268,8 @@ interface ShotItemProps {
   position: number;
   isActive: boolean;
   isLiked: boolean;
+  isFeedMuted: boolean;
+  onToggleMute: () => void;
   onToggleLike: () => void;
   onOpenSupport: () => void;
   onSkipNext: () => void;
@@ -271,11 +277,91 @@ interface ShotItemProps {
   eventsBufferRef: React.MutableRefObject<Record<string, unknown>[]>;
 }
 
+interface ActiveShotVideoPlayerProps {
+  streamUrl: string;
+  isClipMode: boolean;
+  clipStart: number;
+  clipEnd: number;
+  expectedClipDuration: number;
+  durationSec: number;
+  isMuted: boolean;
+  onTimeUpdate: (currentTime: number) => void;
+  onLoop: () => void;
+  onError: () => void;
+  activeTimeRef: React.MutableRefObject<number>;
+  toggleMuteRef: React.MutableRefObject<(() => void) | null>;
+}
+
+function ActiveShotVideoPlayer({
+  streamUrl,
+  isClipMode,
+  clipStart,
+  clipEnd,
+  isMuted,
+  onTimeUpdate,
+  onLoop,
+  onError,
+  activeTimeRef,
+  toggleMuteRef,
+}: ActiveShotVideoPlayerProps) {
+  const {
+    videoRef,
+    isPlaying,
+    togglePlay,
+    toggleMute,
+    seek,
+  } = useVideoEngine({
+    src: streamUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    streamType: streamUrl?.includes('.m3u8') ? 'HLS' : 'MP4',
+    autoPlay: true,
+    muted: isMuted,
+    startPositionSec: isClipMode ? clipStart : 0,
+    onTimeUpdate: (currentTime: number) => {
+      activeTimeRef.current = currentTime;
+      if (isClipMode && currentTime >= clipEnd) {
+        seek(clipStart);
+        onLoop();
+        return;
+      }
+      onTimeUpdate(currentTime);
+    },
+    onError,
+  });
+
+  useEffect(() => {
+    toggleMuteRef.current = toggleMute;
+    return () => {
+      toggleMuteRef.current = null;
+    };
+  }, [toggleMute, toggleMuteRef]);
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        playsInline
+        autoPlay
+        muted={isMuted}
+        onClick={togglePlay}
+        className="relative z-10 w-full h-full object-contain cursor-pointer"
+      />
+
+      {!isPlaying ? (
+        <div className="absolute z-20 pointer-events-none w-14 h-14 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-md shadow-2xl">
+          <Play className="w-7 h-7 fill-current ml-1 text-white" />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function ShotItem({
   item,
   position,
   isActive,
   isLiked,
+  isFeedMuted,
+  onToggleMute,
   onToggleLike,
   onOpenSupport,
   onSkipNext,
@@ -290,6 +376,9 @@ function ShotItem({
   const [currentDisplaySec, setCurrentDisplaySec] = useState(0);
   const [clipTotalSec, setClipTotalSec] = useState(0);
 
+  const activeTimeRef = useRef(item.clipStartSec || 0);
+  const toggleMuteRef = useRef<(() => void) | null>(null);
+
   const watchDurationRef = useRef(0);
   const watchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -298,64 +387,42 @@ function ShotItem({
   const clipEnd = item.clipEndSec || (item.durationSec > 0 ? Math.min(60, item.durationSec) : 45);
   const expectedClipDuration = Math.max(1, clipEnd - clipStart);
 
-  // Video Engine Integration per AGENTS.md
-  const {
-    videoRef,
-    isPlaying,
-    isMuted,
-    play,
-    pause,
-    togglePlay,
-    toggleMute,
-    seek,
-  } = useVideoEngine({
-    src: item.streamUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    streamType: item.streamUrl.includes('.m3u8') ? 'HLS' : 'MP4',
-    autoPlay: isActive,
-    muted: true, // starts muted so mobile autoplay policies always permit playback
-    startPositionSec: isClipMode ? clipStart : 0,
-    onTimeUpdate: (currentTime: number) => {
-      // Loop enforcement in CLIP mode (§C3)
-      if (isClipMode) {
-        if (currentTime >= clipEnd) {
-          // Loop back to clip start
-          seek(clipStart);
-          setLoops((l) => {
-            const nextL = l + 1;
-            if (nextL >= 2) {
-              setShowFullPrompt(true);
-            }
-            return nextL;
-          });
-          return;
-        }
+  const handleTimeUpdate = useCallback((currentTime: number) => {
+    activeTimeRef.current = currentTime;
+    if (isClipMode) {
+      const elapsed = Math.max(0, Math.min(expectedClipDuration, currentTime - clipStart));
+      const pct = (elapsed / expectedClipDuration) * 100;
+      setCurrentProgress(pct);
+      setCurrentDisplaySec(Math.floor(elapsed));
+      setClipTotalSec(Math.round(expectedClipDuration));
+    } else {
+      const total = item.durationSec || 60;
+      const pct = Math.min(100, (currentTime / total) * 100);
+      setCurrentProgress(pct);
+      setCurrentDisplaySec(Math.floor(currentTime));
+      setClipTotalSec(Math.round(total));
+    }
+  }, [isClipMode, expectedClipDuration, clipStart, item.durationSec]);
 
-        // Relative progress calculation (0:00 to L)
-        const elapsed = Math.max(0, Math.min(expectedClipDuration, currentTime - clipStart));
-        const pct = (elapsed / expectedClipDuration) * 100;
-        setCurrentProgress(pct);
-        setCurrentDisplaySec(Math.floor(elapsed));
-        setClipTotalSec(Math.round(expectedClipDuration));
-      } else {
-        // FULL mode
-        const total = item.durationSec || 60;
-        const pct = Math.min(100, (currentTime / total) * 100);
-        setCurrentProgress(pct);
-        setCurrentDisplaySec(Math.floor(currentTime));
-        setClipTotalSec(Math.round(total));
+  const handleLoop = useCallback(() => {
+    setLoops((l) => {
+      const nextL = l + 1;
+      if (nextL >= 2) {
+        setShowFullPrompt(true);
       }
-    },
-    onError: () => {
-      console.warn(`Shot playback error for title ${item.title}`);
-      onShowToast('Playback issue, skipping to next shot...');
-      onSkipNext();
-    },
-  });
+      return nextL;
+    });
+  }, []);
+
+  const handlePlaybackError = useCallback(() => {
+    console.warn(`Shot playback error for title ${item.title}`);
+    onShowToast('Playback issue, skipping to next shot...');
+    onSkipNext();
+  }, [item.title, onShowToast, onSkipNext]);
 
   // Track playback and watch-time telemetry when active
   useEffect(() => {
     if (isActive) {
-      play();
       window.dispatchEvent(new CustomEvent('playerStateChange', { detail: { isPlaying: true } }));
 
       // Impression telemetry
@@ -394,7 +461,6 @@ function ShotItem({
         }
       }, 1000);
     } else {
-      pause();
       if (watchTimerRef.current) {
         clearInterval(watchTimerRef.current);
       }
@@ -414,7 +480,7 @@ function ShotItem({
         clearInterval(watchTimerRef.current);
       }
     };
-  }, [isActive, play, pause, item, position, loops, eventsBufferRef]);
+  }, [isActive, item, position, loops, eventsBufferRef]);
 
   const formatSec = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -432,7 +498,7 @@ function ShotItem({
   };
 
   const handleWatchFromHere = () => {
-    const curTime = videoRef.current ? Math.floor(videoRef.current.currentTime) : clipStart;
+    const curTime = Math.floor(activeTimeRef.current || clipStart);
     eventsBufferRef.current.push({
       titleId: item.titleId,
       clickedWatchFull: true,
@@ -478,26 +544,29 @@ function ShotItem({
         className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-40 scale-125 pointer-events-none"
       />
 
-      {/* Video Element: object-contain preserves full frame letterboxing without aggressive crop */}
-      <video
-        ref={videoRef}
-        playsInline
-        autoPlay
-        muted={isMuted}
-        onClick={togglePlay}
-        className="relative z-10 w-full h-full object-contain cursor-pointer"
-      />
-
-      {/* Play/Pause or Buffering Indicator */}
-      {isActive && !isPlaying ? (
-        <div className="absolute z-20 pointer-events-none w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-sky-400 backdrop-blur-md shadow-2xl">
-          <Loader2 className="w-6 h-6 animate-spin text-sky-400" />
-        </div>
-      ) : !isPlaying ? (
-        <div className="absolute z-20 pointer-events-none w-14 h-14 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-md shadow-2xl">
-          <Play className="w-7 h-7 fill-current ml-1 text-white" />
-        </div>
-      ) : null}
+      {/* Video Element: Lazy mount video engine ONLY on active slide */}
+      {isActive ? (
+        <ActiveShotVideoPlayer
+          streamUrl={item.streamUrl}
+          isClipMode={isClipMode}
+          clipStart={clipStart}
+          clipEnd={clipEnd}
+          expectedClipDuration={expectedClipDuration}
+          durationSec={item.durationSec}
+          isMuted={isFeedMuted}
+          onTimeUpdate={handleTimeUpdate}
+          onLoop={handleLoop}
+          onError={handlePlaybackError}
+          activeTimeRef={activeTimeRef}
+          toggleMuteRef={toggleMuteRef}
+        />
+      ) : (
+        <img
+          src={item.verticalPosterUrl || item.posterUrl}
+          alt={item.title}
+          className="relative z-10 w-full h-full object-contain pointer-events-none opacity-90"
+        />
+      )}
 
       {/* Dark Bottom & Top Gradients for Contrast Readability */}
       <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none z-10" />
@@ -525,15 +594,16 @@ function ShotItem({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            toggleMute();
+            toggleMuteRef.current?.();
+            onToggleMute();
           }}
           className="flex flex-col items-center gap-0.5 group cursor-pointer"
-          title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+          title={isFeedMuted ? 'Unmute Audio' : 'Mute Audio'}
         >
           <div className="w-9 h-9 rounded-full bg-black/60 border border-white/20 text-white hover:bg-black/80 backdrop-blur-md transition-all flex items-center justify-center group-active:scale-90 shadow-md">
-            {isMuted ? <VolumeX className="w-4 h-4 text-sky-400" /> : <Volume2 className="w-4 h-4 text-white" />}
+            {isFeedMuted ? <VolumeX className="w-4 h-4 text-sky-400" /> : <Volume2 className="w-4 h-4 text-white" />}
           </div>
-          <span className="text-[8px] font-bold">{isMuted ? 'Muted' : 'Sound'}</span>
+          <span className="text-[8px] font-bold">{isFeedMuted ? 'Muted' : 'Sound'}</span>
         </button>
 
         {/* Like Button */}

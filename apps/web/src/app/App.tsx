@@ -36,7 +36,7 @@ function AppContent() {
   const isAdmin = location.pathname.startsWith('/admin') || location.pathname.startsWith('/people');
   const isCreator = location.pathname.startsWith('/creator');
   const isShots = location.pathname.startsWith('/shots') || location.pathname.startsWith('/reels');
-  const isCustomLayout = isWatch || isAdmin || isCreator;
+  const isCustomLayout = isWatch || isAdmin || isCreator || isShots;
 
   return (
     <div className="min-h-screen flex flex-col bg-dark-bg text-gray-100 font-sans">

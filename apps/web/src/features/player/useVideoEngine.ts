@@ -73,6 +73,7 @@ export function useVideoEngine({
 
     // Enable mobile inline playback and apply initial mute
     video.playsInline = true;
+    video.defaultMuted = true;
     video.setAttribute('playsinline', 'true');
     video.setAttribute('webkit-playsinline', 'true');
     if (muted) {
@@ -131,7 +132,7 @@ export function useVideoEngine({
         }));
         setQualities(parsedQualities);
 
-        applyStartTime();
+        // Hls.js sets startPosition automatically; trigger autoplay
         triggerAutoplay();
       });
 
@@ -156,13 +157,11 @@ export function useVideoEngine({
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl') || isHls) {
-      // Native HLS (Safari iOS/macOS)
+      // Native HLS (Safari iOS/macOS) - applyStartTime runs on loadedmetadata event
       video.src = src;
-      applyStartTime();
       triggerAutoplay();
     } else {
       video.src = src;
-      applyStartTime();
       triggerAutoplay();
     }
 

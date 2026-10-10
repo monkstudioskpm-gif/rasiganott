@@ -643,7 +643,7 @@ export function AdminDashboardPage() {
               <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
               <span>Administrative Overview & Command</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">
               Rasigan Admin Dashboard
             </h1>
             <p className="text-xs md:text-sm text-gray-300 max-w-2xl leading-relaxed">
@@ -652,10 +652,10 @@ export function AdminDashboardPage() {
           </div>
 
           {/* Balanced Header Shortcut Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Link
               to="/admin/titles/new"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-extrabold shadow-lg shadow-cyan-500/30 transition-all active:scale-95"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-extrabold shadow-lg shadow-cyan-500/30 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Add Content</span>
@@ -666,7 +666,7 @@ export function AdminDashboardPage() {
                 setActiveTab('creators-list');
                 handleOpenAddCreator();
               }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
             >
               <UserPlus className="w-4 h-4" />
               <span>Add Creator</span>
@@ -680,16 +680,16 @@ export function AdminDashboardPage() {
                   window.location.reload();
                 }
               }}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-extrabold transition-all active:scale-95"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-extrabold transition-all active:scale-95"
               title="Delete all content from database to add manually"
             >
               <Trash2 className="w-4 h-4 text-rose-400" />
-              <span>Clear Database</span>
+              <span>Clear DB</span>
             </button>
 
             <Link
               to="/admin/people"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-xs font-bold transition-all"
             >
               <Users className="w-4 h-4 text-indigo-400" />
               <span>Cast & Crew</span>
@@ -697,18 +697,18 @@ export function AdminDashboardPage() {
 
             <button
               onClick={() => setActiveTab('appearance')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-extrabold shadow-lg shadow-purple-500/30 transition-all active:scale-95"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-extrabold shadow-lg shadow-purple-500/30 transition-all active:scale-95"
             >
               <Sparkles className="w-4 h-4 text-purple-300" />
-              <span>Appearance & Ranking</span>
+              <span>Appearance</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Overview Metrics Cards - Curated Vibrant Theme */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-3xl bg-gradient-to-br from-cyan-500/10 via-slate-900/80 to-slate-950 border border-cyan-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-cyan-400/50 transition-all">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-cyan-500/10 via-slate-900/80 to-slate-950 border border-cyan-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-cyan-400/50 transition-all">
           <div className="flex items-center justify-between text-cyan-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Catalog Titles</span>
             <div className="p-2.5 rounded-2xl bg-cyan-500/20 text-cyan-400 shadow-inner">
@@ -726,7 +726,7 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="p-5 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-slate-900/80 to-slate-950 border border-emerald-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-emerald-400/50 transition-all">
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-slate-900/80 to-slate-950 border border-emerald-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-emerald-400/50 transition-all">
           <div className="flex items-center justify-between text-emerald-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Gross Support Raised</span>
             <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 shadow-inner">
@@ -741,7 +741,7 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="p-5 rounded-3xl bg-gradient-to-br from-violet-500/10 via-slate-900/80 to-slate-950 border border-violet-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-violet-400/50 transition-all">
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-violet-500/10 via-slate-900/80 to-slate-950 border border-violet-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-violet-400/50 transition-all">
           <div className="flex items-center justify-between text-violet-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Creator Net Earnings</span>
             <div className="p-2.5 rounded-2xl bg-violet-500/20 text-violet-300 shadow-inner">
@@ -756,7 +756,7 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-slate-950 border border-amber-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-amber-400/50 transition-all">
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-slate-950 border border-amber-500/30 backdrop-blur-xl space-y-3 shadow-xl relative overflow-hidden group hover:border-amber-400/50 transition-all">
           <div className="flex items-center justify-between text-amber-300">
             <span className="text-[11px] font-black uppercase tracking-wider">Active Creators</span>
             <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 shadow-inner">
@@ -772,68 +772,68 @@ export function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Main Tab Switcher - Vibrant Glowing Pills */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-white/10 pb-4">
+      {/* Main Tab Switcher - Vibrant Horizontal Scrollable Pills */}
+      <div className="flex overflow-x-auto no-scrollbar items-center gap-2 border-b border-white/10 pb-3 -mx-2 px-2 sm:mx-0 sm:px-0">
         <button
           onClick={() => setActiveTab('catalog')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
             activeTab === 'catalog'
               ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 border border-cyan-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <Film className="w-4 h-4" />
-          <span>Catalog Management</span>
-          <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
+          <span>Catalog</span>
+          <span className="ml-1 px-1.5 py-0.5 rounded-md bg-white/20 text-[10px]">
             {titles.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab('creators-list')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
             activeTab === 'creators-list'
               ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/30 border border-amber-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <Clapperboard className="w-4 h-4" />
-          <span>Creators & Database Users</span>
-          <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
+          <span>Creators</span>
+          <span className="ml-1 px-1.5 py-0.5 rounded-md bg-white/20 text-[10px]">
             {creatorsData.summary.totalCreatorsCount}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab('creators')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
             activeTab === 'creators'
               ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <Wallet className="w-4 h-4" />
-          <span>Revenue Breakdown</span>
+          <span>Revenue</span>
         </button>
 
         <button
           onClick={() => setActiveTab('payouts')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
             activeTab === 'payouts'
               ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
         >
           <Receipt className="w-4 h-4" />
-          <span>Payout Statements & UTR</span>
-          <span className="ml-1 px-2 py-0.5 rounded-md bg-white/20 text-[10px]">
+          <span>Payouts & UTR</span>
+          <span className="ml-1 px-1.5 py-0.5 rounded-md bg-white/20 text-[10px]">
             {payoutsData.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab('appearance')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
             activeTab === 'appearance'
               ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/40'
               : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
