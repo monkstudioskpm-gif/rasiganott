@@ -193,8 +193,8 @@ export function WatchPage() {
 
   const title = data.title;
 
-  // USER MUST SIGN IN TO WATCH VIDEO GATE
-  if (!currentUser) {
+  // USER MUST SIGN IN TO WATCH FULL VIDEO GATE (Trailers can be watched freely without sign-in!)
+  if (!currentUser && !isTrailer) {
     return (
       <div className="fixed inset-0 z-50 bg-[#090b10] flex items-center justify-center p-4 overflow-hidden">
         {/* Background Poster Artwork with Blur */}

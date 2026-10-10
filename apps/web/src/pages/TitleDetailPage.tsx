@@ -192,18 +192,33 @@ export function TitleDetailPage() {
             </button>
           </div>
 
-          {/* Metadata Chips Row */}
+          {/* Metadata Chips Row: Year, Language, Certificate, Run Time, Genres, Rating */}
           <div className="flex flex-wrap items-center gap-2">
+            {title.year && (
+              <span className="px-2.5 py-1 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-200">
+                {title.year}
+              </span>
+            )}
+            {title.language && (
+              <span className="px-2.5 py-1 rounded-xl bg-sky-500/15 border border-sky-400/30 text-xs font-semibold text-sky-300">
+                {title.language}
+              </span>
+            )}
+            {title.ageRating && (
+              <span className="px-2.5 py-1 rounded-xl bg-purple-500/20 border border-purple-400/40 text-xs font-black text-purple-300 tracking-wider">
+                {title.ageRating}
+              </span>
+            )}
+            {title.durationMin && (
+              <span className="px-2.5 py-1 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-300 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-gray-400" /> {title.durationMin} mins
+              </span>
+            )}
             {title.categories?.map((cat: any) => (
               <span key={cat.id} className="px-2.5 py-1 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-200">
                 {cat.name}
               </span>
             ))}
-            {title.durationMin && (
-              <span className="px-2.5 py-1 rounded-xl bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-300 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-gray-400" /> {title.durationMin}M
-              </span>
-            )}
             <span className="px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/40 text-xs font-bold text-amber-300 flex items-center gap-1">
               <Star className="w-3.5 h-3.5 fill-current text-amber-400" /> {title.editorRating ? title.editorRating.toFixed(1) : '9.1'}
             </span>

@@ -32,6 +32,7 @@ import {
   BarChart3,
   Star,
   Mail,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   adminApi,
@@ -191,6 +192,18 @@ export function AdminDashboardPage() {
   const [editAssignedTitleIds, setEditAssignedTitleIds] = useState<string[]>([]);
   const [isSavingEditCreator, setIsSavingEditCreator] = useState(false);
   const [editSuccessMsg, setEditSuccessMsg] = useState<string | null>(null);
+  const [dbUsers, setDbUsers] = useState<UserItem[]>([]);
+  const [loadingDbUsers, setLoadingDbUsers] = useState(false);
+  const [editUserSearchQuery, setEditUserSearchQuery] = useState('');
+
+  // Quick Edit Title Metadata Modal State (Realtime DB updates)
+  const [quickEditTitle, setQuickEditTitle] = useState<Title | null>(null);
+  const [quickYear, setQuickYear] = useState('2025');
+  const [quickLanguage, setQuickLanguage] = useState('Tamil');
+  const [quickAgeRating, setQuickAgeRating] = useState('U/A');
+  const [quickDurationMin, setQuickDurationMin] = useState('90');
+  const [isSavingQuickEdit, setIsSavingQuickEdit] = useState(false);
+  const [quickEditSuccess, setQuickEditSuccess] = useState<string | null>(null);
 
   // YouTube Studio Style Title Analytics State
   const [selectedAnalytics, setSelectedAnalytics] = useState<TitleAnalytics | null>(null);
@@ -271,10 +284,38 @@ export function AdminDashboardPage() {
     }
   };
 
+  const loadDatabaseUsers = async (q: string = '') => {
+    try {
+      setLoadingDbUsers(true);
+      const res = await adminApi.searchUsers(q);
+      if (res?.users) {
+        setDbUsers(res.users);
+        if (!q.trim()) {
+          setFoundUsers(res.users);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load database users:', e);
+    } finally {
+      setLoadingDbUsers(false);
+    }
+  };
+
+  const handleOpenAddCreator = () => {
+    setIsAddCreatorOpen(true);
+    setSelectedUser(null);
+    setCreatorStudioName('');
+    setNewCreatorEmail('');
+    setNewCreatorUpi('');
+    setNewCreatorAssignedTitleIds([]);
+    setUserSearchQuery('');
+    loadDatabaseUsers('');
+  };
+
   const handleSearchUsers = async (q: string) => {
     setUserSearchQuery(q);
     if (!q.trim()) {
-      setFoundUsers([]);
+      loadDatabaseUsers('');
       return;
     }
     try {
@@ -336,13 +377,16 @@ export function AdminDashboardPage() {
   const handleOpenEditCreator = (c: CreatorBreakdownItem) => {
     setEditingCreator(c);
     setEditCreatorName(c.creatorName);
-    setEditCreatorEmail(c.email || '');
+    const initialEmail = c.email || (c.creatorName.toLowerCase().includes('cupice') ? 'monkstudioskpm@gmail.com' : '');
+    setEditCreatorEmail(initialEmail);
     setEditCreatorUpi(c.upiId || '');
     const currentAssigned = c.assignedTitleIds && c.assignedTitleIds.length > 0
       ? c.assignedTitleIds
       : (c.titles ? c.titles.map((t) => t.id) : []);
     setEditAssignedTitleIds(currentAssigned);
     setEditSuccessMsg(null);
+    setEditUserSearchQuery('');
+    loadDatabaseUsers('');
   };
 
   const handleSaveEditCreator = async (e: React.FormEvent) => {
@@ -393,6 +437,58 @@ export function AdminDashboardPage() {
     } catch (err) {
       console.error('Failed to delete creator:', err);
       alert('Failed to delete creator');
+    }
+  };
+
+  const handleOpenQuickEdit = (t: Title) => {
+    setQuickEditTitle(t);
+    setQuickYear(t.year ? String(t.year) : '2025');
+    setQuickLanguage(t.language || 'Tamil');
+    setQuickAgeRating(t.ageRating || 'U/A');
+    setQuickDurationMin(t.durationMin ? String(t.durationMin) : '90');
+    setQuickEditSuccess(null);
+  };
+
+  const handleSaveQuickEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickEditTitle) return;
+    try {
+      setIsSavingQuickEdit(true);
+      const parsedYear = quickYear ? parseInt(quickYear, 10) : undefined;
+      const parsedDuration = quickDurationMin ? parseInt(quickDurationMin, 10) : undefined;
+
+      await adminApi.updateTitle(quickEditTitle.id, {
+        year: parsedYear,
+        language: quickLanguage.trim(),
+        ageRating: quickAgeRating.trim(),
+        durationMin: parsedDuration,
+      });
+
+      // Update state in real-time in the titles list
+      setTitles((prev) =>
+        prev.map((t) =>
+          t.id === quickEditTitle.id
+            ? {
+                ...t,
+                year: parsedYear ?? t.year,
+                language: quickLanguage.trim(),
+                ageRating: quickAgeRating.trim(),
+                durationMin: parsedDuration ?? t.durationMin,
+              }
+            : t
+        )
+      );
+
+      setQuickEditSuccess(`Saved "${quickEditTitle.title}" metadata to database!`);
+      setTimeout(() => {
+        setQuickEditSuccess(null);
+        setQuickEditTitle(null);
+      }, 1100);
+    } catch (err) {
+      console.error('Failed to save quick edit:', err);
+      alert('Failed to save metadata to database.');
+    } finally {
+      setIsSavingQuickEdit(false);
     }
   };
 
@@ -554,7 +650,7 @@ export function AdminDashboardPage() {
             <button
               onClick={() => {
                 setActiveTab('creators-list');
-                setIsAddCreatorOpen(true);
+                handleOpenAddCreator();
               }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
             >
@@ -818,13 +914,14 @@ export function AdminDashboardPage() {
                               {item.title}
                             </Link>
                             <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                              <span>{item.language || 'Tamil'}</span>
+                              <span className="font-semibold text-gray-300">{item.language || 'Tamil'}</span>
                               {item.year && <span>• {item.year}</span>}
                               {item.ageRating && (
-                                <span className="px-1.5 py-0.2 rounded bg-white/10 text-[9px] font-bold">
+                                <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[9px] font-black">
                                   {item.ageRating}
                                 </span>
                               )}
+                              {item.durationMin && <span>• {item.durationMin}m</span>}
                             </div>
                           </div>
                         </div>
@@ -933,6 +1030,14 @@ export function AdminDashboardPage() {
                             <Eye className="w-4 h-4 text-cyan-400" />
                           </Link>
 
+                          <button
+                            onClick={() => handleOpenQuickEdit(item)}
+                            className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors"
+                            title="Quick Edit Year, Language, Certificate & Runtime (Realtime DB)"
+                          >
+                            <SlidersHorizontal className="w-4 h-4" />
+                          </button>
+
                           <Link
                             to={`/admin/titles/${item.id}/edit`}
                             className="p-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 transition-colors"
@@ -975,7 +1080,7 @@ export function AdminDashboardPage() {
             </div>
 
             <button
-              onClick={() => setIsAddCreatorOpen(true)}
+              onClick={handleOpenAddCreator}
               className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs shadow-lg shadow-amber-500/30 transition-all active:scale-95"
             >
               <UserPlus className="w-4 h-4" />
@@ -2035,6 +2140,86 @@ export function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* Select User from Database (1-Click Assignment) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-gray-300 block">
+                    Select User from Database (1-Click Assignment)
+                  </label>
+                  {loadingDbUsers && (
+                    <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                      <Clock className="w-3 h-3 animate-spin" /> Loading users...
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search registered user by name or email..."
+                    value={editUserSearchQuery}
+                    onChange={(e) => {
+                      setEditUserSearchQuery(e.target.value);
+                      loadDatabaseUsers(e.target.value);
+                    }}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+
+                {dbUsers.length > 0 && (
+                  <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl bg-white/5 border border-white/10 p-2">
+                    {dbUsers
+                      .filter(
+                        (u) =>
+                          !editUserSearchQuery ||
+                          u.name.toLowerCase().includes(editUserSearchQuery.toLowerCase()) ||
+                          u.email.toLowerCase().includes(editUserSearchQuery.toLowerCase())
+                      )
+                      .map((u) => {
+                        const isSelected = editCreatorEmail.toLowerCase() === u.email.toLowerCase();
+                        return (
+                          <div
+                            key={u.id}
+                            onClick={() => {
+                              setEditCreatorEmail(u.email);
+                              if (!editCreatorName.trim()) {
+                                setEditCreatorName(u.name);
+                              }
+                            }}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-amber-500/20 border border-amber-500/40'
+                                : 'hover:bg-white/10'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={u.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'}
+                                alt={u.name}
+                                className="w-7 h-7 rounded-full object-cover bg-slate-800 flex-shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="font-extrabold text-white text-xs truncate">{u.name}</div>
+                                <div className="text-[10px] text-gray-400 truncate">{u.email}</div>
+                              </div>
+                            </div>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                isSelected
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : 'bg-white/5 text-amber-400 hover:bg-amber-500/15'
+                              }`}
+                            >
+                              {isSelected ? 'Assigned ✓' : 'Assign'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-extrabold text-gray-300 block">
                   Creator Email Address <span className="text-rose-400">*</span>
@@ -2249,6 +2434,165 @@ export function AdminDashboardPage() {
                 >
                   <Send className="w-4 h-4" />
                   <span>{isSubmittingPayout ? 'Saving...' : 'Save & Complete Payout'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Edit Metadata Modal Dialog (Year, Language, Certificate, Runtime) */}
+      {quickEditTitle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#0F172A] border border-amber-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setQuickEditTitle(null)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                <SlidersHorizontal className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight">
+                Edit Movie Details & Metadata
+              </h2>
+              <p className="text-xs text-gray-400">
+                Update release year, audio language, censor certificate, and runtime in the database real-time.
+              </p>
+            </div>
+
+            {/* Target Title Card */}
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
+              <img
+                src={quickEditTitle.posterUrl || quickEditTitle.verticalPosterUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80'}
+                alt={quickEditTitle.title}
+                className="w-10 h-14 rounded-xl object-cover flex-shrink-0 bg-slate-800"
+              />
+              <div className="min-w-0">
+                <div className="font-extrabold text-white text-sm truncate">{quickEditTitle.title}</div>
+                <div className="text-[11px] text-gray-400">
+                  {quickEditTitle.kind} • {quickEditTitle.orientation} • {quickEditTitle.creatorName || 'Indie Studio'}
+                </div>
+              </div>
+            </div>
+
+            {quickEditSuccess && (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>{quickEditSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveQuickEdit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Release Year */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-gray-300 block">
+                    Release Year <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1950"
+                    max="2035"
+                    required
+                    value={quickYear}
+                    onChange={(e) => setQuickYear(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-extrabold text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+
+                {/* Audio Language */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-gray-300 block">
+                    Language <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={quickLanguage}
+                    onChange={(e) => setQuickLanguage(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#1E293B] border border-white/10 text-white font-bold text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  >
+                    <option value="Tamil">Tamil (தமிழ்)</option>
+                    <option value="Telugu">Telugu (తెలుగు)</option>
+                    <option value="Malayalam">Malayalam (മലയാളം)</option>
+                    <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                    <option value="Hindi">Hindi (हिन्दी)</option>
+                    <option value="English">English</option>
+                  </select>
+                </div>
+
+                {/* Certificate / Censor Rating */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-gray-300 block">
+                    Certificate (Age Rating) <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={quickAgeRating}
+                    onChange={(e) => setQuickAgeRating(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#1E293B] border border-white/10 text-white font-bold text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  >
+                    <option value="U">U (Universal / All Ages)</option>
+                    <option value="U/A">U/A (Parental Guidance)</option>
+                    <option value="A">A (Adults 18+)</option>
+                    <option value="U/A 7+">U/A 7+</option>
+                    <option value="U/A 13+">U/A 13+</option>
+                    <option value="U/A 16+">U/A 16+</option>
+                  </select>
+                </div>
+
+                {/* Run Time */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-gray-300 block">
+                    Run Time (Minutes) <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="600"
+                      required
+                      placeholder="e.g. 120"
+                      value={quickDurationMin}
+                      onChange={(e) => setQuickDurationMin(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    {quickDurationMin && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-mono">
+                        {Math.floor(parseInt(quickDurationMin || '0', 10) / 60)}h {parseInt(quickDurationMin || '0', 10) % 60}m
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setQuickEditTitle(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSavingQuickEdit}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs shadow-lg shadow-amber-500/30 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isSavingQuickEdit ? (
+                    <>
+                      <Clock className="w-4 h-4 animate-spin" />
+                      <span>Saving to DB...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Save to Database Realtime</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

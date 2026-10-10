@@ -901,6 +901,70 @@ export function AdminContentFormPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">Release Year *</label>
+                <input
+                  type="number"
+                  min="1950"
+                  max="2035"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">Audio / Language *</label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none font-bold"
+                >
+                  <option value="Tamil">Tamil (தமிழ்)</option>
+                  <option value="Telugu">Telugu (తెలుగు)</option>
+                  <option value="Malayalam">Malayalam (മലയാളം)</option>
+                  <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                  <option value="Hindi">Hindi (हिन्दी)</option>
+                  <option value="English">English</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">Certificate (Age Rating) *</label>
+                <select
+                  value={ageRating}
+                  onChange={(e) => setAgeRating(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none font-bold"
+                >
+                  <option value="U">U (Universal / All Ages)</option>
+                  <option value="U/A">U/A (Parental Guidance)</option>
+                  <option value="A">A (Adults 18+)</option>
+                  <option value="U/A 7+">U/A 7+</option>
+                  <option value="U/A 13+">U/A 13+</option>
+                  <option value="U/A 16+">U/A 16+</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1 flex items-center justify-between">
+                  <span>Run Time (Minutes) *</span>
+                  {durationMin && (
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {Math.floor(parseInt(durationMin || '0', 10) / 60)}h {parseInt(durationMin || '0', 10) % 60}m
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="600"
+                  value={durationMin}
+                  onChange={(e) => setDurationMin(e.target.value)}
+                  placeholder="e.g. 120"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-gray-300 mb-1">Editor Rating (0–10)</label>
                 <input
                   type="number"
@@ -952,8 +1016,8 @@ export function AdminContentFormPage() {
                     <h5 className="font-extrabold text-xs text-white truncate">{title || 'Untitled Title'}</h5>
                     <p className="text-[10px] text-gray-300 line-clamp-1">{description || 'No description entered yet.'}</p>
                     <div className="flex items-center justify-between text-[10px] text-sky-400 font-mono pt-1">
-                      <span>Rating: {editorRating || '9.0'}★</span>
-                      <span>{language}</span>
+                      <span>{year || '2025'} • {ageRating || 'U/A'} • {durationMin ? `${durationMin}m` : ''}</span>
+                      <span>{language || 'Tamil'}</span>
                     </div>
                   </div>
                 </div>

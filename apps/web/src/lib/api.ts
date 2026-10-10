@@ -760,6 +760,9 @@ export const adminApi = {
       if (res?.users) return res;
     } catch {}
     const mockUsers = [
+      { id: 'usr-monk', name: 'Monk Studios', email: 'monkstudioskpm@gmail.com', role: 'ADMIN', avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80' },
+      { id: 'usr-sambavangal', name: 'Sambavangal Media', email: 'sambavangalmedia@gmail.com', role: 'ADMIN', avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80' },
+      { id: 'usr-cupice', name: 'Cupice productions', email: 'cupiceproductions@gmail.com', role: 'CREATOR', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
       { id: 'usr-1', name: 'Karthik Subramanian', email: 'karthik@madrasfilms.com', role: 'USER', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
       { id: 'usr-2', name: 'Nivedhita Raman', email: 'nivedhita@indiecinema.io', role: 'USER', avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80' },
       { id: 'usr-3', name: 'Arun Kumar', email: 'arunkumar@vetristudios.in', role: 'USER', avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80' },
