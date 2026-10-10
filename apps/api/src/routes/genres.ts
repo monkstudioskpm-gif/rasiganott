@@ -6,6 +6,7 @@ const router = Router();
 // GET /api/genres (Public & Admin)
 router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     const genres = await prisma.genre.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },

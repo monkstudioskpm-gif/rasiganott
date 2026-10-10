@@ -11,6 +11,9 @@ function getDatabaseUrl(): string | undefined {
   if ((formatted.includes('pooler.supabase.com') || formatted.includes(':6543')) && !formatted.includes('pgbouncer=true')) {
     formatted += (formatted.includes('?') ? '&' : '?') + 'pgbouncer=true';
   }
+  if (!formatted.includes('connection_limit=')) {
+    formatted += (formatted.includes('?') ? '&' : '?') + 'connection_limit=1';
+  }
   return formatted;
 }
 
@@ -20,11 +23,9 @@ export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    log: ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;
 
 export default prisma;

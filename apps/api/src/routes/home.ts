@@ -7,94 +7,55 @@ const router = Router();
 // GET /api/home
 router.get('/', async (_req, res, next) => {
   try {
-    const [featured, genres, newReleases, topRated, trending] = await Promise.all([
-      // Featured titles
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
+    // 2 fast queries: published catalog titles and active genres
+    const [publishedTitles, activeGenres] = await Promise.all([
       prisma.title.findMany({
-        where: { status: 'PUBLISHED', isFeatured: true },
-        take: 5,
+        where: { status: 'PUBLISHED' },
         include: {
           genres: { include: { genre: true } },
           tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } },
         },
+        orderBy: { createdAt: 'desc' },
+        take: 60,
       }),
-
-      // Active genres with published titles
       prisma.genre.findMany({
         where: { isActive: true },
         orderBy: { sortOrder: 'asc' },
-        include: {
-          titles: {
-            where: { title: { status: 'PUBLISHED' } },
-            take: 12,
-            include: {
-              title: {
-                include: {
-                  genres: { include: { genre: true } },
-                  tags: { include: { tag: true } },
-                  cast: { include: { person: true } },
-                  crew: { include: { person: true } },
-                },
-              },
-            },
-          },
-        },
-      }),
-
-      // New releases
-      prisma.title.findMany({
-        where: { status: 'PUBLISHED' },
-        orderBy: { publishedAt: 'desc' },
-        take: 10,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } },
-        },
-      }),
-
-      // Top rated
-      prisma.title.findMany({
-        where: { status: 'PUBLISHED' },
-        orderBy: { editorRating: 'desc' },
-        take: 10,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } },
-        },
-      }),
-
-      // Trending
-      prisma.title.findMany({
-        where: { status: 'PUBLISHED' },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } },
-        },
       }),
     ]);
 
-    const formattedFeatured = featured.map(formatTitleResponse);
-    const formattedNewReleases = newReleases.map(formatTitleResponse);
-    const formattedTopRated = topRated.map(formatTitleResponse);
-    const formattedTrending = trending.map(formatTitleResponse);
+    const formatted = publishedTitles.map(formatTitleResponse);
 
-    const formattedGenres = genres
+    // Featured titles (prefer isFeatured, fallback to latest published)
+    const featuredList = formatted.filter((t: any) => t.isFeatured);
+    const formattedFeatured = (featuredList.length > 0 ? featuredList : formatted).slice(0, 5);
+
+    // Trending = latest catalog additions
+    const formattedTrending = formatted.slice(0, 10);
+
+    // New releases = sorted by published date / creation date desc
+    const formattedNewReleases = [...formatted]
+      .sort((a: any, b: any) => new Date(b.publishedAt || b.createdAt).getTime() - new Date(a.publishedAt || a.createdAt).getTime())
+      .slice(0, 10);
+
+    // Top rated = sorted by editorRating desc
+    const formattedTopRated = [...formatted]
+      .sort((a: any, b: any) => (Number(b.editorRating) || 0) - (Number(a.editorRating) || 0))
+      .slice(0, 10);
+
+    // Active genres grouped in-memory without extra round-trip joins
+    const formattedGenres = activeGenres
       .map((g) => ({
         id: g.id,
         name: g.name,
         slug: g.slug,
         sortOrder: g.sortOrder,
         isActive: g.isActive,
-        titles: g.titles.map((tg) => formatTitleResponse(tg.title)),
+        titles: formatted
+          .filter((t: any) => t.genres?.some((tg: any) => tg.id === g.id || tg.slug === g.slug || tg.name === g.name))
+          .slice(0, 12),
       }))
       .filter((g) => g.titles.length > 0);
 

@@ -17,16 +17,17 @@ function getDatabaseUrl() {
   if ((formatted.includes("pooler.supabase.com") || formatted.includes(":6543")) && !formatted.includes("pgbouncer=true")) {
     formatted += (formatted.includes("?") ? "&" : "?") + "pgbouncer=true";
   }
+  if (!formatted.includes("connection_limit=")) {
+    formatted += (formatted.includes("?") ? "&" : "?") + "connection_limit=1";
+  }
   return formatted;
 }
 var dbUrl = getDatabaseUrl();
 var prisma = globalForPrisma.prisma || new PrismaClient({
   datasources: dbUrl ? { db: { url: dbUrl } } : void 0,
-  log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  log: ["error"]
 });
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;
 
 // apps/api/src/routes/titles.ts
 import { Router as Router2 } from "express";
@@ -376,19 +377,6 @@ var people_default = router;
 
 // apps/api/src/routes/titles.ts
 var router2 = Router2();
-var migrationChecked = false;
-async function ensureVerticalPosterColumn() {
-  if (migrationChecked) return;
-  try {
-    await prisma.$executeRawUnsafe('ALTER TABLE "Title" ADD COLUMN IF NOT EXISTS "verticalPosterUrl" TEXT;');
-    migrationChecked = true;
-  } catch {
-  }
-}
-router2.use(async (_req, _res, next) => {
-  await ensureVerticalPosterColumn();
-  next();
-});
 function formatTitleResponse(title) {
   if (!title) return title;
   const genres = title.genres ? title.genres.map((tg) => tg.genre || tg) : [];
@@ -559,6 +547,7 @@ router2.get("/", async (req, res, next) => {
         }
       ];
     }
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     let orderBy = { createdAt: "desc" };
     if (sort === "oldest") orderBy = { createdAt: "asc" };
     if (sort === "rating") orderBy = { editorRating: "desc" };
@@ -571,12 +560,7 @@ router2.get("/", async (req, res, next) => {
         take: limitNum,
         include: {
           genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } },
-          seasons: {
-            include: { episodes: { where: { status: "PUBLISHED" } } }
-          }
+          tags: { include: { tag: true } }
         }
       }),
       prisma.title.count({ where })
@@ -1297,87 +1281,35 @@ var titles_default = router2;
 var router3 = Router3();
 router3.get("/", async (_req, res, next) => {
   try {
-    const [featured, genres, newReleases, topRated, trending] = await Promise.all([
-      // Featured titles
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    const [publishedTitles, activeGenres] = await Promise.all([
       prisma.title.findMany({
-        where: { status: "PUBLISHED", isFeatured: true },
-        take: 5,
+        where: { status: "PUBLISHED" },
         include: {
           genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } }
-        }
+          tags: { include: { tag: true } }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 60
       }),
-      // Active genres with published titles
       prisma.genre.findMany({
         where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
-        include: {
-          titles: {
-            where: { title: { status: "PUBLISHED" } },
-            take: 12,
-            include: {
-              title: {
-                include: {
-                  genres: { include: { genre: true } },
-                  tags: { include: { tag: true } },
-                  cast: { include: { person: true } },
-                  crew: { include: { person: true } }
-                }
-              }
-            }
-          }
-        }
-      }),
-      // New releases
-      prisma.title.findMany({
-        where: { status: "PUBLISHED" },
-        orderBy: { publishedAt: "desc" },
-        take: 10,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } }
-        }
-      }),
-      // Top rated
-      prisma.title.findMany({
-        where: { status: "PUBLISHED" },
-        orderBy: { editorRating: "desc" },
-        take: 10,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } }
-        }
-      }),
-      // Trending
-      prisma.title.findMany({
-        where: { status: "PUBLISHED" },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } }
-        }
+        orderBy: { sortOrder: "asc" }
       })
     ]);
-    const formattedFeatured = featured.map(formatTitleResponse);
-    const formattedNewReleases = newReleases.map(formatTitleResponse);
-    const formattedTopRated = topRated.map(formatTitleResponse);
-    const formattedTrending = trending.map(formatTitleResponse);
-    const formattedGenres = genres.map((g) => ({
+    const formatted = publishedTitles.map(formatTitleResponse);
+    const featuredList = formatted.filter((t) => t.isFeatured);
+    const formattedFeatured = (featuredList.length > 0 ? featuredList : formatted).slice(0, 5);
+    const formattedTrending = formatted.slice(0, 10);
+    const formattedNewReleases = [...formatted].sort((a, b) => new Date(b.publishedAt || b.createdAt).getTime() - new Date(a.publishedAt || a.createdAt).getTime()).slice(0, 10);
+    const formattedTopRated = [...formatted].sort((a, b) => (Number(b.editorRating) || 0) - (Number(a.editorRating) || 0)).slice(0, 10);
+    const formattedGenres = activeGenres.map((g) => ({
       id: g.id,
       name: g.name,
       slug: g.slug,
       sortOrder: g.sortOrder,
       isActive: g.isActive,
-      titles: g.titles.map((tg) => formatTitleResponse(tg.title))
+      titles: formatted.filter((t) => t.genres?.some((tg) => tg.id === g.id || tg.slug === g.slug || tg.name === g.name)).slice(0, 12)
     })).filter((g) => g.titles.length > 0);
     res.json({
       featured: formattedFeatured,
@@ -1400,6 +1332,7 @@ import { Router as Router4 } from "express";
 var router4 = Router4();
 router4.get("/", async (_req, res, next) => {
   try {
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     const genres = await prisma.genre.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" }

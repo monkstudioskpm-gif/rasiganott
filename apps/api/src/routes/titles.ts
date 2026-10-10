@@ -5,21 +5,7 @@ import { toNameKey } from './people.js';
 
 const router = Router();
 
-let migrationChecked = false;
-async function ensureVerticalPosterColumn() {
-  if (migrationChecked) return;
-  try {
-    await prisma.$executeRawUnsafe('ALTER TABLE "Title" ADD COLUMN IF NOT EXISTS "verticalPosterUrl" TEXT;');
-    migrationChecked = true;
-  } catch {
-    // Ignore if already exists or fails
-  }
-}
 
-router.use(async (_req, _res, next) => {
-  await ensureVerticalPosterColumn();
-  next();
-});
 
 export function formatTitleResponse(title: any) {
   if (!title) return title;
@@ -232,6 +218,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       ];
     }
 
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
     let orderBy: any = { createdAt: 'desc' };
     if (sort === 'oldest') orderBy = { createdAt: 'asc' };
     if (sort === 'rating') orderBy = { editorRating: 'desc' };
@@ -246,11 +234,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         include: {
           genres: { include: { genre: true } },
           tags: { include: { tag: true } },
-          cast: { include: { person: true } },
-          crew: { include: { person: true } },
-          seasons: {
-            include: { episodes: { where: { status: 'PUBLISHED' } } },
-          },
         },
       }),
       prisma.title.count({ where }),
