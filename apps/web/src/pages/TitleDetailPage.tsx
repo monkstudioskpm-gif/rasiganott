@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api, getPersonInitials, progressApi } from '../lib/api';
-import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Loader2, Tv, RotateCcw } from 'lucide-react';
+import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Film, Tv, RotateCcw } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
 import { getSeasonsForTitle } from '../lib/seasons';
 import { useVideoEngine } from '../features/player/useVideoEngine';
+import { TitleDetailSkeleton } from '../components/Skeleton';
 
 function TitleTrailerBanner({ trailerUrl, streamType }: { trailerUrl: string; streamType?: string }) {
   const { videoRef, isMuted, toggleMute } = useVideoEngine({
@@ -127,12 +128,7 @@ export function TitleDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-[75vh] flex flex-col items-center justify-center gap-4 text-center p-6">
-        <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
-        <p className="text-gray-400 text-sm font-semibold">Loading your content...</p>
-      </div>
-    );
+    return <TitleDetailSkeleton />;
   }
 
   if (isError || !title) {

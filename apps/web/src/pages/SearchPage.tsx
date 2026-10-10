@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Search, Star, Loader2, X, Sparkles, Clock, TrendingUp, Play, Compass } from 'lucide-react';
+import { Search, Star, X, Sparkles, Clock, TrendingUp, Play, Compass } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getShortTitle } from './HomePage';
 import { Title } from '@rasigan/shared';
+import { GridCatalogSkeleton } from '../components/Skeleton';
 
 const TRENDING_SEARCH_TAGS = [
   'Kodi Melam',
@@ -142,12 +143,7 @@ export function SearchPage() {
             </button>
           </div>
 
-          {isSearching && (
-            <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3 text-center text-white">
-              <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-              <p className="text-xs text-gray-400 font-medium">Searching catalog...</p>
-            </div>
-          )}
+          {isSearching && <GridCatalogSkeleton count={5} />}
 
           {!isSearching && searchResults.length === 0 && (
             <div className="min-h-[35vh] flex flex-col items-center justify-center text-center p-8 space-y-3 glass-panel rounded-3xl border border-white/10 max-w-xl mx-auto">
@@ -283,10 +279,7 @@ export function SearchPage() {
             </div>
 
             {isCatalogLoading ? (
-              <div className="min-h-[30vh] flex flex-col items-center justify-center gap-3 text-center text-white">
-                <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-                <p className="text-xs text-gray-400 font-medium">Loading your content...</p>
-              </div>
+              <GridCatalogSkeleton count={10} />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
                 {recommendedTitles.slice(0, 10).map((title) => (

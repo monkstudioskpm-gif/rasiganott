@@ -3660,7 +3660,7 @@ async function generateFeed(ctx) {
       description: c.title.description || ""
     });
   }
-  const nextCursor = items.length >= ctx.limit ? `page_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` : null;
+  const nextCursor = items.length > 0 ? `page_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` : null;
   return {
     requestId: ctx.requestId,
     strategy: strategyId,

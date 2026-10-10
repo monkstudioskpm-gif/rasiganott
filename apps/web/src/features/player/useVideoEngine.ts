@@ -113,6 +113,7 @@ export function useVideoEngine({
         lowLatencyMode: false,
         capLevelToPlayerSize: true,
         startLevel: -1, // Auto quality selection
+        startPosition: startPositionSec > 0 ? startPositionSec : -1,
         maxBufferLength: 30,
         backBufferLength: 30,
       });
@@ -173,7 +174,29 @@ export function useVideoEngine({
         video.load();
       }
     };
-  }, [src, streamType, autoPlay, startPositionSec, cleanupEngine, onError]);
+  }, [src, streamType, startPositionSec, cleanupEngine, onError]);
+
+  // Handle autoPlay state changes without rebuilding the HLS engine
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (autoPlay) {
+      if (muted) {
+        video.muted = true;
+        setIsMuted(true);
+      }
+      const promise = video.play();
+      if (promise !== undefined) {
+        promise.catch(() => {
+          video.muted = true;
+          setIsMuted(true);
+          video.play().catch((err) => console.warn('Muted autoplay fallback failed:', err));
+        });
+      }
+    } else {
+      video.pause();
+    }
+  }, [autoPlay, muted]);
 
   // Video event listeners
   useEffect(() => {

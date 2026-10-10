@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { Play, Star, Info, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { Footer } from '../components/Footer';
+import { HeroBannerSkeleton, RowSectionSkeleton, Skeleton } from '../components/Skeleton';
 
 export function getShortTitle(rawTitle: string): string {
   if (!rawTitle) return '';
@@ -140,9 +141,15 @@ export function HomePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[75vh] flex flex-col items-center justify-center gap-4 text-center p-6">
-        <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-400 text-sm font-semibold tracking-wide">Loading your content...</p>
+      <div className="space-y-8 pb-16 max-w-7xl mx-auto px-2 sm:px-4">
+        <HeroBannerSkeleton />
+        <div className="flex gap-2 overflow-hidden py-1">
+          {categoryChips.map((c) => (
+            <Skeleton key={c.id} className="h-9 w-24 rounded-xl flex-none bg-white/[0.05]" />
+          ))}
+        </div>
+        <RowSectionSkeleton count={5} />
+        <RowSectionSkeleton count={5} />
       </div>
     );
   }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, getPersonInitials } from '../../lib/api';
 import { User, Search, Plus, Trash2, Edit, Merge, AlertTriangle, Loader2, CheckCircle2, X } from 'lucide-react';
+import { AdminTableSkeleton } from '../../components/Skeleton';
 
 interface PersonItem {
   id: string;
@@ -239,10 +240,7 @@ export function AdminPeoplePage() {
 
       {/* People Grid */}
       {isLoading ? (
-        <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-          <p className="text-xs text-gray-400">Loading people dataset from Supabase...</p>
-        </div>
+        <AdminTableSkeleton rows={8} />
       ) : isError ? (
         <div className="glass-card p-8 rounded-2xl text-center space-y-3 border border-rose-500/30 bg-rose-500/10">
           <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />

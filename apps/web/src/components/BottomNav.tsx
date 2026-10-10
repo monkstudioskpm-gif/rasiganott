@@ -40,8 +40,8 @@ export function BottomNav() {
 
   return (
     <nav
-      className={`md:hidden fixed bottom-3 left-4 right-4 z-50 glass-panel border border-white/10 rounded-2xl p-1.5 shadow-2xl shadow-black/80 transition-all duration-300 transform ${
-        shouldHide ? 'translate-y-28 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100 pointer-events-auto'
+      className={`md:hidden fixed bottom-2 left-5 right-5 max-w-md mx-auto z-50 glass-panel border border-white/15 rounded-2xl py-1 px-1.5 shadow-xl shadow-black/90 backdrop-blur-xl transition-all duration-300 transform bg-black/80 ${
+        shouldHide ? 'translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100 pointer-events-auto'
       }`}
     >
       <div className="flex items-center justify-around">
@@ -52,14 +52,14 @@ export function BottomNav() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-all duration-200 ${
+              className={`flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl text-[10px] font-semibold transition-all duration-200 ${
                 isActive
-                  ? 'text-white bg-sky-500 shadow-md shadow-sky-500/30 font-bold'
+                  ? 'text-white bg-sky-500 shadow-sm shadow-sky-500/30 font-bold'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'scale-110 text-white' : ''} transition-transform duration-200`} />
-              <span className="tracking-tight">{item.label}</span>
+              <Icon className={`w-4 h-4 ${isActive ? 'scale-105 text-white' : ''} transition-transform duration-200`} />
+              <span className="tracking-tight leading-none">{item.label}</span>
             </Link>
           );
         })}

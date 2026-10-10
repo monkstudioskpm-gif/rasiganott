@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../lib/api';
-import { Plus, Trash2, Edit, Loader2, Tag as TagIcon, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Edit, Tag as TagIcon, Sparkles } from 'lucide-react';
+import { AdminTableSkeleton } from '../../components/Skeleton';
 
 interface GenreItem {
   id: string;
@@ -87,10 +88,7 @@ export function AdminGenresPage() {
       </div>
 
       {isLoading ? (
-        <div className="min-h-[30vh] flex flex-col items-center justify-center gap-2">
-          <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-          <p className="text-xs text-gray-400 font-semibold">Loading genres from database...</p>
-        </div>
+        <AdminTableSkeleton rows={6} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {genres.map((g: GenreItem) => (

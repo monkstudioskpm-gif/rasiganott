@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Star, Loader2 } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { Kind } from '@rasigan/shared';
+import { GridCatalogSkeleton } from '../components/Skeleton';
 
 import { getShortTitle } from './HomePage';
 
@@ -70,12 +71,7 @@ export function BrowsePage() {
       </div>
 
       {/* Loading State */}
-      {isLoading && (
-        <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-center text-white">
-          <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-          <p className="text-xs text-gray-400 font-medium">Fetching titles...</p>
-        </div>
-      )}
+      {isLoading && <GridCatalogSkeleton count={10} />}
 
       {/* Empty State */}
       {!isLoading && titles.length === 0 && (

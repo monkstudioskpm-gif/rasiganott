@@ -20,6 +20,7 @@ import {
 import { FeedResponseItem, Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
 import { useVideoEngine } from '../features/player/useVideoEngine';
+import { ShotsFeedSkeleton } from '../components/Skeleton';
 
 export function ShotsPage() {
   const [searchParams] = useSearchParams();
@@ -39,7 +40,6 @@ export function ShotsPage() {
   const {
     data,
     fetchNextPage,
-    hasNextPage,
     isFetchingNextPage,
     isLoading,
     isError,
@@ -48,20 +48,40 @@ export function ShotsPage() {
     queryKey: ['shots-feed'],
     queryFn: ({ pageParam }) => feedApi.getFeed({ cursor: pageParam, limit: 10 }),
     initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
+    getNextPageParam: (lastPage) => lastPage?.nextCursor || `infinite_page_${Date.now()}`,
   });
 
   // Flatten items across all fetched pages
   const rawItems: FeedResponseItem[] = (data?.pages.flatMap((p) => p?.items || [])) || [];
 
-  // Prioritize requested title if targetTitleId query parameter was provided
+  // Guaranteed endless scrolling: if rawItems is available, loop with varied clip windows
   const items: FeedResponseItem[] = (() => {
-    if (!targetTitleId || rawItems.length === 0) return rawItems;
-    const idx = rawItems.findIndex((it) => it.titleId === targetTitleId || it.slug === targetTitleId);
-    if (idx <= 0) return rawItems;
-    const prioritized = [...rawItems];
-    const [target] = prioritized.splice(idx, 1);
-    return [target, ...prioritized];
+    if (rawItems.length === 0) return [];
+    let pool = [...rawItems];
+    if (targetTitleId) {
+      const idx = pool.findIndex((it) => it.titleId === targetTitleId || it.slug === targetTitleId);
+      if (idx > 0) {
+        const [target] = pool.splice(idx, 1);
+        pool = [target, ...pool];
+      }
+    }
+    // Repeat items to ensure uninterrupted infinite scroll
+    if (pool.length > 0 && pool.length < 50) {
+      const multiplied: FeedResponseItem[] = [];
+      const repeatCount = Math.max(2, Math.ceil(50 / pool.length));
+      for (let r = 0; r < repeatCount; r++) {
+        for (const it of pool) {
+          multiplied.push({
+            ...it,
+            clipStartSec: it.mode === 'CLIP' && it.durationSec > 60
+              ? Math.max(15, (it.clipStartSec || 30) + (r * 19) % Math.max(20, it.durationSec - 50))
+              : it.clipStartSec,
+          });
+        }
+      }
+      return multiplied;
+    }
+    return pool;
   })();
 
   const requestId = data?.pages?.[0]?.requestId || `shots_${Date.now()}`;
@@ -93,7 +113,7 @@ export function ShotsPage() {
     }
 
     // Prefetch next page when nearing end of current batch
-    if (index >= items.length - 3 && hasNextPage && !isFetchingNextPage) {
+    if (index >= items.length - 4 && !isFetchingNextPage) {
       fetchNextPage();
     }
   };
@@ -113,7 +133,7 @@ export function ShotsPage() {
         behavior: 'smooth',
       });
       setActiveIndex(nextIdx);
-    } else if (hasNextPage) {
+    } else {
       fetchNextPage();
     }
   };
@@ -160,15 +180,7 @@ export function ShotsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-[85vh] flex flex-col items-center justify-center gap-3 text-center text-white">
-        <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
-        <div className="space-y-1">
-          <p className="text-sm font-extrabold text-white">Curating your Shots feed...</p>
-          <p className="text-xs text-gray-400">Loading cinema highlights & original 9:16 cuts</p>
-        </div>
-      </div>
-    );
+    return <ShotsFeedSkeleton />;
   }
 
   if (isError || items.length === 0) {
@@ -277,7 +289,6 @@ function ShotItem({
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentDisplaySec, setCurrentDisplaySec] = useState(0);
   const [clipTotalSec, setClipTotalSec] = useState(0);
-  const [stallCount, setStallCount] = useState(0);
 
   const watchDurationRef = useRef(0);
   const watchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -405,23 +416,6 @@ function ShotItem({
     };
   }, [isActive, play, pause, item, position, loops, eventsBufferRef]);
 
-  // Stall detector: if active but not playing for >3.5 seconds
-  useEffect(() => {
-    if (!isActive) return;
-    if (!isPlaying) {
-      const timer = setTimeout(() => {
-        setStallCount((c) => c + 1);
-        if (stallCount >= 1) {
-          onShowToast('Buffering stalled, advancing to next shot...');
-          onSkipNext();
-        }
-      }, 3500);
-      return () => clearTimeout(timer);
-    } else {
-      setStallCount(0);
-    }
-  }, [isActive, isPlaying, stallCount, onShowToast, onSkipNext]);
-
   const formatSec = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -494,12 +488,16 @@ function ShotItem({
         className="relative z-10 w-full h-full object-contain cursor-pointer"
       />
 
-      {/* Play/Pause Center Indicator */}
-      {!isPlaying && (
+      {/* Play/Pause or Buffering Indicator */}
+      {isActive && !isPlaying ? (
+        <div className="absolute z-20 pointer-events-none w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-sky-400 backdrop-blur-md shadow-2xl">
+          <Loader2 className="w-6 h-6 animate-spin text-sky-400" />
+        </div>
+      ) : !isPlaying ? (
         <div className="absolute z-20 pointer-events-none w-14 h-14 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-md shadow-2xl">
           <Play className="w-7 h-7 fill-current ml-1 text-white" />
         </div>
-      )}
+      ) : null}
 
       {/* Dark Bottom & Top Gradients for Contrast Readability */}
       <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none z-10" />
@@ -522,7 +520,7 @@ function ShotItem({
       )}
 
       {/* Compact Right Action Rail */}
-      <div className="absolute right-3 bottom-12 z-20 flex flex-col items-center gap-3 text-white">
+      <div className="absolute right-3 bottom-20 md:bottom-12 z-20 flex flex-col items-center gap-2.5 sm:gap-3 text-white">
         {/* Sound Toggle */}
         <button
           onClick={(e) => {
@@ -629,7 +627,7 @@ function ShotItem({
       </div>
 
       {/* Bottom Overlay Info & Dual CTAs */}
-      <div className="absolute bottom-4 left-3 right-16 z-20 space-y-2 text-white">
+      <div className="absolute bottom-20 md:bottom-5 left-3 right-16 z-20 space-y-2 text-white">
         {/* Creator Info */}
         <div className="flex items-center gap-2">
           <div className="text-[11px] font-bold text-sky-300 truncate">

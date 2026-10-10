@@ -128,8 +128,8 @@ export async function generateFeed(ctx: FeedContext): Promise<FeedResponse> {
     });
   }
 
-  // Next page cursor
-  const nextCursor = items.length >= ctx.limit ? `page_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` : null;
+  // Next page cursor - always return a cursor when items exist so user has unlimited scrolls
+  const nextCursor = items.length > 0 ? `page_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` : null;
 
   return {
     requestId: ctx.requestId,

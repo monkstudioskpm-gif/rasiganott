@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Star, Loader2 } from 'lucide-react';
+import { Star } from 'lucide-react';
+import { GridCatalogSkeleton } from '../components/Skeleton';
 
 export function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -23,12 +24,7 @@ export function CategoryPage() {
         <p className="text-xs sm:text-sm text-gray-400">All published titles in {slug?.replace('-', ' ')}</p>
       </div>
 
-      {isLoading && (
-        <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-center text-white">
-          <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-          <p className="text-xs text-gray-400 font-medium">Loading your content...</p>
-        </div>
-      )}
+      {isLoading && <GridCatalogSkeleton count={10} />}
 
       {!isLoading && titles.length === 0 && (
         <div className="min-h-[40vh] flex flex-col items-center justify-center text-center p-6 space-y-3 glass-panel rounded-3xl">
