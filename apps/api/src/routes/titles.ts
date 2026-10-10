@@ -323,7 +323,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const genreSlug = (genre || category) as string;
-    if (genreSlug) {
+    if (genreSlug && genreSlug !== 'all') {
       where.genres = {
         some: {
           genre: { slug: genreSlug },

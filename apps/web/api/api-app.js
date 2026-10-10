@@ -1183,7 +1183,7 @@ router3.get("/", async (req, res, next) => {
       where.orientation = orientation;
     }
     const genreSlug = genre || category;
-    if (genreSlug) {
+    if (genreSlug && genreSlug !== "all") {
       where.genres = {
         some: {
           genre: { slug: genreSlug }
