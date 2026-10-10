@@ -6,12 +6,45 @@ import { Play, Star, Clock, Heart, ArrowLeft, Volume2, VolumeX, IndianRupee, Fil
 import { Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
 import { getSeasonsForTitle } from '../lib/seasons';
+import { useVideoEngine } from '../features/player/useVideoEngine';
+
+function TitleTrailerBanner({ trailerUrl, streamType }: { trailerUrl: string; streamType?: string }) {
+  const { videoRef, isMuted, toggleMute } = useVideoEngine({
+    src: trailerUrl,
+    streamType: (streamType as any) || (trailerUrl.includes('.m3u8') ? 'HLS' : 'MP4'),
+    autoPlay: true,
+    muted: true,
+  });
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        autoPlay
+        muted={isMuted}
+        loop
+        playsInline
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d15] via-[#0b0d15]/40 to-transparent pointer-events-none"></div>
+      <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
+
+      {/* Floating Sound Toggle Button */}
+      <button
+        onClick={toggleMute}
+        className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-md cursor-pointer pointer-events-auto"
+        title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
+      >
+        {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-sky-400" />}
+      </button>
+    </>
+  );
+}
 
 export function TitleDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
 
-  const [isMuted, setIsMuted] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState(1);
@@ -72,7 +105,7 @@ export function TitleDetailPage() {
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center gap-4 text-center p-6">
         <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
-        <p className="text-gray-400 text-sm font-semibold">Loading title details...</p>
+        <p className="text-gray-400 text-sm font-semibold">Loading your content...</p>
       </div>
     );
   }
@@ -114,25 +147,15 @@ export function TitleDetailPage() {
 
       {/* Main Container Card (Exact ZETTA Middle Phone Screen Design) */}
       <div className="bg-[#0b0d15] border border-white/10 rounded-3xl overflow-hidden shadow-2xl space-y-6 text-gray-100">
-        {/* 1. Backdrop Video Header with Autoplay Video Trailer & Back Arrow (No manual play button) */}
+        {/* 1. Backdrop Video Header with Autoplay Video Trailer & Back Arrow */}
         <div className="relative h-72 sm:h-96 w-full overflow-hidden">
-          {/* Autoplay Video Banner */}
-          <video
-            src={trailerUrl}
-            autoPlay
-            muted={isMuted}
-            loop
-            playsInline
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d15] via-[#0b0d15]/40 to-transparent"></div>
-          <div className="absolute inset-0 bg-black/20"></div>
+          <TitleTrailerBanner trailerUrl={trailerUrl} streamType={title.streamType || undefined} />
 
-          {/* Top Floating Controls (Back Arrow, Content ID Pill, Sound Toggle) */}
-          <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
+          {/* Top Floating Controls */}
+          <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
             <button
               onClick={() => navigate(-1)}
-              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-md"
+              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-md pointer-events-auto cursor-pointer"
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -143,13 +166,7 @@ export function TitleDetailPage() {
               ID: {title.id}
             </div>
 
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 shadow-md"
-              title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
-            >
-              {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5 text-sky-400" />}
-            </button>
+            <div className="w-10"></div>
           </div>
         </div>
 

@@ -63,7 +63,7 @@ export function ReelsPage() {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center gap-3 text-center text-white">
         <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
-        <p className="text-xs text-gray-400 font-medium">Loading Vertical Video Reels...</p>
+        <p className="text-xs text-gray-400 font-medium">Loading your content...</p>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export function ReelsPage() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="w-full h-[calc(100vh-4.5rem)] md:max-w-md md:h-[84vh] md:my-3 mx-auto overflow-y-scroll snap-y snap-mandatory no-scrollbar rounded-none md:rounded-3xl border-0 md:border md:border-white/10 glass-panel shadow-2xl relative"
+        className="w-full h-[calc(100dvh-7.5rem)] md:max-w-md md:h-[84vh] md:my-3 mx-auto overflow-y-scroll snap-y snap-mandatory no-scrollbar rounded-none md:rounded-3xl border-0 md:border md:border-white/10 glass-panel shadow-2xl relative bg-black"
       >
         {displayTitles.map((title, idx) => (
           <ReelsItem
@@ -124,7 +124,7 @@ function ReelsItem({
     src: activeVideoUrl,
     streamType: title.streamType || (activeVideoUrl.includes('.m3u8') ? 'HLS' : 'MP4'),
     autoPlay: isActive,
-    muted: false,
+    muted: true, // starts muted so mobile browsers allow instant autoplay
   });
 
   useEffect(() => {
@@ -138,6 +138,7 @@ function ReelsItem({
 
   const seasons = getSeasonsForTitle(title);
   const episodes = seasons[0]?.episodes || [];
+  const cleanTitle = title.title.includes('|') ? title.title.split('|')[0].trim() : title.title;
 
   return (
     <div className="h-full w-full snap-start snap-always relative overflow-hidden flex items-center justify-center bg-black select-none">
@@ -153,43 +154,55 @@ function ReelsItem({
         <ArrowLeft className="w-4 h-4" />
       </button>
 
-      {/* Video Element connected via useVideoEngine (HLS & MP4 supported) */}
+      {/* Blurred Ambient Backdrop for Aspect Ratio Harmony */}
+      <img
+        src={title.verticalPosterUrl || title.posterUrl}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-35 scale-125 pointer-events-none"
+      />
+
+      {/* Video Element: object-contain prevents severe landscape cropping and maintains full content */}
       <video
         ref={videoRef}
         loop
         playsInline
+        autoPlay
+        muted={isMuted}
         onClick={togglePlay}
-        className="w-full h-full object-cover cursor-pointer"
+        className="relative z-10 w-full h-full object-contain cursor-pointer"
       />
 
-      {/* Play/Pause Center Overlay Indicator when paused (Center mute option removed as requested) */}
+      {/* Dark Bottom Gradient for High Contrast Readability */}
+      <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none z-10" />
+
+      {/* Play/Pause Center Overlay Indicator when paused */}
       {!isPlaying && (
-        <div className="absolute z-20 pointer-events-none w-10 h-10 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-md shadow-xl">
-          <Play className="w-5 h-5 fill-current ml-0.5" />
+        <div className="absolute z-20 pointer-events-none w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-md shadow-xl">
+          <Play className="w-6 h-6 fill-current ml-0.5 text-white" />
         </div>
       )}
 
-      {/* Compact Right Action Rail (Positioned above BottomNav) */}
-      <div className="absolute right-3 bottom-24 sm:bottom-20 z-20 flex flex-col items-center gap-2 text-white">
+      {/* Compact Right Action Rail (Safely positioned above bottom safe zone) */}
+      <div className="absolute right-2.5 bottom-6 z-20 flex flex-col items-center gap-2.5 text-white">
         {/* Mute/Unmute Sound Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             toggleMute();
           }}
-          className="flex flex-col items-center gap-0.5 group"
+          className="flex flex-col items-center gap-0.5 group cursor-pointer"
           title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
         >
-          <div className="w-7 h-7 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90">
-            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-sky-400" /> : <Volume2 className="w-3.5 h-3.5 text-white" />}
+          <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 text-white hover:bg-black/80 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90 shadow-md">
+            {isMuted ? <VolumeX className="w-4 h-4 text-sky-400" /> : <Volume2 className="w-4 h-4 text-white" />}
           </div>
           <span className="text-[8px] font-bold">{isMuted ? 'Muted' : 'Sound'}</span>
         </button>
 
         {/* Support Creator Button (Indian Rupee Icon ₹) */}
-        <button onClick={onOpenSupport} className="flex flex-col items-center gap-0.5 group">
-          <div className="w-7 h-7 rounded-full bg-amber-500 border border-amber-400/50 text-white shadow-md shadow-amber-500/30 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90 animate-pulse">
-            <IndianRupee className="w-3.5 h-3.5" />
+        <button onClick={onOpenSupport} className="flex flex-col items-center gap-0.5 group cursor-pointer">
+          <div className="w-8 h-8 rounded-full bg-amber-500 border border-amber-400/50 text-white shadow-md shadow-amber-500/30 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90 animate-pulse">
+            <IndianRupee className="w-4 h-4" />
           </div>
           <span className="text-[8px] font-black text-amber-300 tracking-wider uppercase">Support</span>
         </button>
@@ -197,11 +210,11 @@ function ReelsItem({
         {/* Watch Full Button */}
         <button
           onClick={() => navigate(`/title/${title.slug}`)}
-          className="flex flex-col items-center gap-0.5 group"
+          className="flex flex-col items-center gap-0.5 group cursor-pointer"
           title="Watch Full Movie/Series"
         >
-          <div className="w-7 h-7 rounded-full bg-black/50 border border-white/20 text-white hover:bg-sky-500/80 hover:border-sky-400 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90 shadow-md">
-            <Film className="w-3.5 h-3.5 text-sky-300" />
+          <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 text-white hover:bg-sky-500/80 hover:border-sky-400 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90 shadow-md">
+            <Film className="w-4 h-4 text-sky-300" />
           </div>
           <span className="text-[8px] font-extrabold text-sky-300 tracking-tight">Watch full</span>
         </button>
@@ -216,27 +229,27 @@ function ReelsItem({
               alert('Link copied to clipboard!');
             }
           }}
-          className="flex flex-col items-center gap-0.5 group"
+          className="flex flex-col items-center gap-0.5 group cursor-pointer"
         >
-          <div className="w-7 h-7 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90">
-            <Share2 className="w-3.5 h-3.5" />
+          <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 text-white hover:bg-black/80 backdrop-blur-md transition-all duration-200 flex items-center justify-center group-active:scale-90 shadow-md">
+            <Share2 className="w-4 h-4" />
           </div>
           <span className="text-[8px] font-bold">Share</span>
         </button>
 
         {/* Episodes Drawer Trigger Button (Series only) */}
         {title.kind === 'WEB_SERIES' && (
-          <button onClick={() => setShowEpisodesDrawer(true)} className="flex flex-col items-center gap-0.5 group">
-            <div className="w-7 h-7 rounded-full bg-sky-500 border border-sky-400 text-white shadow-md backdrop-blur-md flex items-center justify-center">
-              <Tv className="w-3.5 h-3.5" />
+          <button onClick={() => setShowEpisodesDrawer(true)} className="flex flex-col items-center gap-0.5 group cursor-pointer">
+            <div className="w-8 h-8 rounded-full bg-sky-500 border border-sky-400 text-white shadow-md backdrop-blur-md flex items-center justify-center">
+              <Tv className="w-4 h-4" />
             </div>
             <span className="text-[8px] font-bold text-sky-300">Episodes</span>
           </button>
         )}
       </div>
 
-      {/* Bottom Text Overlay (Positioned cleanly above BottomNav) */}
-      <div className="absolute bottom-24 sm:bottom-20 left-4 right-14 z-20 space-y-1 text-white">
+      {/* Bottom Text Overlay (Cleanly positioned with safe margins) */}
+      <div className="absolute bottom-6 left-3 right-16 z-20 space-y-1 text-white">
         {/* Creator Handle */}
         <div className="text-[10px] font-semibold text-gray-300 truncate">
           @{title.creatorName || 'Rasigan Creator'}
@@ -248,7 +261,7 @@ function ReelsItem({
           className="text-left font-extrabold text-xs text-white hover:text-sky-300 transition-colors tracking-tight leading-tight block w-full hover:underline cursor-pointer"
           title={`View details for ${title.title}`}
         >
-          {title.title}
+          {cleanTitle}
         </button>
 
         {/* Plays & Rating */}
@@ -259,13 +272,13 @@ function ReelsItem({
         </div>
 
         {/* Short Description */}
-        <p className="text-[10px] text-gray-400 line-clamp-1 leading-tight">{title.description}</p>
+        <p className="text-[10px] text-gray-300 line-clamp-1 leading-tight">{title.description}</p>
 
         {/* "See all episodes" Trigger Button for Web Series */}
         {title.kind === 'WEB_SERIES' && (
           <button
             onClick={() => setShowEpisodesDrawer(true)}
-            className="w-full py-1 px-2.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[10px] font-bold text-sky-300 transition-all flex items-center justify-between mt-1"
+            className="w-full py-1 px-2.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[10px] font-bold text-sky-300 transition-all flex items-center justify-between mt-1 cursor-pointer"
           >
             <span className="flex items-center gap-1">
               <Tv className="w-3 h-3 text-sky-400" /> See all episodes ({episodes.length || 2} Parts)

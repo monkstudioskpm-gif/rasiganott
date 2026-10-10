@@ -27,8 +27,28 @@ export function WatchPage() {
   });
 
   useEffect(() => {
-    if (data?.title?.orientation === 'VERTICAL') {
-      navigate(`/reels?titleId=${data.title.id}`, { replace: true });
+    if (data?.title) {
+      if (data.title.orientation === 'VERTICAL') {
+        navigate(`/reels?titleId=${data.title.id}`, { replace: true });
+        return;
+      }
+      try {
+        const history: any[] = JSON.parse(localStorage.getItem('rasigan_watch_history') || '[]');
+        const updated = [
+          {
+            id: data.title.id,
+            slug: data.title.slug,
+            title: data.title.title,
+            posterUrl: data.title.posterUrl,
+            verticalPosterUrl: data.title.verticalPosterUrl,
+            language: data.title.language || 'Tamil',
+            year: data.title.year || 2025,
+            watchedAt: new Date().toISOString(),
+          },
+          ...history.filter((h) => h.id !== data.title.id && h.slug !== data.title.slug),
+        ].slice(0, 20);
+        localStorage.setItem('rasigan_watch_history', JSON.stringify(updated));
+      } catch {}
     }
   }, [data?.title, navigate]);
 
@@ -36,7 +56,7 @@ export function WatchPage() {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-3 text-white">
         <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
-        <p className="text-xs text-gray-400 font-medium">Loading video stream...</p>
+        <p className="text-xs text-gray-400 font-medium">Loading your content...</p>
       </div>
     );
   }

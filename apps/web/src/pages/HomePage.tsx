@@ -36,13 +36,15 @@ export function HomePage() {
   const popularTitles = data?.topRated || [];
   const newReleases = data?.newReleases || [];
 
-  const genreCards = [
-    { name: 'ACTION', slug: 'action', image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&auto=format&fit=crop&q=80' },
-    { name: 'COMEDY', slug: 'comedy', image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80' },
-    { name: 'ROMANCE', slug: 'romance', image: 'https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=400&auto=format&fit=crop&q=80' },
-    { name: 'HORROR', slug: 'horror', image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&auto=format&fit=crop&q=80' },
-    { name: 'ANIMATION', slug: 'family', image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&auto=format&fit=crop&q=80' },
-    { name: 'DOCUMENTARY', slug: 'documentary', image: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=400&auto=format&fit=crop&q=80' },
+  const genreButtons = [
+    { name: 'Action', slug: 'action' },
+    { name: 'Comedy', slug: 'comedy' },
+    { name: 'Romance', slug: 'romance' },
+    { name: 'Horror', slug: 'horror' },
+    { name: 'Thriller', slug: 'thriller' },
+    { name: 'Drama', slug: 'drama' },
+    { name: 'Animation', slug: 'family' },
+    { name: 'Documentary', slug: 'documentary' },
   ];
 
   // Professional Plain Text Category Buttons (Icons/Emojis removed)
@@ -130,7 +132,7 @@ export function HomePage() {
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center gap-4 text-center p-6">
         <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-400 text-sm font-semibold tracking-wide">Loading Rasigan Experience...</p>
+        <p className="text-gray-400 text-sm font-semibold tracking-wide">Loading your content...</p>
       </div>
     );
   }
@@ -331,26 +333,23 @@ export function HomePage() {
         </section>
       )}
 
-      {/* 5. Genres Quick-Select Grid */}
+      {/* 5. Genres Quick-Select Buttons (Sleek button capsules, no images) */}
       {!isCategoryFiltered && (
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-2 px-1">
             <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-tight leading-snug">Browse Genres</h3>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-            {genreCards.map((genre) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {genreButtons.map((genre) => (
               <button
                 key={genre.name}
                 onClick={() => setSearchParams({ cat: genre.slug })}
-                className="relative aspect-video sm:aspect-square rounded-2xl overflow-hidden glass-panel border border-white/10 group cursor-pointer shadow-lg"
+                className="py-3.5 px-4 rounded-2xl glass-panel border border-white/10 hover:border-sky-400/60 bg-white/[0.04] hover:bg-sky-500/15 transition-all duration-300 font-bold text-sm text-gray-200 hover:text-white flex items-center justify-center text-center shadow-lg hover:shadow-sky-500/10 active:scale-95 cursor-pointer group"
               >
-                <img src={genre.image} alt={genre.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-black/50 group-hover:bg-sky-900/60 transition-colors flex items-center justify-center p-2 text-center">
-                  <span className="font-black text-xs sm:text-sm tracking-wider text-white drop-shadow-md">
-                    {genre.name}
-                  </span>
-                </div>
+                <span className="tracking-wide group-hover:scale-105 transition-transform">
+                  {genre.name}
+                </span>
               </button>
             ))}
           </div>

@@ -173,6 +173,8 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
         onClick={togglePlay}
         className="w-full h-full object-contain cursor-pointer"
         playsInline
+        autoPlay
+        muted={isMuted}
       />
 
       {/* Buffering Spinner Overlay (Sleek minimalist loader without text) */}

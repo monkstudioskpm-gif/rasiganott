@@ -71,6 +71,28 @@ export function useVideoEngine({
 
     const isHls = src.includes('.m3u8') || streamType === 'HLS' || isBunnyStreamUrl(src);
 
+    // Enable mobile inline playback and apply initial mute
+    video.playsInline = true;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
+    if (muted) {
+      video.muted = true;
+      setIsMuted(true);
+    }
+
+    const triggerAutoplay = () => {
+      if (!autoPlay || !video) return;
+      const promise = video.play();
+      if (promise !== undefined) {
+        promise.catch(() => {
+          // Mobile browser autoplay policy: mute and retry
+          video.muted = true;
+          setIsMuted(true);
+          video.play().catch((err) => console.warn('Muted autoplay fallback failed:', err));
+        });
+      }
+    };
+
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -98,13 +120,7 @@ export function useVideoEngine({
           video.currentTime = startPositionSec;
         }
 
-        if (autoPlay) {
-          video.play().catch(() => {
-            video.muted = true;
-            setIsMuted(true);
-            video.play().catch((e) => console.warn('Autoplay failed:', e));
-          });
-        }
+        triggerAutoplay();
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -133,25 +149,13 @@ export function useVideoEngine({
       if (startPositionSec > 0) {
         video.currentTime = startPositionSec;
       }
-      if (autoPlay) {
-        video.play().catch(() => {
-          video.muted = true;
-          setIsMuted(true);
-          video.play().catch((e) => console.warn('Autoplay failed:', e));
-        });
-      }
+      triggerAutoplay();
     } else {
       video.src = src;
       if (startPositionSec > 0) {
         video.currentTime = startPositionSec;
       }
-      if (autoPlay) {
-        video.play().catch(() => {
-          video.muted = true;
-          setIsMuted(true);
-          video.play().catch((e) => console.warn('Autoplay failed:', e));
-        });
-      }
+      triggerAutoplay();
     }
 
     return () => {

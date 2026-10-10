@@ -26,7 +26,7 @@ export function CategoryPage() {
       {isLoading && (
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-center text-white">
           <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-          <p className="text-xs text-gray-400 font-medium">Loading category titles...</p>
+          <p className="text-xs text-gray-400 font-medium">Loading your content...</p>
         </div>
       )}
 
@@ -41,15 +41,15 @@ export function CategoryPage() {
           {titles.map((title) => (
             <Link key={title.id} to={`/title/${title.slug}`} className="group space-y-2 block">
               <div className="relative aspect-poster rounded-2xl overflow-hidden glass-card transition-all duration-300 group-hover:scale-[1.03] shadow-lg">
-                <img src={title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
+                <img src={title.verticalPosterUrl || title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
                 <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-xl bg-black/70 border border-white/10 backdrop-blur-md flex items-center gap-1 text-[11px] font-bold text-amber-400">
                   <Star className="w-3.5 h-3.5 fill-current" />
                   <span>{title.editorRating ? title.editorRating.toFixed(1) : '8.8'}</span>
                 </div>
               </div>
               <div className="px-1">
-                <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate">
-                  {title.title}
+                <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate" title={title.title}>
+                  {title.title.includes('|') ? title.title.split('|')[0].trim() : title.title}
                 </h4>
                 <p className="text-xs text-gray-400">{title.language}</p>
               </div>
