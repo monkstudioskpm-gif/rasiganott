@@ -735,6 +735,91 @@ var admin_default = router2;
 
 // apps/api/src/routes/titles.ts
 var router3 = Router3();
+function getEffectiveArtwork(title) {
+  const slug = title.slug || "";
+  const videoUrl = title.videoUrl || "";
+  let ytThumbnail = null;
+  if (typeof videoUrl === "string" && (videoUrl.includes("youtube.com") || videoUrl.includes("youtu.be"))) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = videoUrl.match(regExp);
+    if (match && match[2] && match[2].length === 11) {
+      ytThumbnail = `https://img.youtube.com/vi/${match[2]}/hqdefault.jpg`;
+    }
+  }
+  const presets = [
+    {
+      keywords: ["kodi", "independence", "\u0B95\u0BCA\u0B9F\u0BBF \u0BAE\u0BC7\u0BB3\u0BAE\u0BCD", "republic"],
+      artwork: {
+        posterUrl: "https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=800&auto=format&fit=crop&q=80",
+        verticalPosterUrl: "https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=600&h=900&auto=format&fit=crop&q=80",
+        bannerUrl: "https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=1200&h=675&auto=format&fit=crop&q=80"
+      }
+    },
+    {
+      keywords: ["no-sudu", "no sudu", "soranai", "part 2", "part-2", "part2"],
+      artwork: {
+        posterUrl: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80",
+        verticalPosterUrl: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&h=900&auto=format&fit=crop&q=80",
+        bannerUrl: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&h=675&auto=format&fit=crop&q=80"
+      }
+    },
+    {
+      keywords: ["kena-puna", "kena puna", "kenapuna", "part 1", "part-1", "part1"],
+      artwork: {
+        posterUrl: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&auto=format&fit=crop&q=80",
+        verticalPosterUrl: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&h=900&auto=format&fit=crop&q=80",
+        bannerUrl: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=1200&h=675&auto=format&fit=crop&q=80"
+      }
+    },
+    {
+      keywords: ["double", "meaning"],
+      artwork: {
+        posterUrl: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=80",
+        verticalPosterUrl: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&h=900&auto=format&fit=crop&q=80",
+        bannerUrl: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=1200&h=675&auto=format&fit=crop&q=80"
+      }
+    }
+  ];
+  const titleName = (title.title || "").toLowerCase();
+  const matched = presets.find((p) => p.keywords.some((k) => slug.includes(k) || titleName.includes(k)));
+  const preset = matched ? matched.artwork : null;
+  let posterUrl = title.posterUrl;
+  let verticalPosterUrl = title.verticalPosterUrl;
+  let bannerUrl = title.bannerUrl;
+  const isDuplicateCinemaPhoto = typeof posterUrl === "string" && posterUrl.includes("photo-1536440136628-849c177e76a1");
+  if (preset) {
+    if (!posterUrl || isDuplicateCinemaPhoto) {
+      posterUrl = preset.posterUrl;
+    }
+    if (!verticalPosterUrl || typeof verticalPosterUrl === "string" && verticalPosterUrl.includes("photo-1536440136628-849c177e76a1")) {
+      verticalPosterUrl = preset.verticalPosterUrl;
+    }
+    if (!bannerUrl || typeof bannerUrl === "string" && bannerUrl.includes("photo-1536440136628-849c177e76a1")) {
+      bannerUrl = preset.bannerUrl;
+    }
+  }
+  if (ytThumbnail) {
+    if (!posterUrl) posterUrl = ytThumbnail;
+    if (!bannerUrl) bannerUrl = ytThumbnail;
+    if (!verticalPosterUrl) verticalPosterUrl = ytThumbnail;
+  }
+  if (posterUrl && !verticalPosterUrl) {
+    if (posterUrl.includes("unsplash.com")) {
+      verticalPosterUrl = posterUrl.replace(/\?.*$/, "") + "?w=600&h=900&auto=format&fit=crop&q=80";
+    } else {
+      verticalPosterUrl = posterUrl;
+    }
+  }
+  if (posterUrl && !bannerUrl) {
+    if (posterUrl.includes("unsplash.com")) {
+      bannerUrl = posterUrl.replace(/\?.*$/, "") + "?w=1200&h=675&auto=format&fit=crop&q=80";
+    } else {
+      bannerUrl = posterUrl;
+    }
+  }
+  if (!posterUrl) posterUrl = verticalPosterUrl || bannerUrl;
+  return { posterUrl, verticalPosterUrl, bannerUrl };
+}
 function formatTitleResponse(title) {
   if (!title) return title;
   const genres = title.genres ? title.genres.map((tg) => tg.genre || tg) : [];
@@ -764,8 +849,12 @@ function formatTitleResponse(title) {
       bio: tc.person.bio
     } : void 0
   })) : [];
+  const artwork = getEffectiveArtwork(title);
   return {
     ...title,
+    posterUrl: artwork.posterUrl,
+    verticalPosterUrl: artwork.verticalPosterUrl,
+    bannerUrl: artwork.bannerUrl,
     editorRating: title.editorRating ? Number(title.editorRating) : null,
     subtitles: typeof title.subtitles === "string" ? JSON.parse(title.subtitles || "[]") : title.subtitles || [],
     audioTracks: typeof title.audioTracks === "string" ? JSON.parse(title.audioTracks || "[]") : title.audioTracks || [],
@@ -1476,7 +1565,6 @@ router3.put("/admin/:id", async (req, res, next) => {
       fundingEnabled,
       fundingGoal
     } = payload;
-    const effectivePosterUrl = posterUrl || verticalPosterUrl || bannerUrl || existing.posterUrl;
     const tagIds = [];
     if (Array.isArray(tags)) {
       for (const tagName of tags) {
@@ -1500,9 +1588,9 @@ router3.put("/admin/:id", async (req, res, next) => {
           kind: kind ? kind : existing.kind,
           orientation: orientation ? orientation : existing.orientation,
           status: status ? status : existing.status,
-          posterUrl: effectivePosterUrl,
-          bannerUrl: bannerUrl !== void 0 ? bannerUrl : existing.bannerUrl,
-          verticalPosterUrl: verticalPosterUrl !== void 0 ? verticalPosterUrl : existing.verticalPosterUrl,
+          posterUrl: posterUrl !== void 0 ? posterUrl || null : existing.posterUrl,
+          bannerUrl: bannerUrl !== void 0 ? bannerUrl || null : existing.bannerUrl,
+          verticalPosterUrl: verticalPosterUrl !== void 0 ? verticalPosterUrl || null : existing.verticalPosterUrl,
           videoUrl: videoUrl !== void 0 ? videoUrl : existing.videoUrl,
           trailerUrl: trailerUrl !== void 0 ? trailerUrl : existing.trailerUrl,
           streamType: videoUrl ? videoUrl.includes(".m3u8") ? "HLS" : "MP4" : existing.streamType,

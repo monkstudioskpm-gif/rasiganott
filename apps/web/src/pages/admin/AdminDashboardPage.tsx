@@ -202,6 +202,9 @@ export function AdminDashboardPage() {
   const [quickLanguage, setQuickLanguage] = useState('Tamil');
   const [quickAgeRating, setQuickAgeRating] = useState('U/A');
   const [quickDurationMin, setQuickDurationMin] = useState('90');
+  const [quickPosterUrl, setQuickPosterUrl] = useState('');
+  const [quickVerticalPosterUrl, setQuickVerticalPosterUrl] = useState('');
+  const [quickBannerUrl, setQuickBannerUrl] = useState('');
   const [isSavingQuickEdit, setIsSavingQuickEdit] = useState(false);
   const [quickEditSuccess, setQuickEditSuccess] = useState<string | null>(null);
 
@@ -446,6 +449,9 @@ export function AdminDashboardPage() {
     setQuickLanguage(t.language || 'Tamil');
     setQuickAgeRating(t.ageRating || 'U/A');
     setQuickDurationMin(t.durationMin ? String(t.durationMin) : '90');
+    setQuickPosterUrl(t.posterUrl || '');
+    setQuickVerticalPosterUrl(t.verticalPosterUrl || '');
+    setQuickBannerUrl(t.bannerUrl || '');
     setQuickEditSuccess(null);
   };
 
@@ -457,12 +463,17 @@ export function AdminDashboardPage() {
       const parsedYear = quickYear ? parseInt(quickYear, 10) : undefined;
       const parsedDuration = quickDurationMin ? parseInt(quickDurationMin, 10) : undefined;
 
-      await adminApi.updateTitle(quickEditTitle.id, {
+      const payload = {
         year: parsedYear,
         language: quickLanguage.trim(),
         ageRating: quickAgeRating.trim(),
         durationMin: parsedDuration,
-      });
+        posterUrl: quickPosterUrl.trim() || undefined,
+        verticalPosterUrl: quickVerticalPosterUrl.trim() || undefined,
+        bannerUrl: quickBannerUrl.trim() || undefined,
+      };
+
+      await adminApi.updateTitle(quickEditTitle.id, payload);
 
       // Update state in real-time in the titles list
       setTitles((prev) =>
@@ -474,12 +485,15 @@ export function AdminDashboardPage() {
                 language: quickLanguage.trim(),
                 ageRating: quickAgeRating.trim(),
                 durationMin: parsedDuration ?? t.durationMin,
+                posterUrl: quickPosterUrl.trim() || t.posterUrl,
+                verticalPosterUrl: quickVerticalPosterUrl.trim() || t.verticalPosterUrl,
+                bannerUrl: quickBannerUrl.trim() || t.bannerUrl,
               }
             : t
         )
       );
 
-      setQuickEditSuccess(`Saved "${quickEditTitle.title}" metadata to database!`);
+      setQuickEditSuccess(`Saved metadata & artwork for "${quickEditTitle.title}" to database!`);
       setTimeout(() => {
         setQuickEditSuccess(null);
         setQuickEditTitle(null);
@@ -2564,6 +2578,97 @@ export function AdminDashboardPage() {
                       </span>
                     )}
                   </div>
+                </div>
+
+                {/* Poster & Artwork URLs */}
+                <div className="sm:col-span-2 space-y-3 pt-2 border-t border-white/5">
+                  <p className="text-xs font-bold text-amber-400">Artwork & Posters (URLs only - Realtime Sync)</p>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-semibold text-gray-300 block">
+                      Poster URL (Standard / Grid Card)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={quickPosterUrl}
+                      onChange={(e) => setQuickPosterUrl(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold text-gray-300 block">
+                        Vertical Poster URL (9:16 Portrait)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://... (portrait 9:16)"
+                        value={quickVerticalPosterUrl}
+                        onChange={(e) => setQuickVerticalPosterUrl(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold text-gray-300 block">
+                        Hero Banner URL (16:9 Landscape)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://... (landscape 16:9)"
+                        value={quickBannerUrl}
+                        onChange={(e) => setQuickBannerUrl(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Artwork Preview */}
+                  {(quickPosterUrl || quickVerticalPosterUrl || quickBannerUrl) && (
+                    <div className="flex items-center gap-3 p-2 rounded-xl bg-black/40 border border-white/5">
+                      {quickPosterUrl && (
+                        <div className="text-center">
+                          <span className="text-[9px] text-gray-400 block mb-1">Poster</span>
+                          <img
+                            src={quickPosterUrl}
+                            alt="Poster preview"
+                            className="w-12 h-16 object-cover rounded border border-white/10"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      {quickVerticalPosterUrl && (
+                        <div className="text-center">
+                          <span className="text-[9px] text-gray-400 block mb-1">Vertical</span>
+                          <img
+                            src={quickVerticalPosterUrl}
+                            alt="Vertical preview"
+                            className="w-10 h-16 object-cover rounded border border-white/10"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      {quickBannerUrl && (
+                        <div className="text-center">
+                          <span className="text-[9px] text-gray-400 block mb-1">Banner</span>
+                          <img
+                            src={quickBannerUrl}
+                            alt="Banner preview"
+                            className="w-24 h-14 object-cover rounded border border-white/10"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

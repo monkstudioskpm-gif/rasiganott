@@ -15,6 +15,16 @@ export function getShortTitle(rawTitle: string): string {
   return trimmed;
 }
 
+const FALLBACK_POSTER_IMAGE = 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&h=900&auto=format&fit=crop&q=80';
+const FALLBACK_BANNER_IMAGE = 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&h=675&auto=format&fit=crop&q=80';
+
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, fallbackUrl: string) => {
+  const target = e.currentTarget;
+  if (!target.src.includes(fallbackUrl)) {
+    target.src = fallbackUrl;
+  }
+};
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,6 +166,7 @@ export function HomePage() {
               <img
                 src={heroItem.bannerUrl || heroItem.posterUrl}
                 alt={heroItem.title}
+                onError={(e) => handleImageError(e, FALLBACK_BANNER_IMAGE)}
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#07080e] via-[#07080e]/50 to-transparent"></div>
@@ -309,7 +320,12 @@ export function HomePage() {
                 className="group flex-none w-40 sm:w-52 space-y-2 block"
               >
                 <div className="relative aspect-poster rounded-2xl overflow-hidden glass-card transition-all duration-300 group-hover:scale-[1.03] shadow-xl border border-white/10">
-                  <img src={title.verticalPosterUrl || title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
+                  <img
+                    src={title.verticalPosterUrl || title.posterUrl}
+                    alt={title.title}
+                    onError={(e) => handleImageError(e, FALLBACK_POSTER_IMAGE)}
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <div className="w-10 h-10 rounded-full bg-sky-500 text-white flex items-center justify-center shadow-lg">
                       <Play className="w-5 h-5 fill-current ml-0.5" />
@@ -384,7 +400,12 @@ export function HomePage() {
                 </span>
 
                 <div className="relative w-36 sm:w-44 aspect-poster rounded-2xl overflow-hidden glass-card group-hover:scale-105 transition-transform duration-300 shadow-2xl flex-none border border-white/10">
-                  <img src={title.verticalPosterUrl || title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
+                  <img
+                    src={title.verticalPosterUrl || title.posterUrl}
+                    alt={title.title}
+                    onError={(e) => handleImageError(e, FALLBACK_POSTER_IMAGE)}
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/70 border border-white/10 text-[10px] font-bold text-amber-400 flex items-center gap-1 backdrop-blur-md">
                     <Star className="w-3 h-3 fill-current" /> {title.editorRating ? title.editorRating.toFixed(1) : '9.0'}
                   </div>
@@ -399,7 +420,12 @@ export function HomePage() {
       {secondaryHero && !hasNoContent && (
         <section className="relative rounded-3xl overflow-hidden glass-panel border border-white/10 shadow-2xl p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="absolute inset-0">
-            <img src={secondaryHero.bannerUrl || secondaryHero.posterUrl} alt={secondaryHero.title} className="w-full h-full object-cover opacity-30" />
+            <img
+              src={secondaryHero.bannerUrl || secondaryHero.posterUrl}
+              alt={secondaryHero.title}
+              onError={(e) => handleImageError(e, FALLBACK_BANNER_IMAGE)}
+              className="w-full h-full object-cover opacity-30"
+            />
             <div className="absolute inset-0 bg-gradient-to-r from-[#07080e] via-[#07080e]/90 to-transparent"></div>
           </div>
 
@@ -433,7 +459,12 @@ export function HomePage() {
 
           <div className="relative z-10 hidden sm:flex gap-3 flex-none">
             <div className="w-36 h-48 rounded-2xl overflow-hidden shadow-2xl border border-white/15 glass-card">
-              <img src={secondaryHero.verticalPosterUrl || secondaryHero.posterUrl} alt={secondaryHero.title} className="w-full h-full object-cover" />
+              <img
+                src={secondaryHero.verticalPosterUrl || secondaryHero.posterUrl}
+                alt={secondaryHero.title}
+                onError={(e) => handleImageError(e, FALLBACK_POSTER_IMAGE)}
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
         </section>
@@ -463,7 +494,12 @@ export function HomePage() {
                 className="group flex-none w-40 sm:w-52 space-y-2 block"
               >
                 <div className="relative aspect-poster rounded-2xl overflow-hidden glass-card transition-all duration-300 group-hover:scale-[1.03] shadow-xl border border-white/10">
-                  <img src={title.verticalPosterUrl || title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
+                  <img
+                    src={title.verticalPosterUrl || title.posterUrl}
+                    alt={title.title}
+                    onError={(e) => handleImageError(e, FALLBACK_POSTER_IMAGE)}
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-black/70 border border-white/10 text-[10px] font-bold text-amber-400 flex items-center gap-1 backdrop-blur-md">
                     <Star className="w-3 h-3 fill-current" /> {title.editorRating ? title.editorRating.toFixed(1) : '8.8'}
                   </div>
@@ -505,7 +541,12 @@ export function HomePage() {
                 className="group space-y-2 block"
               >
                 <div className="relative aspect-poster rounded-2xl overflow-hidden glass-card transition-all duration-300 group-hover:scale-[1.03] shadow-xl border border-white/10">
-                  <img src={title.verticalPosterUrl || title.posterUrl} alt={title.title} className="w-full h-full object-cover" />
+                  <img
+                    src={title.verticalPosterUrl || title.posterUrl}
+                    alt={title.title}
+                    onError={(e) => handleImageError(e, FALLBACK_POSTER_IMAGE)}
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-black/70 border border-white/10 text-[10px] font-bold text-amber-400 flex items-center gap-1 backdrop-blur-md">
                     <Star className="w-3 h-3 fill-current" /> {title.editorRating ? title.editorRating.toFixed(1) : '8.7'}
                   </div>

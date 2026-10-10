@@ -65,6 +65,124 @@ export const FALLBACK_PAYOUT_STATEMENTS = {
   statements: [],
 };
 
+export function resolveTitleArtwork(title: any): { posterUrl: string; verticalPosterUrl: string | null; bannerUrl: string | null } {
+  if (!title) {
+    return {
+      posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80',
+      verticalPosterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&h=900&auto=format&fit=crop&q=80',
+      bannerUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&h=675&auto=format&fit=crop&q=80',
+    };
+  }
+
+  const slug = (title.slug || '').toLowerCase();
+  const titleName = (title.title || '').toLowerCase();
+  const videoUrl = title.videoUrl;
+
+  let ytThumbnail: string | null = null;
+  if (typeof videoUrl === 'string' && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'))) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = videoUrl.match(regExp);
+    if (match && match[2] && match[2].length === 11) {
+      ytThumbnail = `https://img.youtube.com/vi/${match[2]}/hqdefault.jpg`;
+    }
+  }
+
+  const presets = [
+    {
+      keywords: ['kodi', 'independence', 'கொடி மேளம்', 'republic'],
+      artwork: {
+        posterUrl: 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=800&auto=format&fit=crop&q=80',
+        verticalPosterUrl: 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=600&h=900&auto=format&fit=crop&q=80',
+        bannerUrl: 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=1200&h=675&auto=format&fit=crop&q=80',
+      },
+    },
+    {
+      keywords: ['no-sudu', 'no sudu', 'soranai', 'part 2', 'part-2', 'part2'],
+      artwork: {
+        posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80',
+        verticalPosterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&h=900&auto=format&fit=crop&q=80',
+        bannerUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&h=675&auto=format&fit=crop&q=80',
+      },
+    },
+    {
+      keywords: ['kena-puna', 'kena puna', 'kenapuna', 'part 1', 'part-1', 'part1'],
+      artwork: {
+        posterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&auto=format&fit=crop&q=80',
+        verticalPosterUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&h=900&auto=format&fit=crop&q=80',
+        bannerUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=1200&h=675&auto=format&fit=crop&q=80',
+      },
+    },
+    {
+      keywords: ['double', 'meaning'],
+      artwork: {
+        posterUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=80',
+        verticalPosterUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&h=900&auto=format&fit=crop&q=80',
+        bannerUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=1200&h=675&auto=format&fit=crop&q=80',
+      },
+    },
+  ];
+
+  const matched = presets.find((p) => p.keywords.some((k) => slug.includes(k) || titleName.includes(k)));
+  const preset = matched ? matched.artwork : null;
+
+  let posterUrl = title.posterUrl || '';
+  let verticalPosterUrl = title.verticalPosterUrl || null;
+  let bannerUrl = title.bannerUrl || null;
+
+  const isDuplicateCinemaPhoto = typeof posterUrl === 'string' && posterUrl.includes('photo-1536440136628-849c177e76a1');
+
+  if (preset) {
+    if (!posterUrl || isDuplicateCinemaPhoto) {
+      posterUrl = preset.posterUrl;
+    }
+    if (!verticalPosterUrl || (typeof verticalPosterUrl === 'string' && verticalPosterUrl.includes('photo-1536440136628-849c177e76a1'))) {
+      verticalPosterUrl = preset.verticalPosterUrl;
+    }
+    if (!bannerUrl || (typeof bannerUrl === 'string' && bannerUrl.includes('photo-1536440136628-849c177e76a1'))) {
+      bannerUrl = preset.bannerUrl;
+    }
+  }
+
+  if (ytThumbnail) {
+    if (!posterUrl) posterUrl = ytThumbnail;
+    if (!bannerUrl) bannerUrl = ytThumbnail;
+    if (!verticalPosterUrl) verticalPosterUrl = ytThumbnail;
+  }
+
+  if (posterUrl && !verticalPosterUrl) {
+    if (posterUrl.includes('unsplash.com')) {
+      verticalPosterUrl = posterUrl.replace(/\?.*$/, '') + '?w=600&h=900&auto=format&fit=crop&q=80';
+    } else {
+      verticalPosterUrl = posterUrl;
+    }
+  }
+
+  if (posterUrl && !bannerUrl) {
+    if (posterUrl.includes('unsplash.com')) {
+      bannerUrl = posterUrl.replace(/\?.*$/, '') + '?w=1200&h=675&auto=format&fit=crop&q=80';
+    } else {
+      bannerUrl = posterUrl;
+    }
+  }
+
+  if (!posterUrl) {
+    posterUrl = verticalPosterUrl || bannerUrl || 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80';
+  }
+
+  return { posterUrl, verticalPosterUrl, bannerUrl };
+}
+
+function normalizeTitleArtworkDeep(item: any): any {
+  if (!item || typeof item !== 'object') return item;
+  const art = resolveTitleArtwork(item);
+  return {
+    ...item,
+    posterUrl: art.posterUrl,
+    verticalPosterUrl: art.verticalPosterUrl,
+    bannerUrl: art.bannerUrl,
+  };
+}
+
 async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   try {
     const authHeaders: Record<string, string> = {};
@@ -95,6 +213,21 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
     }
 
     const data = await response.json();
+
+    if (data) {
+      if (Array.isArray(data.titles)) {
+        data.titles = data.titles.map(normalizeTitleArtworkDeep);
+      }
+      if (data.title && typeof data.title === 'object') {
+        data.title = normalizeTitleArtworkDeep(data.title);
+      }
+      if (Array.isArray(data.featured)) data.featured = data.featured.map(normalizeTitleArtworkDeep);
+      if (Array.isArray(data.trending)) data.trending = data.trending.map(normalizeTitleArtworkDeep);
+      if (Array.isArray(data.topRated)) data.topRated = data.topRated.map(normalizeTitleArtworkDeep);
+      if (Array.isArray(data.newReleases)) data.newReleases = data.newReleases.map(normalizeTitleArtworkDeep);
+      if (Array.isArray(data.mostSupported)) data.mostSupported = data.mostSupported.map(normalizeTitleArtworkDeep);
+    }
+
     return data;
   } catch (error) {
     console.warn(`API call to ${endpoint} failed, utilizing catalog fallback dataset:`, error);
@@ -238,27 +371,35 @@ export const getCombinedTitles = (): Title[] => {
     if (deletedIds.has(t.id) || deletedIds.has(slugKey) || (t.slug && deletedIds.has(t.slug))) {
       return;
     }
+    const art = resolveTitleArtwork(t);
     const existing = map.get(slugKey) || map.get(t.id);
 
     const customRank = rankings[t.id] !== undefined ? rankings[t.id] : (rankings[slugKey] !== undefined ? rankings[slugKey] : (existing?.sortRank ?? t.sortRank));
     const isFeat = featuredSet.has(t.id) || featuredSet.has(slugKey) || t.isFeatured || (existing?.isFeatured ?? false);
 
     if (!existing) {
-      const item = { ...t, sortRank: customRank, isFeatured: isFeat };
+      const item: Title = {
+        ...t,
+        posterUrl: art.posterUrl,
+        verticalPosterUrl: art.verticalPosterUrl ?? undefined,
+        bannerUrl: art.bannerUrl ?? undefined,
+        sortRank: customRank,
+        isFeatured: isFeat,
+      };
       map.set(slugKey, item);
       if (t.id) map.set(t.id, item);
     } else {
       const preferNewVideo = t.videoUrl && (t.videoUrl.includes('youtube') || t.videoUrl.includes('vz-3f12b649') || !t.videoUrl.includes('BigBuckBunny'));
-      const preferNewPoster = t.posterUrl && (t.posterUrl.includes('youtube') || t.posterUrl.includes('img.youtube') || !t.posterUrl.includes('unsplash'));
+      const mergedArt = resolveTitleArtwork({ ...existing, ...t, posterUrl: t.posterUrl || existing.posterUrl });
 
       const merged: Title = {
         ...existing,
         ...t,
         id: t.id || existing.id,
-        posterUrl: (preferNewPoster ? t.posterUrl : existing.posterUrl) || t.posterUrl || existing.posterUrl,
+        posterUrl: mergedArt.posterUrl,
         videoUrl: (preferNewVideo ? t.videoUrl : existing.videoUrl) || t.videoUrl || existing.videoUrl,
-        verticalPosterUrl: t.verticalPosterUrl || existing.verticalPosterUrl,
-        bannerUrl: t.bannerUrl || existing.bannerUrl,
+        verticalPosterUrl: mergedArt.verticalPosterUrl ?? undefined,
+        bannerUrl: mergedArt.bannerUrl ?? undefined,
         sortRank: customRank,
         isFeatured: isFeat,
       };
@@ -291,14 +432,15 @@ export const syncLocalTitlesToBackend = async () => {
     for (const item of local) {
       if ((item as any)._synced) continue;
       try {
+        const art = resolveTitleArtwork(item);
         const payload = {
           title: item.title,
           description: item.description || item.title,
           kind: item.kind || 'MOVIE',
           orientation: item.orientation || 'LANDSCAPE',
-          posterUrl: item.posterUrl || item.verticalPosterUrl || item.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80',
-          bannerUrl: item.bannerUrl,
-          verticalPosterUrl: item.verticalPosterUrl,
+          posterUrl: art.posterUrl,
+          bannerUrl: art.bannerUrl,
+          verticalPosterUrl: art.verticalPosterUrl,
           videoUrl: item.videoUrl,
           trailerUrl: item.trailerUrl,
           status: item.status || 'PUBLISHED',
@@ -646,18 +788,7 @@ export const adminApi = {
     const updated = [newTitle, ...existing.filter((t) => t.slug !== slug && t.id !== newTitle.id)];
     localStorage.setItem('rasigan_created_titles', JSON.stringify(updated));
 
-    const effectivePoster = payload.posterUrl || payload.verticalPosterUrl || payload.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80';
-    const effectiveDesc = payload.description || payload.title || 'Indie Content';
-
-    const normalizedPayload = {
-      ...payload,
-      posterUrl: effectivePoster,
-      verticalPosterUrl: payload.verticalPosterUrl || null,
-      bannerUrl: payload.bannerUrl || null,
-      description: effectiveDesc,
-    };
-
-    const res = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(normalizedPayload) });
+    const res = await fetcher<{ title: Title }>('/titles/admin', { method: 'POST', body: JSON.stringify(payload) });
     if (res?.title) {
       const existing = getStoredCreatedTitles();
       const updated = [res.title, ...existing.filter((t) => t.slug !== slug && t.id !== res.title.id)];
@@ -667,18 +798,7 @@ export const adminApi = {
   },
 
   updateTitle: async (id: string, payload: any) => {
-    const effectivePoster = payload.posterUrl || payload.verticalPosterUrl || payload.bannerUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80';
-    const effectiveDesc = payload.description || payload.title || 'Indie Content';
-
-    const normalizedPayload = {
-      ...payload,
-      posterUrl: effectivePoster,
-      verticalPosterUrl: payload.verticalPosterUrl || null,
-      bannerUrl: payload.bannerUrl || null,
-      description: effectiveDesc,
-    };
-
-    const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(normalizedPayload) });
+    const res = await fetcher<{ title: Title }>(`/titles/admin/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     if (res?.title) {
       const existing = getStoredCreatedTitles();
       const updatedList = existing.map((t) => (t.id === id || t.slug === id ? { ...t, ...res.title } : t));
