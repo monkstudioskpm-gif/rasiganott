@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/index.ts": {
-      "includeFiles": "{node_modules/.prisma/**,apps/api/dist/**}"
+      "includeFiles": "node_modules/.prisma/**"
     }
   },
   "rewrites": [

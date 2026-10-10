@@ -10,8 +10,9 @@
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
-    "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "build": "npm run build:shared && npm run build --workspaces --if-present && npm run build:api:bundle",
     "build:shared": "npm run build --workspace=packages/shared",
+    "build:api:bundle": "esbuild apps/api/src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=apps/web/api/api-app.js && esbuild apps/api/src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=api/api-app.js",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:push": "npm run db:push --workspace=apps/api",
@@ -34,6 +35,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.5",
     "concurrently": "^9.1.0",
+    "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
     "prisma": "^6.4.1",
     "typescript": "^5.7.2"
