@@ -1,3 +1,31 @@
+let appInstance: any = null;
+
+async function getApp() {
+  if (appInstance) return appInstance;
+
+  const candidatePaths = [
+    '../../api/dist/apps/api/src/index.js',
+    '../../../apps/api/dist/apps/api/src/index.js',
+    '../apps/api/dist/apps/api/src/index.js',
+    './apps/api/dist/apps/api/src/index.js',
+  ];
+
+  let lastError: any = null;
+  for (const path of candidatePaths) {
+    try {
+      const mod = await import(path);
+      if (mod?.default) {
+        appInstance = mod.default;
+        return appInstance;
+      }
+    } catch (e: any) {
+      lastError = e;
+    }
+  }
+
+  throw lastError;
+}
+
 export default async function handler(req: any, res: any) {
   try {
     if (req.url === '/api/health' || req.url === '/api/health/') {
@@ -9,7 +37,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const { default: app } = await import('../../apps/api/dist/apps/api/src/index.js');
+    const app = await getApp();
     return app(req, res);
   } catch (err: any) {
     console.error('SERVERLESS CATCH ERROR:', err);
