@@ -1,8 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/admin/tags/suggest?q=
 router.get('/suggest', async (req: Request, res: Response, next: NextFunction) => {

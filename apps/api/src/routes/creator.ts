@@ -1,9 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import type { CreatorEarningsSummaryDto, CreatorPayoutStatementDto } from '@rasigan/shared';
+import { prisma } from '../db.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/creator/earnings
 router.get('/earnings', async (_req: Request, res: Response, next: NextFunction) => {

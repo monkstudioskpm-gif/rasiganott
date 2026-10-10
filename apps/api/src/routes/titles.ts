@@ -1,9 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient, Kind, Orientation, Status, CrewRole } from '@prisma/client';
+import { Kind, Orientation, Status, CrewRole } from '@prisma/client';
+import { prisma } from '../db.js';
 import { toNameKey } from './people.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 export function formatTitleResponse(title: any) {
   if (!title) return title;

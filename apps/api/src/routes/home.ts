@@ -1,9 +1,8 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { formatTitleResponse } from './titles.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/home
 router.get('/', async (_req, res, next) => {
