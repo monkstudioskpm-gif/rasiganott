@@ -2127,9 +2127,9 @@ import { Router as Router9 } from "express";
 import crypto2 from "crypto";
 var router9 = Router9();
 var JWT_SECRET = process.env.JWT_SECRET || "dev-rasigan-secret-key-change-in-prod-123456789";
-var GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+var GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "102651788040-f80qjr6hok5b2i1nt8pcke7bnnr035j8.apps.googleusercontent.com";
 function getAdminEmails() {
-  const envAdmins = process.env.ADMIN_EMAILS || "admin@rasigan.com";
+  const envAdmins = process.env.ADMIN_EMAILS || "sambavangalmedia@gmail.com,monkstudioskpm@gmail.com,admin@rasigan.com";
   return envAdmins.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 }
 function getCreatorEmails() {

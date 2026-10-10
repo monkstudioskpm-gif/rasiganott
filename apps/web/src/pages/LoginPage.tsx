@@ -1,13 +1,57 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, Loader2, CheckCircle2, AlertCircle, LogOut, ArrowRight, User, Sparkles } from 'lucide-react';
+import { Shield, Loader2, CheckCircle2, AlertCircle, LogOut, ArrowRight, User as UserIcon, Sparkles } from 'lucide-react';
 import { authApi } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
+
+export interface AuthUser {
+  id: string;
+  googleId: string;
+  email: string;
+  name: string;
+  avatarUrl?: string | null;
+  role: 'USER' | 'ADMIN' | 'CREATOR' | string;
+}
+
+interface GoogleCredentialResponse {
+  credential?: string;
+  select_by?: string;
+}
+
+interface GoogleButtonConfig {
+  type?: string;
+  shape?: string;
+  theme?: string;
+  text?: string;
+  size?: string;
+  logo_alignment?: string;
+  width?: number;
+}
+
+interface GoogleAccountsId {
+  initialize: (options: {
+    client_id: string;
+    callback: (res: GoogleCredentialResponse) => void;
+    auto_select?: boolean;
+  }) => void;
+  renderButton: (parent: HTMLElement, options: GoogleButtonConfig) => void;
+  prompt: () => void;
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        id?: GoogleAccountsId;
+      };
+    };
+  }
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -15,7 +59,7 @@ export function LoginPage() {
     const storedUser = localStorage.getItem('rasigan_user');
     if (storedUser) {
       try {
-        setCurrentUser(JSON.parse(storedUser));
+        setCurrentUser(JSON.parse(storedUser) as AuthUser);
       } catch {}
     }
 
@@ -29,7 +73,7 @@ export function LoginPage() {
     }).catch(() => {});
   }, []);
 
-  const handleCredentialResponse = async (response: any) => {
+  const handleCredentialResponse = async (response: GoogleCredentialResponse) => {
     if (!response?.credential) {
       setErrorMessage('No Google credentials received. Please try again.');
       return;
@@ -59,9 +103,10 @@ export function LoginPage() {
       } else {
         throw new Error('Authentication succeeded but user profile was not returned');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Google Sign-In Error:', err);
-      setErrorMessage(err?.message || 'Failed to authenticate with Google. Please check your credentials.');
+      const msg = err instanceof Error ? err.message : 'Failed to authenticate with Google. Please check your credentials.';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +117,7 @@ export function LoginPage() {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
     const loadGsiScript = () => {
-      if ((window as any).google?.accounts?.id) {
+      if (window.google?.accounts?.id) {
         initializeGsi();
         return;
       }
@@ -89,18 +134,18 @@ export function LoginPage() {
     };
 
     const initializeGsi = () => {
-      if (!(window as any).google?.accounts?.id) return;
+      if (!window.google?.accounts?.id) return;
 
       try {
-        (window as any).google.accounts.id.initialize({
-          client_id: clientId || 'mock-google-client-id.apps.googleusercontent.com',
+        window.google.accounts.id.initialize({
+          client_id: clientId || '102651788040-f80qjr6hok5b2i1nt8pcke7bnnr035j8.apps.googleusercontent.com',
           callback: handleCredentialResponse,
           auto_select: false,
         });
 
         if (googleBtnRef.current) {
           googleBtnRef.current.innerHTML = '';
-          (window as any).google.accounts.id.renderButton(googleBtnRef.current, {
+          window.google.accounts.id.renderButton(googleBtnRef.current, {
             type: 'standard',
             shape: 'pill',
             theme: 'filled_black',
@@ -119,8 +164,8 @@ export function LoginPage() {
   }, []);
 
   const handlePrompt = () => {
-    if ((window as any).google?.accounts?.id) {
-      (window as any).google.accounts.id.prompt();
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
     } else {
       setErrorMessage('Google Sign-In is initializing. Please wait a moment or configure VITE_GOOGLE_CLIENT_ID.');
     }
@@ -182,7 +227,7 @@ export function LoginPage() {
                 {currentUser.avatarUrl ? (
                   <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-7 h-7 text-sky-400" />
+                  <UserIcon className="w-7 h-7 text-sky-400" />
                 )}
               </div>
 
