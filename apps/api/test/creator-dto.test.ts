@@ -41,6 +41,7 @@ vi.mock('../src/db.js', () => ({
       findUnique: vi.fn().mockResolvedValue(null),
     },
   },
+  ensureSchemaUpgrades: vi.fn().mockResolvedValue(undefined),
 }));
 
 import request from 'supertest';

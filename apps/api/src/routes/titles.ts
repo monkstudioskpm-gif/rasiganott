@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Kind, Orientation, Status, CrewRole } from '@prisma/client';
-import { prisma } from '../db.js';
+import { prisma, ensureSchemaUpgrades } from '../db.js';
 import { toNameKey } from './people.js';
 import { getCreatorsRegistry } from './admin.js';
 import { resolveVideoDuration } from '../services/duration.js';
@@ -378,19 +378,43 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     if (sort === 'rating') orderBy = { editorRating: 'desc' };
     if (sort === 'title') orderBy = { title: 'asc' };
 
-    const [titles, total] = await Promise.all([
-      prisma.title.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limitNum,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-        },
-      }),
-      prisma.title.count({ where }),
-    ]);
+    let titles: any[];
+    let total: number;
+
+    try {
+      [titles, total] = await Promise.all([
+        prisma.title.findMany({
+          where,
+          orderBy,
+          skip,
+          take: limitNum,
+          include: {
+            genres: { include: { genre: true } },
+            tags: { include: { tag: true } },
+          },
+        }),
+        prisma.title.count({ where }),
+      ]);
+    } catch (queryErr: any) {
+      if (queryErr?.code === 'P2022' || String(queryErr?.message).includes('durationSec')) {
+        await ensureSchemaUpgrades();
+        [titles, total] = await Promise.all([
+          prisma.title.findMany({
+            where,
+            orderBy,
+            skip,
+            take: limitNum,
+            include: {
+              genres: { include: { genre: true } },
+              tags: { include: { tag: true } },
+            },
+          }),
+          prisma.title.count({ where }),
+        ]);
+      } else {
+        throw queryErr;
+      }
+    }
 
     res.json({
       titles: titles.map(formatTitleResponse),

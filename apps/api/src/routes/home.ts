@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { prisma } from '../db.js';
+import { prisma, ensureSchemaUpgrades } from '../db.js';
 import { formatTitleResponse } from './titles.js';
 
 const router = Router();
@@ -9,22 +9,47 @@ router.get('/', async (_req, res, next) => {
   try {
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
-    // 2 fast queries: published catalog titles and active genres
-    const [publishedTitles, activeGenres] = await Promise.all([
-      prisma.title.findMany({
-        where: { status: 'PUBLISHED' },
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 60,
-      }),
-      prisma.genre.findMany({
-        where: { isActive: true },
-        orderBy: { sortOrder: 'asc' },
-      }),
-    ]);
+    let publishedTitles: any[];
+    let activeGenres: any[];
+
+    try {
+      [publishedTitles, activeGenres] = await Promise.all([
+        prisma.title.findMany({
+          where: { status: 'PUBLISHED' },
+          include: {
+            genres: { include: { genre: true } },
+            tags: { include: { tag: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 60,
+        }),
+        prisma.genre.findMany({
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
+        }),
+      ]);
+    } catch (queryErr: any) {
+      if (queryErr?.code === 'P2022' || String(queryErr?.message).includes('durationSec')) {
+        await ensureSchemaUpgrades();
+        [publishedTitles, activeGenres] = await Promise.all([
+          prisma.title.findMany({
+            where: { status: 'PUBLISHED' },
+            include: {
+              genres: { include: { genre: true } },
+              tags: { include: { tag: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 60,
+          }),
+          prisma.genre.findMany({
+            where: { isActive: true },
+            orderBy: { sortOrder: 'asc' },
+          }),
+        ]);
+      } else {
+        throw queryErr;
+      }
+    }
 
     const formatted = publishedTitles.map(formatTitleResponse);
 

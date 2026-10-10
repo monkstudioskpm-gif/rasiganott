@@ -233,7 +233,28 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   } catch (error) {
     console.warn(`API call to ${endpoint} failed, utilizing catalog fallback dataset:`, error);
     if (endpoint.startsWith('/admin/people')) return { people: FALLBACK_PEOPLE, pagination: { page: 1, limit: 24, total: FALLBACK_PEOPLE.length, totalPages: 1 } } as unknown as T;
-    if (endpoint === '/home') return FALLBACK_HOME as unknown as T;
+    if (endpoint === '/home') {
+      const combined = getCombinedTitles();
+      if (combined.length > 0) {
+        const feat = combined.filter((t) => t.isFeatured);
+        return {
+          featured: feat.length > 0 ? feat.slice(0, 5) : combined.slice(0, 5),
+          genres: FALLBACK_GENRES.map((g) => ({
+            ...g,
+            titles: combined.filter((t) => (t.genres || []).some((tg: any) => tg.slug === g.slug || tg.id === g.id || tg.name?.toLowerCase() === g.name.toLowerCase())).slice(0, 10),
+          })).filter((g) => g.titles.length > 0),
+          categories: FALLBACK_GENRES.map((g) => ({
+            ...g,
+            titles: combined.filter((t) => (t.genres || []).some((tg: any) => tg.slug === g.slug || tg.id === g.id || tg.name?.toLowerCase() === g.name.toLowerCase())).slice(0, 10),
+          })).filter((g) => g.titles.length > 0),
+          trending: combined.slice(0, 10),
+          newReleases: combined.slice(0, 10),
+          topRated: combined.slice(0, 10),
+          mostSupported: combined.slice(0, 10),
+        } as unknown as T;
+      }
+      return FALLBACK_HOME as unknown as T;
+    }
     if (endpoint === '/categories' || endpoint === '/genres') return { categories: FALLBACK_GENRES, genres: FALLBACK_GENRES } as unknown as T;
     if (endpoint === '/titles/admin/stats') return FALLBACK_ADMIN_STATS as unknown as T;
     if (endpoint.startsWith('/titles/admin/list') || endpoint === '/titles/admin/list') return { titles: [], total: 0 } as unknown as T;

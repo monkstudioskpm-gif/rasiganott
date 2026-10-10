@@ -28,6 +28,67 @@ var prisma = globalForPrisma.prisma || new PrismaClient({
   log: ["error"]
 });
 globalForPrisma.prisma = prisma;
+var migrationDone = false;
+async function ensureSchemaUpgrades() {
+  if (migrationDone) return;
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Title" ADD COLUMN IF NOT EXISTS "durationSec" INTEGER;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Title" ADD COLUMN IF NOT EXISTS "verticalVideoUrl" TEXT;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Title" ADD COLUMN IF NOT EXISTS "feedEligible" BOOLEAN NOT NULL DEFAULT true;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Episode" ADD COLUMN IF NOT EXISTS "durationSec" INTEGER;`);
+    try {
+      await prisma.$executeRawUnsafe(`UPDATE "Title" SET "durationSec" = "durationMin" * 60 WHERE "durationSec" IS NULL AND "durationMin" IS NOT NULL;`);
+      await prisma.$executeRawUnsafe(`UPDATE "Episode" SET "durationSec" = "durationMin" * 60 WHERE "durationSec" IS NULL AND "durationMin" IS NOT NULL;`);
+    } catch {
+    }
+    try {
+      await prisma.$executeRawUnsafe(`DO $$ BEGIN CREATE TYPE "ViewSource" AS ENUM ('CATALOG', 'FEED_FULL', 'EXTERNAL'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await prisma.$executeRawUnsafe(`DO $$ BEGIN CREATE TYPE "FeedMode" AS ENUM ('CLIP', 'FULL'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+    } catch {
+    }
+    try {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "ViewEvent" (
+          "id" TEXT PRIMARY KEY,
+          "titleId" TEXT NOT NULL,
+          "episodeId" TEXT,
+          "userId" TEXT,
+          "anonId" TEXT,
+          "source" "ViewSource" NOT NULL DEFAULT 'CATALOG',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "FeedImpression" (
+          "id" TEXT PRIMARY KEY,
+          "requestId" TEXT NOT NULL,
+          "strategy" TEXT NOT NULL,
+          "userId" TEXT,
+          "anonId" TEXT,
+          "titleId" TEXT NOT NULL,
+          "episodeId" TEXT,
+          "mode" "FeedMode" NOT NULL,
+          "clipStartSec" INTEGER,
+          "clipEndSec" INTEGER,
+          "position" INTEGER NOT NULL,
+          "watchedSec" INTEGER NOT NULL DEFAULT 0,
+          "loops" INTEGER NOT NULL DEFAULT 0,
+          "skipped" BOOLEAN NOT NULL DEFAULT false,
+          "clickedWatchFull" BOOLEAN NOT NULL DEFAULT false,
+          "liked" BOOLEAN NOT NULL DEFAULT false,
+          "wishlisted" BOOLEAN NOT NULL DEFAULT false,
+          "openedSupport" BOOLEAN NOT NULL DEFAULT false,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+    } catch {
+    }
+    migrationDone = true;
+    console.log("[Schema] Auto schema upgrades applied successfully.");
+  } catch (err) {
+    console.warn("[Schema] Auto schema upgrade note:", err);
+  }
+}
 
 // apps/api/src/routes/titles.ts
 import { Router as Router3 } from "express";
@@ -1171,19 +1232,42 @@ router3.get("/", async (req, res, next) => {
     if (sort === "oldest") orderBy = { createdAt: "asc" };
     if (sort === "rating") orderBy = { editorRating: "desc" };
     if (sort === "title") orderBy = { title: "asc" };
-    const [titles, total] = await Promise.all([
-      prisma.title.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limitNum,
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } }
-        }
-      }),
-      prisma.title.count({ where })
-    ]);
+    let titles;
+    let total;
+    try {
+      [titles, total] = await Promise.all([
+        prisma.title.findMany({
+          where,
+          orderBy,
+          skip,
+          take: limitNum,
+          include: {
+            genres: { include: { genre: true } },
+            tags: { include: { tag: true } }
+          }
+        }),
+        prisma.title.count({ where })
+      ]);
+    } catch (queryErr) {
+      if (queryErr?.code === "P2022" || String(queryErr?.message).includes("durationSec")) {
+        await ensureSchemaUpgrades();
+        [titles, total] = await Promise.all([
+          prisma.title.findMany({
+            where,
+            orderBy,
+            skip,
+            take: limitNum,
+            include: {
+              genres: { include: { genre: true } },
+              tags: { include: { tag: true } }
+            }
+          }),
+          prisma.title.count({ where })
+        ]);
+      } else {
+        throw queryErr;
+      }
+    }
     res.json({
       titles: titles.map(formatTitleResponse),
       pagination: {
@@ -1939,21 +2023,46 @@ var router4 = Router4();
 router4.get("/", async (_req, res, next) => {
   try {
     res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
-    const [publishedTitles, activeGenres] = await Promise.all([
-      prisma.title.findMany({
-        where: { status: "PUBLISHED" },
-        include: {
-          genres: { include: { genre: true } },
-          tags: { include: { tag: true } }
-        },
-        orderBy: { createdAt: "desc" },
-        take: 60
-      }),
-      prisma.genre.findMany({
-        where: { isActive: true },
-        orderBy: { sortOrder: "asc" }
-      })
-    ]);
+    let publishedTitles;
+    let activeGenres;
+    try {
+      [publishedTitles, activeGenres] = await Promise.all([
+        prisma.title.findMany({
+          where: { status: "PUBLISHED" },
+          include: {
+            genres: { include: { genre: true } },
+            tags: { include: { tag: true } }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 60
+        }),
+        prisma.genre.findMany({
+          where: { isActive: true },
+          orderBy: { sortOrder: "asc" }
+        })
+      ]);
+    } catch (queryErr) {
+      if (queryErr?.code === "P2022" || String(queryErr?.message).includes("durationSec")) {
+        await ensureSchemaUpgrades();
+        [publishedTitles, activeGenres] = await Promise.all([
+          prisma.title.findMany({
+            where: { status: "PUBLISHED" },
+            include: {
+              genres: { include: { genre: true } },
+              tags: { include: { tag: true } }
+            },
+            orderBy: { createdAt: "desc" },
+            take: 60
+          }),
+          prisma.genre.findMany({
+            where: { isActive: true },
+            orderBy: { sortOrder: "asc" }
+          })
+        ]);
+      } else {
+        throw queryErr;
+      }
+    }
     const formatted = publishedTitles.map(formatTitleResponse);
     const featuredList = formatted.filter((t) => t.isFeatured);
     const formattedFeatured = (featuredList.length > 0 ? featuredList : formatted).slice(0, 5);
@@ -3676,8 +3785,16 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(async (_req, _res, next) => {
+  await ensureSchemaUpgrades();
+  next();
+});
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+});
+app.get("/api/admin/migrate-db", async (_req, res) => {
+  await ensureSchemaUpgrades();
+  res.json({ success: true, message: "Schema upgrade triggered successfully" });
 });
 app.use("/api/home", home_default);
 app.use("/api/titles", titles_default);

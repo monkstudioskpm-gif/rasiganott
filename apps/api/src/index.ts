@@ -13,6 +13,7 @@ import fundingRouter from './routes/funding.js';
 import authRouter from './routes/auth.js';
 import progressRouter from './routes/progress.js';
 import feedRouter from './routes/feed.js';
+import { ensureSchemaUpgrades } from './db.js';
 
 dotenv.config();
 
@@ -30,9 +31,20 @@ app.use(
 );
 app.use(express.json());
 
-// Healthcheck
+// Auto-upgrade database schema on request if needed
+app.use(async (_req: Request, _res: Response, next: NextFunction) => {
+  await ensureSchemaUpgrades();
+  next();
+});
+
+// Healthcheck & DB Migration triggers
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/admin/migrate-db', async (_req: Request, res: Response) => {
+  await ensureSchemaUpgrades();
+  res.json({ success: true, message: 'Schema upgrade triggered successfully' });
 });
 
 // Routes
