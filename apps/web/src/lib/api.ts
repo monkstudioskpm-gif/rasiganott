@@ -1,4 +1,13 @@
-import { HomeResponse, Genre, Category, Title } from '@rasigan/shared';
+import {
+  HomeResponse,
+  Genre,
+  Category,
+  Title,
+  CreateFundingOrderDto,
+  CreateFundingOrderResponseDto,
+  VerifyFundingPaymentDto,
+  VerifyFundingPaymentResponseDto,
+} from '@rasigan/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -883,3 +892,25 @@ export const creatorApi = {
   },
   getSupporters: () => fetcher<any>('/creator/supporters'),
 };
+
+export const fundingApi = {
+  createOrder: async (data: CreateFundingOrderDto & { userId?: string; userEmail?: string; userName?: string }): Promise<CreateFundingOrderResponseDto> => {
+    return fetcher<CreateFundingOrderResponseDto>('/funding/order', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  verifyPayment: async (data: VerifyFundingPaymentDto): Promise<VerifyFundingPaymentResponseDto> => {
+    return fetcher<VerifyFundingPaymentResponseDto>('/funding/verify', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  getMyFundings: async (userId?: string): Promise<{ fundings: any[] }> => {
+    return fetcher<{ fundings: any[] }>(`/funding/mine${userId ? `?userId=${userId}` : ''}`);
+  },
+  getAllFundings: async (): Promise<{ fundings: any[] }> => {
+    return fetcher<{ fundings: any[] }>('/funding/list');
+  },
+};
+

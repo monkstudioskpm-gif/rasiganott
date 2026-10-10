@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bookmark, Clock, Heart, Award, Play, Trash2, IndianRupee } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { fundingApi } from '../lib/api';
 
 export function LibraryPage() {
   const [activeTab, setActiveTab] = useState<'watchlist' | 'history' | 'liked' | 'supported'>('watchlist');
@@ -13,7 +14,35 @@ export function LibraryPage() {
 
     const savedSupported = JSON.parse(localStorage.getItem('rasigan_supported') || '[]');
     setSupported(savedSupported);
+
+    fundingApi
+      .getMyFundings()
+      .then((res) => {
+        if (res?.fundings && res.fundings.length > 0) {
+          const apiItems = res.fundings.map((f: any) => ({
+            id: f.id,
+            titleId: f.title?.id || f.titleId,
+            titleName: f.title?.title || 'Supported Film',
+            posterUrl: f.title?.posterUrl || '',
+            creatorName: f.title?.creatorName || 'Creator',
+            amountInr: f.amountInr,
+            paidAt: f.paidAt,
+          }));
+          setSupported((prev) => {
+            const ids = new Set(prev.map((p) => p.id || p.titleId));
+            const merged = [...prev];
+            apiItems.forEach((item: any) => {
+              if (!ids.has(item.id) && !ids.has(item.titleId)) {
+                merged.push(item);
+              }
+            });
+            return merged;
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
+
 
   const handleRemoveWatchlist = (id: string) => {
     const updated = watchlist.filter((item) => item.id !== id);

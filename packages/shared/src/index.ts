@@ -284,3 +284,53 @@ export interface ApiErrorResponse {
     message: string;
   };
 }
+
+// ==========================================
+// Funding & Razorpay DTOs
+// ==========================================
+export const FundingSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  titleId: z.string(),
+  amountInr: z.number().int(),
+  razorpayOrderId: z.string(),
+  razorpayPaymentId: z.string().nullable().optional(),
+  status: PayStatusEnum.default('CREATED'),
+  message: z.string().nullable().optional(),
+  isAnonymous: z.boolean().default(false),
+  createdAt: z.string().datetime().optional(),
+  paidAt: z.string().datetime().nullable().optional(),
+});
+export type Funding = z.infer<typeof FundingSchema>;
+
+export interface CreateFundingOrderDto {
+  titleId: string;
+  amountInr: number;
+  message?: string;
+  isAnonymous?: boolean;
+}
+
+export interface CreateFundingOrderResponseDto {
+  orderId: string;
+  keyId: string;
+  amount: number;
+  currency: string;
+  titleName: string;
+}
+
+export interface VerifyFundingPaymentDto {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  titleId?: string;
+}
+
+export interface VerifyFundingPaymentResponseDto {
+  success: boolean;
+  paymentId: string;
+  orderId: string;
+  fundingId?: string;
+  amountInr?: number;
+  paidAt?: string;
+}
+
