@@ -58,7 +58,8 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL_ENV);
+if (!isServerless && process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
     console.log(`Rasigan API backend running at http://localhost:${port}`);
   });
