@@ -10,7 +10,18 @@ import { Router as Router3 } from "express";
 // apps/api/src/db.ts
 import { PrismaClient } from "@prisma/client";
 var globalForPrisma = globalThis;
+function getDatabaseUrl() {
+  const rawUrl = process.env.DATABASE_URL;
+  if (!rawUrl) return void 0;
+  let formatted = rawUrl;
+  if ((formatted.includes("pooler.supabase.com") || formatted.includes(":6543")) && !formatted.includes("pgbouncer=true")) {
+    formatted += (formatted.includes("?") ? "&" : "?") + "pgbouncer=true";
+  }
+  return formatted;
+}
+var dbUrl = getDatabaseUrl();
 var prisma = globalForPrisma.prisma || new PrismaClient({
+  datasources: dbUrl ? { db: { url: dbUrl } } : void 0,
   log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
 });
 if (process.env.NODE_ENV !== "production") {
