@@ -108,9 +108,9 @@ export function AdminContentFormPage() {
       setDescription(t.description);
       setKind(t.kind as any);
       setOrientation(t.orientation as any);
-      setPosterUrl(t.posterUrl || t.verticalPosterUrl || '');
+      setPosterUrl(t.posterUrl || '');
       setBannerUrl(t.bannerUrl || '');
-      setVerticalPosterUrl(t.verticalPosterUrl || t.posterUrl || '');
+      setVerticalPosterUrl(t.verticalPosterUrl || '');
       setMovieLink(t.videoUrl || t.trailerUrl || '');
       setTrailerLink(t.trailerUrl || t.videoUrl || '');
       setTagline(t.tagline || '');
@@ -271,8 +271,8 @@ export function AdminContentFormPage() {
         trailerUrl: trailerLink,
         seasons: kind === 'WEB_SERIES' ? seasons : [],
         posterUrl: posterUrl || verticalPosterUrl || bannerUrl,
-        bannerUrl,
-        verticalPosterUrl: verticalPosterUrl || posterUrl,
+        bannerUrl: bannerUrl || null,
+        verticalPosterUrl: verticalPosterUrl || null,
         year,
         language,
         ageRating,

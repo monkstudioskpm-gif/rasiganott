@@ -6,6 +6,15 @@ import { Play, Star, Info, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Title } from '@rasigan/shared';
 import { Footer } from '../components/Footer';
 
+export function getShortTitle(rawTitle: string): string {
+  if (!rawTitle) return '';
+  const trimmed = rawTitle.trim();
+  if (trimmed.includes('|')) {
+    return trimmed.split('|')[0].trim();
+  }
+  return trimmed;
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -179,9 +188,11 @@ export function HomePage() {
                 </span>
               </div>
 
-              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-md">{heroItem.title}</h1>
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-md line-clamp-2" title={heroItem.title}>
+                {getShortTitle(heroItem.title)}
+              </h1>
 
-              <p className="text-xs sm:text-sm text-gray-300 line-clamp-3 leading-relaxed font-normal">
+              <p className="text-xs sm:text-sm text-gray-300 line-clamp-1 leading-relaxed font-normal" title={heroItem.description}>
                 {heroItem.description}
               </p>
 
@@ -309,8 +320,8 @@ export function HomePage() {
                 </div>
 
                 <div className="px-1 space-y-0.5">
-                  <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate">
-                    {title.title}
+                  <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate" title={title.title}>
+                    {getShortTitle(title.title)}
                   </h4>
                   <p className="text-xs text-gray-400">{title.language} • {title.year || 2025}</p>
                 </div>
@@ -397,8 +408,10 @@ export function HomePage() {
             <span className="px-3 py-1 rounded-xl bg-sky-500/20 border border-sky-400/40 text-xs font-bold text-sky-300 uppercase tracking-wider">
               Featured Highlight
             </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">{secondaryHero.title}</h2>
-            <p className="text-xs sm:text-sm text-gray-300 line-clamp-3 leading-relaxed">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight line-clamp-2" title={secondaryHero.title}>
+              {getShortTitle(secondaryHero.title)}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-300 line-clamp-1 leading-relaxed" title={secondaryHero.description}>
               {secondaryHero.description}
             </p>
 
@@ -458,8 +471,8 @@ export function HomePage() {
                 </div>
 
                 <div className="px-1">
-                  <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate">
-                    {title.title}
+                  <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate" title={title.title}>
+                    {getShortTitle(title.title)}
                   </h4>
                   <p className="text-xs text-gray-400">{title.language}</p>
                 </div>
@@ -500,8 +513,8 @@ export function HomePage() {
                 </div>
 
                 <div className="px-1">
-                  <h4 className="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate">
-                    {title.title}
+                  <h4 className="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate" title={title.title}>
+                    {getShortTitle(title.title)}
                   </h4>
                   <p className="text-[11px] text-gray-400">{title.language} • {title.year || 2025}</p>
                 </div>

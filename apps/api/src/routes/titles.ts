@@ -5,6 +5,22 @@ import { toNameKey } from './people.js';
 
 const router = Router();
 
+let migrationChecked = false;
+async function ensureVerticalPosterColumn() {
+  if (migrationChecked) return;
+  try {
+    await prisma.$executeRawUnsafe('ALTER TABLE "Title" ADD COLUMN IF NOT EXISTS "verticalPosterUrl" TEXT;');
+    migrationChecked = true;
+  } catch {
+    // Ignore if already exists or fails
+  }
+}
+
+router.use(async (_req, _res, next) => {
+  await ensureVerticalPosterColumn();
+  next();
+});
+
 export function formatTitleResponse(title: any) {
   if (!title) return title;
 
@@ -640,7 +656,8 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
           orientation: orientation as Orientation,
           status: status as Status,
           posterUrl: effectivePosterUrl || existingDbTitle.posterUrl,
-          bannerUrl: bannerUrl || existingDbTitle.bannerUrl,
+          bannerUrl: bannerUrl !== undefined ? bannerUrl : existingDbTitle.bannerUrl,
+          verticalPosterUrl: payload.verticalPosterUrl !== undefined ? payload.verticalPosterUrl : existingDbTitle.verticalPosterUrl,
           videoUrl: videoUrl || existingDbTitle.videoUrl,
           trailerUrl: trailerUrl || existingDbTitle.trailerUrl,
           streamType: videoUrl ? (videoUrl.includes('.m3u8') ? 'HLS' : 'MP4') : existingDbTitle.streamType,
@@ -688,6 +705,7 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
           status: status as Status,
           posterUrl: effectivePosterUrl,
           bannerUrl: bannerUrl || null,
+          verticalPosterUrl: payload.verticalPosterUrl || null,
           videoUrl: videoUrl || null,
           trailerUrl: trailerUrl || null,
           streamType: videoUrl?.includes('.m3u8') ? 'HLS' : 'MP4',
@@ -872,6 +890,7 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
           status: status ? (status as Status) : existing.status,
           posterUrl: effectivePosterUrl,
           bannerUrl: bannerUrl !== undefined ? bannerUrl : existing.bannerUrl,
+          verticalPosterUrl: verticalPosterUrl !== undefined ? verticalPosterUrl : existing.verticalPosterUrl,
           videoUrl: videoUrl !== undefined ? videoUrl : existing.videoUrl,
           trailerUrl: trailerUrl !== undefined ? trailerUrl : existing.trailerUrl,
           streamType: videoUrl ? (videoUrl.includes('.m3u8') ? 'HLS' : 'MP4') : existing.streamType,

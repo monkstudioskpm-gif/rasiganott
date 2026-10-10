@@ -5,6 +5,8 @@ import { api } from '../lib/api';
 import { Star, Loader2 } from 'lucide-react';
 import { Kind } from '@rasigan/shared';
 
+import { getShortTitle } from './HomePage';
+
 export function BrowsePage() {
   const { kind } = useParams<{ kind: string }>();
   const [selectedFormat, setSelectedFormat] = useState<'ALL' | 'LANDSCAPE' | 'VERTICAL'>('ALL');
@@ -101,8 +103,8 @@ export function BrowsePage() {
               </div>
 
               <div className="px-1">
-                <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate">
-                  {title.title}
+                <h4 className="font-bold text-sm text-gray-100 group-hover:text-sky-400 transition-colors truncate" title={title.title}>
+                  {getShortTitle(title.title)}
                 </h4>
                 <p className="text-xs text-gray-400">{title.language} • {title.year || 2025}</p>
               </div>

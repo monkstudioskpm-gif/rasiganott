@@ -376,6 +376,19 @@ var people_default = router;
 
 // apps/api/src/routes/titles.ts
 var router2 = Router2();
+var migrationChecked = false;
+async function ensureVerticalPosterColumn() {
+  if (migrationChecked) return;
+  try {
+    await prisma.$executeRawUnsafe('ALTER TABLE "Title" ADD COLUMN IF NOT EXISTS "verticalPosterUrl" TEXT;');
+    migrationChecked = true;
+  } catch {
+  }
+}
+router2.use(async (_req, _res, next) => {
+  await ensureVerticalPosterColumn();
+  next();
+});
 function formatTitleResponse(title) {
   if (!title) return title;
   const genres = title.genres ? title.genres.map((tg) => tg.genre || tg) : [];
@@ -913,7 +926,8 @@ router2.post("/admin", async (req, res, next) => {
           orientation,
           status,
           posterUrl: effectivePosterUrl || existingDbTitle.posterUrl,
-          bannerUrl: bannerUrl || existingDbTitle.bannerUrl,
+          bannerUrl: bannerUrl !== void 0 ? bannerUrl : existingDbTitle.bannerUrl,
+          verticalPosterUrl: payload.verticalPosterUrl !== void 0 ? payload.verticalPosterUrl : existingDbTitle.verticalPosterUrl,
           videoUrl: videoUrl || existingDbTitle.videoUrl,
           trailerUrl: trailerUrl || existingDbTitle.trailerUrl,
           streamType: videoUrl ? videoUrl.includes(".m3u8") ? "HLS" : "MP4" : existingDbTitle.streamType,
@@ -957,6 +971,7 @@ router2.post("/admin", async (req, res, next) => {
           status,
           posterUrl: effectivePosterUrl,
           bannerUrl: bannerUrl || null,
+          verticalPosterUrl: payload.verticalPosterUrl || null,
           videoUrl: videoUrl || null,
           trailerUrl: trailerUrl || null,
           streamType: videoUrl?.includes(".m3u8") ? "HLS" : "MP4",
@@ -1118,6 +1133,7 @@ router2.put("/admin/:id", async (req, res, next) => {
           status: status ? status : existing.status,
           posterUrl: effectivePosterUrl,
           bannerUrl: bannerUrl !== void 0 ? bannerUrl : existing.bannerUrl,
+          verticalPosterUrl: verticalPosterUrl !== void 0 ? verticalPosterUrl : existing.verticalPosterUrl,
           videoUrl: videoUrl !== void 0 ? videoUrl : existing.videoUrl,
           trailerUrl: trailerUrl !== void 0 ? trailerUrl : existing.trailerUrl,
           streamType: videoUrl ? videoUrl.includes(".m3u8") ? "HLS" : "MP4" : existing.streamType,

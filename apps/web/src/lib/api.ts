@@ -637,6 +637,8 @@ export const adminApi = {
     const normalizedPayload = {
       ...payload,
       posterUrl: effectivePoster,
+      verticalPosterUrl: payload.verticalPosterUrl || null,
+      bannerUrl: payload.bannerUrl || null,
       description: effectiveDesc,
     };
 
@@ -656,6 +658,8 @@ export const adminApi = {
     const normalizedPayload = {
       ...payload,
       posterUrl: effectivePoster,
+      verticalPosterUrl: payload.verticalPosterUrl || null,
+      bannerUrl: payload.bannerUrl || null,
       description: effectiveDesc,
     };
 

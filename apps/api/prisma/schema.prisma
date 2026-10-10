@@ -156,9 +156,10 @@ model Title {
   durationMin  Int?
   editorRating Decimal?
 
-  posterUrl  String
-  bannerUrl  String?
-  trailerUrl String?
+  posterUrl         String
+  bannerUrl         String?
+  verticalPosterUrl String?
+  trailerUrl        String?
 
   videoUrl    String?
   streamType  StreamType?
