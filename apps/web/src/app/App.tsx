@@ -52,6 +52,7 @@ function AppContent() {
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/library" element={<LibraryPage />} />
+          <Route path="/profile" element={<LibraryPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/creator"

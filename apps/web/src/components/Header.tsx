@@ -97,13 +97,18 @@ export function Header() {
           {/* Profile / Sign In Pill */}
           {currentUser ? (
             <Link
-              to="/login"
+              to="/library"
               className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-white font-bold text-xs transition-all duration-200"
               title={`${currentUser.name} (${userRole || 'Member'})`}
             >
               <div className="w-6 h-6 rounded-full overflow-hidden bg-sky-500/20 border border-sky-400/40 flex items-center justify-center flex-shrink-0">
                 {currentUser.avatarUrl ? (
-                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.name}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <UserIcon className="w-3.5 h-3.5 text-sky-400" />
                 )}

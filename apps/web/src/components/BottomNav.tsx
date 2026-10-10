@@ -23,12 +23,13 @@ export function BottomNav() {
     return () => window.removeEventListener('playerStateChange', handlePlayerState);
   }, [location.pathname]);
 
+  const isLogged = typeof window !== 'undefined' && !!localStorage.getItem('rasigan_user');
   const navItems = [
     { label: 'Home', path: '/', icon: Home },
     { label: 'Vertical', path: '/reels', icon: Smartphone },
     { label: 'Search', path: '/search', icon: Search },
     { label: 'Library', path: '/library', icon: Library },
-    { label: 'Profile', path: '/login', icon: User },
+    { label: 'Profile', path: isLogged ? '/library' : '/login', icon: User },
   ];
 
   const isAdminOrCreatorRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/creator');

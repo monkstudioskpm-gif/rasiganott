@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, Loader2, CheckCircle2, AlertCircle, LogOut, ArrowRight, User as UserIcon, Sparkles } from 'lucide-react';
+import { Loader2, AlertCircle, LogOut, ArrowRight, User as UserIcon, Sparkles, Shield, Bookmark } from 'lucide-react';
 import { authApi } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -52,6 +52,7 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isGsiRendered, setIsGsiRendered] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,16 +91,18 @@ export function LoginPage() {
         localStorage.setItem('user_role', user.role);
         localStorage.setItem('rasigan_user', JSON.stringify(user));
 
-        // Auto redirect based on automatically detected role
+        const redirectParam = new URLSearchParams(window.location.search).get('redirect');
         setTimeout(() => {
-          if (user.role === 'ADMIN') {
+          if (redirectParam) {
+            navigate(redirectParam);
+          } else if (user.role === 'ADMIN') {
             navigate('/admin');
           } else if (user.role === 'CREATOR') {
             navigate('/creator');
           } else {
-            navigate('/');
+            navigate('/library');
           }
-        }, 1200);
+        }, 1000);
       } else {
         throw new Error('Authentication succeeded but user profile was not returned');
       }
@@ -113,7 +116,6 @@ export function LoginPage() {
   };
 
   useEffect(() => {
-    // Load and initialize Google Identity Services
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
     const loadGsiScript = () => {
@@ -152,8 +154,9 @@ export function LoginPage() {
             text: 'continue_with',
             size: 'large',
             logo_alignment: 'left',
-            width: 320,
+            width: 280,
           });
+          setIsGsiRendered(true);
         }
       } catch (err) {
         console.warn('GSI initialize notice:', err);
@@ -223,11 +226,16 @@ export function LoginPage() {
           /* Already Logged In State */
           <div className="space-y-5 pt-2">
             <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
-              <div className="w-14 h-14 rounded-full overflow-hidden bg-sky-500/20 border-2 border-sky-400/40 mx-auto flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full overflow-hidden bg-sky-500/20 border-2 border-sky-400/40 mx-auto flex items-center justify-center shadow-lg">
                 {currentUser.avatarUrl ? (
-                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.name}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  <UserIcon className="w-7 h-7 text-sky-400" />
+                  <UserIcon className="w-8 h-8 text-sky-400" />
                 )}
               </div>
 
@@ -260,23 +268,32 @@ export function LoginPage() {
 
             {/* Portal Navigation based on detected role */}
             <div className="space-y-2">
+              <button
+                onClick={() => navigate('/library')}
+                className="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-extrabold text-xs shadow-lg shadow-sky-500/25 transition-all flex items-center justify-center gap-2"
+              >
+                <Bookmark className="w-4 h-4" />
+                <span>View My Profile & Library</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
               {currentUser.role === 'ADMIN' && (
                 <button
                   onClick={() => navigate('/admin')}
-                  className="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-extrabold text-xs shadow-lg shadow-sky-500/20 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs border border-white/10 transition-all flex items-center justify-center gap-2"
                 >
+                  <Shield className="w-3.5 h-3.5 text-sky-400" />
                   <span>Open Admin Panel</span>
-                  <ArrowRight className="w-4 h-4" />
                 </button>
               )}
 
               {currentUser.role === 'CREATOR' && (
                 <button
                   onClick={() => navigate('/creator')}
-                  className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs border border-emerald-500/30 transition-all flex items-center justify-center gap-2"
                 >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Open Creator Studio</span>
-                  <ArrowRight className="w-4 h-4" />
                 </button>
               )}
 
@@ -298,66 +315,49 @@ export function LoginPage() {
             </div>
           </div>
         ) : (
-          /* Normal Sign-In Screen with Single Google Button */
-          <div className="space-y-4 pt-1">
-            {/* Google Identity Services Render Container */}
+          /* Normal Sign-In Screen with ONLY ONE Google Button */
+          <div className="pt-2">
             <div className="flex justify-center min-h-[44px]">
-              <div ref={googleBtnRef} className="flex justify-center" />
-            </div>
-
-            {/* Fallback Custom Interactive Button */}
-            <button
-              onClick={handlePrompt}
-              disabled={isLoading}
-              className="w-full py-3 rounded-2xl bg-white hover:bg-gray-100 text-gray-900 font-extrabold text-xs shadow-xl shadow-white/10 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-900" />
-                  <span>Verifying with Google...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                  <span>Continue with Google</span>
-                </>
+              <div ref={googleBtnRef} className={isGsiRendered ? 'flex justify-center' : 'hidden'} />
+              {!isGsiRendered && (
+                <button
+                  onClick={handlePrompt}
+                  disabled={isLoading}
+                  className="w-full max-w-[280px] py-3 rounded-full bg-white hover:bg-gray-100 text-gray-900 font-extrabold text-xs shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-900" />
+                      <span>Verifying with Google...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                      <span>Continue with Google</span>
+                    </>
+                  )}
+                </button>
               )}
-            </button>
-
-            <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 text-[11px] text-gray-400 space-y-1">
-              <div className="flex items-center justify-center gap-1.5 text-sky-400 font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Automatic Role Identification</span>
-              </div>
-              <p className="text-[10px] text-gray-500">
-                Admins and creators are automatically detected by email upon sign-in. No manual selection required.
-              </p>
             </div>
           </div>
         )}
-
-        {/* Security Trust Footnote */}
-        <div className="pt-4 border-t border-white/10 text-[11px] text-gray-500 flex items-center justify-center gap-1.5">
-          <Shield className="w-3.5 h-3.5 text-sky-400" />
-          <span>Google Identity Services • Server Verified Cookie JWT</span>
-        </div>
       </div>
     </div>
   );
