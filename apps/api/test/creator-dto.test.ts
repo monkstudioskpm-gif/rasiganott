@@ -1,4 +1,48 @@
-import { describe, it, expect } from 'vitest';
+import 'dotenv/config';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('../src/db.js', () => ({
+  prisma: {
+    setting: {
+      findUnique: vi.fn().mockResolvedValue({
+        value: JSON.stringify([
+          { id: 'creator-1', email: 'test@creator.com', name: 'Test Creator', assignedTitleIds: ['title-1'] },
+        ]),
+      }),
+    },
+    title: {
+      findMany: vi.fn().mockResolvedValue([
+        { id: 'title-1', title: 'Test Film', posterUrl: 'https://img.com/1.jpg', fundingGoal: 100000, fundingRaised: 50000, fundings: [] },
+      ]),
+    },
+    creatorPayout: {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: 'payout-1',
+          creatorEmail: 'test@creator.com',
+          cycle: '2026-10',
+          period: 'October 2026',
+          earningsInr: 5000,
+          adjustmentsInr: 0,
+          netPayableInr: 5000,
+          status: 'PAID',
+          referenceUtr: 'UTR123',
+          titles: [],
+        },
+      ]),
+    },
+    funding: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    watchProgress: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    user: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+  },
+}));
+
 import request from 'supertest';
 import app from '../src/index.js';
 

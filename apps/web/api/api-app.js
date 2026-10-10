@@ -747,6 +747,126 @@ router2.delete("/creators/:id", async (req, res, next) => {
 });
 var admin_default = router2;
 
+// apps/api/src/services/duration.ts
+function extractBunnyVideoGuid(url) {
+  if (!url) return null;
+  const match = url.match(/b-cdn\.net\/([a-zA-Z0-9-]+)\/(?:playlist\.m3u8|play)/i);
+  if (match && match[1] && match[1].length > 10) {
+    return match[1];
+  }
+  return null;
+}
+async function fetchDurationFromBunnyApi(videoGuid) {
+  const apiKey = process.env.BUNNY_STREAM_API_KEY;
+  const libraryId = process.env.BUNNY_LIBRARY_ID;
+  if (!apiKey || !libraryId) return null;
+  try {
+    const res = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos/${videoGuid}`, {
+      headers: {
+        AccessKey: apiKey,
+        Accept: "application/json"
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.length === "number" && data.length > 0) {
+        return Math.round(data.length);
+      }
+    }
+  } catch (err) {
+    console.warn("Bunny API duration lookup failed:", err);
+  }
+  return null;
+}
+async function fetchDurationFromHlsPlaylist(playlistUrl) {
+  try {
+    const res = await fetch(playlistUrl, {
+      headers: { "User-Agent": "Rasigan-OTT/2.0" },
+      signal: AbortSignal.timeout(5e3)
+    });
+    if (!res.ok) return null;
+    const body = await res.text();
+    let targetMediaPlaylistUrl = playlistUrl;
+    if (body.includes("#EXT-X-STREAM-INF")) {
+      const lines = body.split("\n");
+      let mediaUri = null;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith("#EXT-X-STREAM-INF") && i + 1 < lines.length) {
+          const nextLine = lines[i + 1].trim();
+          if (nextLine && !nextLine.startsWith("#")) {
+            mediaUri = nextLine;
+            break;
+          }
+        }
+      }
+      if (mediaUri) {
+        if (mediaUri.startsWith("http://") || mediaUri.startsWith("https://")) {
+          targetMediaPlaylistUrl = mediaUri;
+        } else {
+          const urlObj = new URL(playlistUrl);
+          const basePath = urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf("/") + 1);
+          urlObj.pathname = basePath + mediaUri;
+          targetMediaPlaylistUrl = urlObj.toString();
+        }
+        const mediaRes = await fetch(targetMediaPlaylistUrl, {
+          headers: { "User-Agent": "Rasigan-OTT/2.0" },
+          signal: AbortSignal.timeout(5e3)
+        });
+        if (!mediaRes.ok) return null;
+        const mediaBody = await mediaRes.text();
+        return parseExtinfTotalDuration(mediaBody);
+      }
+    }
+    return parseExtinfTotalDuration(body);
+  } catch (err) {
+    console.warn("HLS playlist duration parse failed:", err);
+  }
+  return null;
+}
+function parseExtinfTotalDuration(playlistContent) {
+  const extinfRegex = /#EXTINF:([0-9.]+)/g;
+  let totalDuration = 0;
+  let match;
+  let matchCount = 0;
+  while ((match = extinfRegex.exec(playlistContent)) !== null) {
+    const sec = parseFloat(match[1]);
+    if (!isNaN(sec) && sec > 0) {
+      totalDuration += sec;
+      matchCount++;
+    }
+  }
+  if (matchCount > 0 && totalDuration > 0) {
+    return Math.round(totalDuration);
+  }
+  return null;
+}
+async function resolveVideoDuration(url, clientReportedDurationSec) {
+  if (!url || typeof url !== "string") {
+    return { durationSec: null, source: "UNKNOWN", error: "Invalid URL" };
+  }
+  const bunnyGuid = extractBunnyVideoGuid(url);
+  if (bunnyGuid) {
+    const bunnySec = await fetchDurationFromBunnyApi(bunnyGuid);
+    if (bunnySec && bunnySec > 0) {
+      return { durationSec: bunnySec, source: "BUNNY_API" };
+    }
+  }
+  if (url.includes(".m3u8")) {
+    const hlsSec = await fetchDurationFromHlsPlaylist(url);
+    if (hlsSec && hlsSec > 0) {
+      return { durationSec: hlsSec, source: "HLS_PLAYLIST" };
+    }
+  }
+  if (typeof clientReportedDurationSec === "number" && clientReportedDurationSec > 0) {
+    return {
+      durationSec: Math.round(clientReportedDurationSec),
+      source: "CLIENT_FALLBACK"
+    };
+  }
+  return { durationSec: null, source: "UNKNOWN" };
+}
+
 // apps/api/src/routes/titles.ts
 var router3 = Router3();
 function getEffectiveArtwork(title) {
@@ -890,7 +1010,7 @@ function formatTitleResponse(title) {
 }
 router3.post("/admin/validate-video-url", async (req, res, next) => {
   try {
-    const { url } = req.body;
+    const { url, durationSec: clientSec } = req.body;
     if (!url || typeof url !== "string" || !url.startsWith("http")) {
       res.status(400).json({
         isValid: false,
@@ -903,12 +1023,15 @@ router3.post("/admin/validate-video-url", async (req, res, next) => {
     const isMp4 = url.includes(".mp4");
     const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
     const isVimeo = url.includes("vimeo.com");
+    const durationRes = await resolveVideoDuration(url, clientSec);
+    const resolvedDurationSec = durationRes.durationSec || (isHls ? 6300 : 5400);
     if (!isHls && !isMp4 && !isYoutube && !isVimeo) {
       res.json({
         isValid: true,
         streamType: "MP4",
         reachable: true,
-        durationSec: 5400,
+        durationSec: resolvedDurationSec,
+        durationSource: durationRes.source,
         qualities: ["720p", "1080p"],
         message: "Reachable standard stream"
       });
@@ -919,12 +1042,47 @@ router3.post("/admin/validate-video-url", async (req, res, next) => {
       isValid: true,
       streamType: isHls ? "HLS" : isMp4 ? "MP4" : "EMBED",
       reachable: true,
-      durationSec: isHls ? 6300 : 5400,
+      durationSec: resolvedDurationSec,
+      durationSource: durationRes.source,
       qualities: isHls ? ["240p", "360p", "480p", "720p", "1080p"] : ["720p", "1080p"],
       audioTracks: ["Tamil (Stereo)", "English (Stereo)"],
       subtitles: ["English", "Tamil"],
       message: "\u2713 Reachable \xB7 detected type: " + detectedMsg
     });
+  } catch (err) {
+    next(err);
+  }
+});
+router3.post("/admin/:id/refresh-duration", async (req, res, next) => {
+  try {
+    const titleId = req.params.id;
+    const title = await prisma.title.findFirst({
+      where: { OR: [{ id: titleId }, { slug: titleId }] }
+    });
+    if (!title || !title.videoUrl) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Title or video URL not found" } });
+      return;
+    }
+    const durationRes = await resolveVideoDuration(title.videoUrl, req.body.durationSec);
+    if (durationRes.durationSec) {
+      const updated = await prisma.title.update({
+        where: { id: title.id },
+        data: {
+          durationSec: durationRes.durationSec,
+          durationMin: Math.round(durationRes.durationSec / 60)
+        }
+      });
+      res.json({
+        success: true,
+        durationSec: updated.durationSec,
+        durationMin: updated.durationMin,
+        source: durationRes.source
+      });
+    } else {
+      res.status(422).json({
+        error: { code: "DURATION_UNKNOWN", message: "Could not automatically detect duration for this video stream" }
+      });
+    }
   } catch (err) {
     next(err);
   }
@@ -1413,10 +1571,13 @@ router3.post("/admin", async (req, res, next) => {
           year: year !== void 0 && year !== "" && !isNaN(parseInt(String(year), 10)) ? parseInt(String(year), 10) : existingDbTitle.year,
           ageRating: ageRating !== void 0 ? ageRating ? String(ageRating).trim() : null : existingDbTitle.ageRating,
           durationMin: durationMin !== void 0 && durationMin !== "" && !isNaN(parseInt(String(durationMin), 10)) ? parseInt(String(durationMin), 10) : existingDbTitle.durationMin,
+          durationSec: payload.durationSec !== void 0 ? payload.durationSec ? parseInt(String(payload.durationSec), 10) : null : existingDbTitle.durationSec,
           editorRating: editorRating ? parseFloat(editorRating) : existingDbTitle.editorRating,
           isFeatured: isFeatured !== void 0 ? Boolean(isFeatured) : existingDbTitle.isFeatured,
           fundingEnabled: fundingEnabled !== void 0 ? Boolean(fundingEnabled) : existingDbTitle.fundingEnabled,
-          fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : existingDbTitle.fundingGoal
+          fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : existingDbTitle.fundingGoal,
+          verticalVideoUrl: payload.verticalVideoUrl !== void 0 ? payload.verticalVideoUrl || null : existingDbTitle.verticalVideoUrl,
+          feedEligible: payload.feedEligible !== void 0 ? Boolean(payload.feedEligible) : existingDbTitle.feedEligible
         }
       });
       res.json({ title: formatTitleResponse(updatedDbTitle) });
@@ -1457,10 +1618,13 @@ router3.post("/admin", async (req, res, next) => {
           year: year !== void 0 && year !== "" && !isNaN(parseInt(String(year), 10)) ? parseInt(String(year), 10) : null,
           ageRating: ageRating ? String(ageRating).trim() : null,
           durationMin: durationMin !== void 0 && durationMin !== "" && !isNaN(parseInt(String(durationMin), 10)) ? parseInt(String(durationMin), 10) : null,
+          durationSec: payload.durationSec ? parseInt(String(payload.durationSec), 10) : durationMin ? parseInt(String(durationMin), 10) * 60 : null,
           editorRating: editorRating ? parseFloat(editorRating) : null,
           isFeatured: Boolean(isFeatured),
           fundingEnabled: Boolean(fundingEnabled),
           fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : null,
+          verticalVideoUrl: payload.verticalVideoUrl || null,
+          feedEligible: payload.feedEligible !== void 0 ? Boolean(payload.feedEligible) : true,
           publishedAt: status === "PUBLISHED" ? /* @__PURE__ */ new Date() : null
         }
       });
@@ -1618,10 +1782,13 @@ router3.put("/admin/:id", async (req, res, next) => {
           year: year !== void 0 && year !== "" && !isNaN(parseInt(String(year), 10)) ? parseInt(String(year), 10) : year === null ? null : existing.year,
           ageRating: ageRating !== void 0 ? ageRating ? String(ageRating).trim() : null : existing.ageRating,
           durationMin: durationMin !== void 0 && durationMin !== "" && !isNaN(parseInt(String(durationMin), 10)) ? parseInt(String(durationMin), 10) : durationMin === null ? null : existing.durationMin,
+          durationSec: payload.durationSec !== void 0 ? payload.durationSec ? parseInt(String(payload.durationSec), 10) : null : existing.durationSec,
           editorRating: editorRating ? parseFloat(editorRating) : existing.editorRating,
           isFeatured: isFeatured !== void 0 ? Boolean(isFeatured) : existing.isFeatured,
           fundingEnabled: fundingEnabled !== void 0 ? Boolean(fundingEnabled) : existing.fundingEnabled,
           fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : existing.fundingGoal,
+          verticalVideoUrl: payload.verticalVideoUrl !== void 0 ? payload.verticalVideoUrl || null : existing.verticalVideoUrl,
+          feedEligible: payload.feedEligible !== void 0 ? Boolean(payload.feedEligible) : existing.feedEligible,
           publishedAt: status === "PUBLISHED" && !existing.publishedAt ? /* @__PURE__ */ new Date() : existing.publishedAt
         }
       });
@@ -2997,6 +3164,505 @@ router10.put("/", async (req, res, next) => {
 });
 var progress_default = router10;
 
+// apps/api/src/routes/feed.ts
+import { Router as Router11 } from "express";
+
+// apps/api/src/services/feed/candidates.ts
+function decidePlaybackMode(title, episode) {
+  if (title.verticalVideoUrl && typeof title.verticalVideoUrl === "string" && title.verticalVideoUrl.startsWith("http")) {
+    const dur = title.durationSec || (title.durationMin ? title.durationMin * 60 : 5400);
+    return { mode: "FULL", streamUrl: title.verticalVideoUrl, durationSec: dur };
+  }
+  if (title.orientation === "VERTICAL") {
+    const dur = title.durationSec || (title.durationMin ? title.durationMin * 60 : 5400);
+    const url = title.videoUrl || title.trailerUrl;
+    if (url) {
+      return { mode: "FULL", streamUrl: url, durationSec: dur };
+    }
+  }
+  if (title.kind === "WEB_SERIES") {
+    const ep = episode || title.seasons?.[0]?.episodes?.[0];
+    if (ep && ep.videoUrl) {
+      const epDur = ep.durationSec || (ep.durationMin ? ep.durationMin * 60 : 1800);
+      return { mode: "CLIP", streamUrl: ep.videoUrl, durationSec: epDur };
+    }
+  }
+  const movieUrl = title.videoUrl || title.trailerUrl;
+  const movieDur = title.durationSec || (title.durationMin ? title.durationMin * 60 : 0);
+  if (movieUrl && movieDur > 0) {
+    return { mode: "CLIP", streamUrl: movieUrl, durationSec: movieDur };
+  }
+  return { mode: null, streamUrl: null, durationSec: 0 };
+}
+async function generateCandidates(ctx) {
+  try {
+    let excludedTitleIds = [];
+    try {
+      const recentImpressions = await prisma.feedImpression.findMany({
+        where: {
+          OR: [
+            ...ctx.userId ? [{ userId: ctx.userId }] : [],
+            ...ctx.anonId ? [{ anonId: ctx.anonId }] : []
+          ]
+        },
+        select: { titleId: true },
+        orderBy: { shownAt: "desc" },
+        take: 20
+      });
+      excludedTitleIds = recentImpressions.map((imp) => imp.titleId);
+    } catch {
+      excludedTitleIds = [];
+    }
+    let completedTitleIds = [];
+    if (ctx.userId) {
+      try {
+        const completed = await prisma.watchProgress.findMany({
+          where: { userId: ctx.userId, completed: true },
+          select: { titleId: true }
+        });
+        completedTitleIds = completed.map((c) => c.titleId);
+      } catch {
+      }
+    }
+    const titles = await prisma.title.findMany({
+      where: {
+        status: "PUBLISHED",
+        feedEligible: true,
+        id: {
+          notIn: Array.from(/* @__PURE__ */ new Set([...excludedTitleIds, ...completedTitleIds]))
+        }
+      },
+      include: {
+        genres: { include: { genre: true } },
+        seasons: {
+          include: {
+            episodes: {
+              where: { number: { lte: 3 } },
+              orderBy: { number: "asc" }
+            }
+          }
+        },
+        _count: {
+          select: {
+            reactions: true,
+            fundings: true
+          }
+        }
+      },
+      take: 60
+    });
+    const candidates = [];
+    for (const title of titles) {
+      let chosenEpisode = null;
+      if (title.kind === "WEB_SERIES") {
+        const eligibleEpisodes = title.seasons?.[0]?.episodes || [];
+        if (eligibleEpisodes.length > 0) {
+          chosenEpisode = eligibleEpisodes[Math.floor(Math.random() * eligibleEpisodes.length)];
+        }
+      }
+      const decision = decidePlaybackMode(title, chosenEpisode);
+      if (decision.mode && decision.streamUrl && decision.durationSec >= 25) {
+        candidates.push({
+          title,
+          episode: chosenEpisode,
+          mode: decision.mode,
+          durationSec: decision.durationSec,
+          streamUrl: decision.streamUrl
+        });
+      }
+    }
+    if (candidates.length < 5) {
+      const fallbackTitles = await prisma.title.findMany({
+        where: {
+          status: "PUBLISHED",
+          feedEligible: true
+        },
+        include: {
+          genres: { include: { genre: true } },
+          seasons: {
+            include: {
+              episodes: { where: { number: { lte: 3 } } }
+            }
+          },
+          _count: { select: { reactions: true, fundings: true } }
+        },
+        take: 30
+      });
+      for (const title of fallbackTitles) {
+        if (!candidates.some((c) => c.title.id === title.id)) {
+          const decision = decidePlaybackMode(title);
+          if (decision.mode && decision.streamUrl && decision.durationSec >= 25) {
+            candidates.push({
+              title,
+              episode: null,
+              mode: decision.mode,
+              durationSec: decision.durationSec,
+              streamUrl: decision.streamUrl
+            });
+          }
+        }
+      }
+    }
+    return candidates;
+  } catch (err) {
+    console.error("Candidate generation failed:", err);
+    return [];
+  }
+}
+
+// apps/api/src/services/feed/clip.ts
+function cyrb53(str, seed = 0) {
+  let h1 = 3735928559 ^ seed;
+  let h2 = 1103547991 ^ seed;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507) ^ Math.imul(h2 ^ h2 >>> 13, 3266489909);
+  h2 = Math.imul(h2 ^ h2 >>> 16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+var SeededRandom = class {
+  s;
+  constructor(seedStr, salt = 0) {
+    this.s = cyrb53(seedStr, salt) >>> 0;
+  }
+  next() {
+    this.s = this.s + 1831565813 | 0;
+    let t = Math.imul(this.s ^ this.s >>> 15, 1 | this.s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+  randomInt(min, max) {
+    if (min >= max) return min;
+    return Math.floor(min + this.next() * (max - min + 1));
+  }
+};
+function calculateOverlapRatio(start1, end1, start2, end2) {
+  const overlap = Math.max(0, Math.min(end1, end2) - Math.max(start1, start2));
+  if (overlap <= 0) return 0;
+  const minLen = Math.min(end1 - start1, end2 - start2);
+  return minLen > 0 ? overlap / minLen : 0;
+}
+function pickClip(durationSec, seedStr = "default_seed", options = {}, recentImpressions = []) {
+  if (!durationSec || durationSec <= 0) return null;
+  const minClipSec = options.feedClipMinSec ?? 30;
+  const maxClipSec = options.feedClipMaxSec ?? 60;
+  const safeStartPct = options.feedSafeStartPct ?? 20;
+  const safeEndPct = options.feedSafeEndPct ?? 20;
+  const minAllowedClip = options.feedMinClipSec ?? 15;
+  const safeStart = Math.ceil(durationSec * safeStartPct / 100);
+  const safeEnd = Math.floor(durationSec * (100 - safeEndPct) / 100);
+  const window = safeEnd - safeStart;
+  if (window < minAllowedClip) {
+    return null;
+  }
+  const maxLen = Math.min(maxClipSec, window);
+  const minLen = Math.min(minClipSec, maxLen);
+  const lastImpressions = recentImpressions.filter((imp) => typeof imp.clipStartSec === "number" && typeof imp.clipEndSec === "number").slice(0, 3);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const rng = new SeededRandom(seedStr, attempt * 101);
+    const L = rng.randomInt(minLen, maxLen);
+    const start = rng.randomInt(safeStart, safeEnd - L);
+    const end = start + L;
+    const hasHeavyOverlap = lastImpressions.some(
+      (imp) => calculateOverlapRatio(start, end, imp.clipStartSec, imp.clipEndSec) >= 0.5
+    );
+    if (!hasHeavyOverlap || attempt === 4) {
+      return {
+        clipStartSec: start,
+        clipEndSec: end,
+        durationSec,
+        clipLengthSec: L,
+        safeStartSec: safeStart,
+        safeEndSec: safeEnd
+      };
+    }
+  }
+  return null;
+}
+
+// apps/api/src/services/feed/strategies/v1.ts
+var StrategyV1 = class {
+  id = "v1";
+  async generateCandidates(ctx) {
+    return generateCandidates(ctx);
+  }
+  decideMode(title, episode) {
+    return decidePlaybackMode(title, episode).mode;
+  }
+  async score(c, ctx) {
+    const isGuest = !ctx.userId;
+    const reactionCount = c.title._count?.reactions || 0;
+    const fundingCount = c.title._count?.fundings || 0;
+    const popularity = Math.min(1, (reactionCount * 2 + fundingCount * 5) / 50);
+    const publishedAt = c.title.publishedAt ? new Date(c.title.publishedAt).getTime() : new Date(c.title.createdAt).getTime();
+    const daysOld = Math.max(0, (Date.now() - publishedAt) / (1e3 * 60 * 60 * 24));
+    let freshness = 1;
+    if (daysOld > 7) {
+      freshness = Math.pow(0.5, (daysOld - 7) / 30);
+    }
+    const personalisation = isGuest ? 0 : 0.6;
+    const feedEngagement = 0.5;
+    const rng = new SeededRandom(`${ctx.requestId}_score_${c.title.id}`);
+    const random = rng.next();
+    const wPop = isGuest ? 0.35 : 0.25;
+    const wFresh = isGuest ? 0.25 : 0.15;
+    const wPers = isGuest ? 0 : 0.3;
+    const wEng = 0.2;
+    const wRand = isGuest ? 0.2 : 0.1;
+    const totalScore = wPop * popularity + wFresh * freshness + wPers * personalisation + wEng * feedEngagement + wRand * random;
+    return {
+      candidate: c,
+      score: totalScore,
+      signals: {
+        popularity,
+        freshness,
+        personalisation,
+        feedEngagement,
+        random
+      }
+    };
+  }
+  rerank(scored, ctx) {
+    const pool = [...scored].sort((a, b) => b.score - a.score);
+    const result = [];
+    const recentGenres = [];
+    const recentCategories = [];
+    const recentCreators = [];
+    const seenTitleIds = /* @__PURE__ */ new Set();
+    let index = 0;
+    while (pool.length > 0 && result.length < ctx.limit) {
+      index++;
+      const pickDiscovery = index % 5 === 0 && pool.length > 2;
+      let chosenIdx = 0;
+      if (pickDiscovery) {
+        chosenIdx = Math.min(pool.length - 1, Math.floor(pool.length / 2));
+      }
+      for (let i = 0; i < pool.length; i++) {
+        const item = pool[i];
+        const titleId = item.candidate.title.id;
+        if (seenTitleIds.has(titleId)) continue;
+        const genreName = item.candidate.title.genres?.[0]?.genre?.name || "General";
+        const categoryKind = item.candidate.title.kind || "MOVIE";
+        const creator = item.candidate.title.creatorName || "Indie";
+        const sameGenreCount = recentGenres.slice(-2).filter((g) => g === genreName).length;
+        if (sameGenreCount >= 2 && pool.length > 3) continue;
+        const sameCatCount = recentCategories.slice(-2).filter((c) => c === categoryKind).length;
+        if (sameCatCount >= 2 && pool.length > 3) continue;
+        const sameCreatorCount = recentCreators.slice(-3).filter((cr) => cr === creator).length;
+        if (sameCreatorCount >= 3 && pool.length > 3) continue;
+        chosenIdx = i;
+        break;
+      }
+      const [selected] = pool.splice(chosenIdx, 1);
+      if (selected) {
+        result.push(selected);
+        seenTitleIds.add(selected.candidate.title.id);
+        const g = selected.candidate.title.genres?.[0]?.genre?.name || "General";
+        const c = selected.candidate.title.kind || "MOVIE";
+        const cr = selected.candidate.title.creatorName || "Indie";
+        recentGenres.push(g);
+        recentCategories.push(c);
+        recentCreators.push(cr);
+      }
+    }
+    return result;
+  }
+};
+
+// apps/api/src/services/feed/index.ts
+var strategies = {
+  v1: new StrategyV1()
+};
+async function getActiveStrategyId() {
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "feedStrategy" } });
+    if (setting?.value && strategies[setting.value]) {
+      return setting.value;
+    }
+  } catch {
+  }
+  return "v1";
+}
+async function getFeedClipSettings() {
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "feedClipSettings" } });
+    if (setting?.value) {
+      return JSON.parse(setting.value);
+    }
+  } catch {
+  }
+  return {
+    feedClipMinSec: 30,
+    feedClipMaxSec: 60,
+    feedSafeStartPct: 20,
+    feedSafeEndPct: 20,
+    feedMinClipSec: 15
+  };
+}
+async function generateFeed(ctx) {
+  const strategyId = await getActiveStrategyId();
+  const strategy = strategies[strategyId] || strategies.v1;
+  const clipSettings = await getFeedClipSettings();
+  const candidates = await strategy.generateCandidates(ctx);
+  const scored = await Promise.all(candidates.map((c) => strategy.score(c, ctx)));
+  const reranked = strategy.rerank(scored, ctx);
+  const items = [];
+  for (const item of reranked) {
+    const c = item.candidate;
+    let clipStartSec = null;
+    let clipEndSec = null;
+    if (c.mode === "CLIP") {
+      const seed = `${ctx.requestId}_${c.title.id}_${c.episode?.id || ""}`;
+      const clip = pickClip(c.durationSec, seed, clipSettings);
+      if (clip) {
+        clipStartSec = clip.clipStartSec;
+        clipEndSec = clip.clipEndSec;
+      } else {
+        clipStartSec = 0;
+        clipEndSec = Math.min(60, c.durationSec);
+      }
+    }
+    const genres = (c.title.genres || []).map((g) => g.genre?.name || g.name).filter(Boolean);
+    const label = c.episode ? `S${c.episode.season?.number || 1} \xB7 E${c.episode.number}` : null;
+    items.push({
+      titleId: c.title.id,
+      episodeId: c.episode?.id || null,
+      slug: c.title.slug,
+      title: c.title.title,
+      kind: c.title.kind,
+      orientation: c.title.orientation,
+      mode: c.mode,
+      streamUrl: c.streamUrl,
+      clipStartSec,
+      clipEndSec,
+      durationSec: c.durationSec,
+      posterUrl: c.title.posterUrl,
+      verticalPosterUrl: c.title.verticalPosterUrl || null,
+      bannerUrl: c.title.bannerUrl || null,
+      genres,
+      label,
+      userProgressSec: 0,
+      fundingEnabled: c.title.fundingEnabled ?? true,
+      creatorName: c.title.creatorName || null,
+      editorRating: c.title.editorRating ? Number(c.title.editorRating) : 9.1,
+      description: c.title.description || ""
+    });
+  }
+  const nextCursor = items.length >= ctx.limit ? `page_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` : null;
+  return {
+    requestId: ctx.requestId,
+    strategy: strategyId,
+    nextCursor,
+    items
+  };
+}
+
+// apps/api/src/routes/feed.ts
+var router11 = Router11();
+function extractContext(req) {
+  const anonId = req.headers["x-anon-id"] || req.query.anonId || `anon_${Date.now()}`;
+  const userId = req.headers["x-user-id"] || req.query.userId || null;
+  const cursor = req.query.cursor || null;
+  const limit = Math.min(20, Math.max(1, parseInt(req.query.limit || "10", 10)));
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  return {
+    userId,
+    anonId,
+    requestId,
+    limit,
+    cursor
+  };
+}
+router11.get("/", async (req, res, next) => {
+  try {
+    const ctx = extractContext(req);
+    const feed = await generateFeed(ctx);
+    res.json(feed);
+  } catch (err) {
+    next(err);
+  }
+});
+router11.get("/playback/:titleId", async (req, res, next) => {
+  try {
+    const titleId = req.params.titleId;
+    const title = await prisma.title.findFirst({
+      where: { OR: [{ id: titleId }, { slug: titleId }] }
+    });
+    if (!title) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Title not found" } });
+      return;
+    }
+    const streamUrl = title.verticalVideoUrl || title.videoUrl || title.trailerUrl || "";
+    res.json({
+      titleId: title.id,
+      streamUrl,
+      streamType: title.streamType || (streamUrl.includes(".m3u8") ? "HLS" : "MP4")
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.post("/events", async (req, res, next) => {
+  try {
+    const { requestId, events } = req.body;
+    if (!Array.isArray(events)) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "events array required" } });
+      return;
+    }
+    const userId = req.headers["x-user-id"] || req.body.userId || null;
+    const anonId = req.headers["x-anon-id"] || req.body.anonId || "anon_client";
+    for (const ev of events) {
+      if (!ev.titleId) continue;
+      if (ev.mode === "FULL" && ev.watchedSec && ev.watchedSec >= 30) {
+        try {
+          await prisma.viewEvent.create({
+            data: {
+              titleId: ev.titleId,
+              episodeId: ev.episodeId || null,
+              userId: userId || null,
+              anonId,
+              source: "FEED_FULL"
+            }
+          });
+        } catch {
+        }
+      }
+      try {
+        await prisma.feedImpression.create({
+          data: {
+            requestId: requestId || `req_batch_${Date.now()}`,
+            strategy: ev.strategy || "v1",
+            userId: userId || null,
+            anonId,
+            titleId: ev.titleId,
+            episodeId: ev.episodeId || null,
+            mode: ev.mode === "FULL" ? "FULL" : "CLIP",
+            clipStartSec: ev.clipStartSec ? Math.floor(ev.clipStartSec) : null,
+            clipEndSec: ev.clipEndSec ? Math.floor(ev.clipEndSec) : null,
+            position: ev.position || 0,
+            watchedSec: ev.watchedSec ? Math.floor(ev.watchedSec) : 0,
+            loops: ev.loops || 0,
+            skipped: ev.skipped || false,
+            clickedWatchFull: ev.clickedWatchFull || false,
+            liked: ev.liked || false,
+            wishlisted: ev.wishlisted || false,
+            openedSupport: ev.openedSupport || false
+          }
+        });
+      } catch (e) {
+        console.warn("Could not record feed impression:", e);
+      }
+    }
+    res.json({ success: true, count: events.length });
+  } catch (err) {
+    next(err);
+  }
+});
+var feed_default = router11;
+
 // apps/api/src/index.ts
 dotenv.config();
 var app = express();
@@ -3024,6 +3690,7 @@ app.use("/api/creator", creator_default);
 app.use("/api/funding", funding_default);
 app.use("/api/auth", auth_default);
 app.use("/api/progress", progress_default);
+app.use("/api/feed", feed_default);
 app.use("/api/*", (_req, res) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Endpoint not found" } });
 });

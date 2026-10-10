@@ -14,7 +14,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-xs text-gray-400 leading-relaxed max-w-xs">
-              Rasigan OTT offers the latest movies, web series, short films, and 9:16 vertical reels. Empowering independent creators directly.
+              Rasigan OTT offers the latest movies, web series, short films, and Shots highlight clips. Empowering independent creators directly.
             </p>
             <div className="flex items-center gap-3 pt-2">
               <a href="#twitter" className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-sky-500 hover:text-white flex items-center justify-center transition-colors">
@@ -36,7 +36,7 @@ export function Footer() {
               <li><Link to="/browse/movies" className="hover:text-white transition-colors">Movies</Link></li>
               <li><Link to="/browse/web-series" className="hover:text-white transition-colors">TV Shows & Series</Link></li>
               <li><Link to="/browse/short-films" className="hover:text-white transition-colors">Short Films</Link></li>
-              <li><Link to="/reels" className="hover:text-white transition-colors">Vertical Reels</Link></li>
+              <li><Link to="/shots" className="hover:text-white transition-colors">Shots</Link></li>
               <li><Link to="/library" className="hover:text-white transition-colors">My Watchlist</Link></li>
             </ul>
           </div>

@@ -12,6 +12,7 @@ import adminRouter from './routes/admin.js';
 import fundingRouter from './routes/funding.js';
 import authRouter from './routes/auth.js';
 import progressRouter from './routes/progress.js';
+import feedRouter from './routes/feed.js';
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use('/api/creator', creatorRouter);
 app.use('/api/funding', fundingRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/progress', progressRouter);
+app.use('/api/feed', feedRouter);
 
 // 404 Handler
 app.use('/api/*', (_req: Request, res: Response) => {

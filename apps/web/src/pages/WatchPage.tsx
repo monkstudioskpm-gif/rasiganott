@@ -147,7 +147,7 @@ export function WatchPage() {
   useEffect(() => {
     if (data?.title && currentUser) {
       if (data.title.orientation === 'VERTICAL') {
-        navigate(`/reels?titleId=${data.title.id}`, { replace: true });
+        navigate(`/shots?titleId=${data.title.id}`, { replace: true });
         return;
       }
       try {

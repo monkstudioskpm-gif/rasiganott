@@ -43,6 +43,17 @@ enum Role {
   ADMIN
 }
 
+enum FeedMode {
+  CLIP
+  FULL
+}
+
+enum ViewSource {
+  WATCH
+  FEED_CLIP
+  FEED_FULL
+}
+
 model User {
   id        String   @id @default(cuid())
   googleId  String   @unique
@@ -52,10 +63,12 @@ model User {
   role      Role     @default(USER)
   createdAt DateTime @default(now())
 
-  watchlist WatchlistItem[]
-  likes     Reaction[]
-  progress  WatchProgress[]
-  fundings  Funding[]
+  watchlist       WatchlistItem[]
+  likes           Reaction[]
+  progress        WatchProgress[]
+  fundings        Funding[]
+  feedImpressions FeedImpression[]
+  viewEvents      ViewEvent[]
 }
 
 enum CrewRole {
@@ -153,38 +166,43 @@ model Title {
   language     String   @default("Tamil")
   year         Int?
   ageRating    String?
-  durationMin  Int?
-  editorRating Decimal?
+  durationMin       Int?
+  durationSec       Int?
+  editorRating      Decimal?
 
   posterUrl         String
   bannerUrl         String?
   verticalPosterUrl String?
   trailerUrl        String?
 
-  videoUrl    String?
-  streamType  StreamType?
-  subtitles   String      @default("[]")
-  audioTracks String      @default("[]")
+  videoUrl          String?
+  verticalVideoUrl  String?
+  streamType        StreamType?
+  subtitles         String          @default("[]")
+  audioTracks       String          @default("[]")
 
-  creatorId   String?
-  creatorName String?
+  creatorId         String?
+  creatorName       String?
 
-  isFeatured     Boolean   @default(false)
-  fundingEnabled Boolean   @default(true)
-  fundingGoal    Int?
-  publishedAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  isFeatured        Boolean         @default(false)
+  feedEligible      Boolean         @default(true)
+  fundingEnabled    Boolean         @default(true)
+  fundingGoal       Int?
+  publishedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  genres      TitleGenre[]
-  tags        TitleTag[]
-  cast        TitleCast[]
-  crew        TitleCrew[]
-  seasons     Season[]
-  watchlisted WatchlistItem[]
-  reactions   Reaction[]
-  progress    WatchProgress[]
-  fundings    Funding[]
+  genres          TitleGenre[]
+  tags            TitleTag[]
+  cast            TitleCast[]
+  crew            TitleCrew[]
+  seasons         Season[]
+  watchlisted     WatchlistItem[]
+  reactions       Reaction[]
+  progress        WatchProgress[]
+  fundings        Funding[]
+  feedImpressions FeedImpression[]
+  viewEvents      ViewEvent[]
 
   @@index([kind, orientation, status])
 }
@@ -208,6 +226,7 @@ model Episode {
   description     String?
   thumbnailUrl    String?
   durationMin     Int?
+  durationSec     Int?
   videoUrl        String
   streamType      StreamType
   subtitles       String          @default("[]")
@@ -219,6 +238,8 @@ model Episode {
   publishedAt     DateTime?
   season          Season          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   progress        WatchProgress[]
+  feedImpressions FeedImpression[]
+  viewEvents      ViewEvent[]
 
   @@unique([seasonId, number])
 }
@@ -295,5 +316,50 @@ model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model ViewEvent {
+  id        String     @id @default(cuid())
+  userId    String?
+  anonId    String?
+  titleId   String
+  episodeId String?
+  source    ViewSource @default(WATCH)
+  createdAt DateTime   @default(now())
+  title     Title      @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episode   Episode?   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([titleId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model FeedImpression {
+  id               String    @id @default(cuid())
+  requestId        String
+  strategy         String
+  userId           String?
+  anonId           String
+  titleId          String
+  episodeId        String?
+  mode             FeedMode
+  clipStartSec     Int?
+  clipEndSec       Int?
+  position         Int
+  shownAt          DateTime  @default(now())
+  watchedSec       Int       @default(0)
+  loops            Int       @default(0)
+  skipped          Boolean   @default(false)
+  clickedWatchFull Boolean   @default(false)
+  liked            Boolean   @default(false)
+  wishlisted       Boolean   @default(false)
+  openedSupport    Boolean   @default(false)
+  user             User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            Title     @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episode          Episode?  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([titleId, shownAt])
+  @@index([userId, shownAt])
+  @@index([requestId])
 }
 

@@ -153,7 +153,7 @@ export function TitleDetailPage() {
 
   const handleResumeClick = (posSec: number) => {
     if (title.orientation === 'VERTICAL') {
-      navigate(`/reels?titleId=${title.id}`);
+      navigate(`/shots?titleId=${title.id}`);
       return;
     }
     navigate(`/watch/${title.id}?t=${Math.floor(posSec)}`);
@@ -170,7 +170,7 @@ export function TitleDetailPage() {
       durationSec: title.durationMin ? title.durationMin * 60 : 600,
     });
     if (title.orientation === 'VERTICAL') {
-      navigate(`/reels?titleId=${title.id}`);
+      navigate(`/shots?titleId=${title.id}`);
       return;
     }
     navigate(`/watch/${title.id}?t=0`);
@@ -178,7 +178,7 @@ export function TitleDetailPage() {
 
   const handleWatchClick = (episodeId?: string, isTrailer = false) => {
     if (title.orientation === 'VERTICAL') {
-      navigate(`/reels?titleId=${title.id}`);
+      navigate(`/shots?titleId=${title.id}`);
       return;
     }
     if (isTrailer) {

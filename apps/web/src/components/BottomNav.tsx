@@ -13,7 +13,7 @@ export function BottomNav() {
 
   useEffect(() => {
     const handlePlayerState = (e: any) => {
-      if (location.pathname === '/reels') {
+      if (location.pathname === '/shots' || location.pathname === '/reels') {
         setIsPlaying(false);
         return;
       }
@@ -26,7 +26,7 @@ export function BottomNav() {
   const isLogged = typeof window !== 'undefined' && !!localStorage.getItem('rasigan_user');
   const navItems = [
     { label: 'Home', path: '/', icon: Home },
-    { label: 'Vertical', path: '/reels', icon: Smartphone },
+    { label: 'Shots', path: '/shots', icon: Smartphone },
     { label: 'Search', path: '/search', icon: Search },
     { label: 'Library', path: '/library', icon: Library },
     { label: 'Profile', path: isLogged ? '/library' : '/login', icon: User },
@@ -35,7 +35,7 @@ export function BottomNav() {
   const isAdminOrCreatorRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/creator');
   if (isAdminOrCreatorRoute) return null;
 
-  const isVerticalPage = location.pathname === '/reels';
+  const isVerticalPage = location.pathname === '/shots' || location.pathname === '/reels';
   const shouldHide = isPlaying && !isVerticalPage;
 
   return (
@@ -47,7 +47,7 @@ export function BottomNav() {
       <div className="flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || (item.path === '/shots' && location.pathname === '/reels');
           return (
             <Link
               key={item.path}

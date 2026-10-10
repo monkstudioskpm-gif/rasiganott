@@ -7,6 +7,7 @@ import {
   CreateFundingOrderResponseDto,
   VerifyFundingPaymentDto,
   VerifyFundingPaymentResponseDto,
+  FeedResponse,
 } from '@rasigan/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -250,6 +251,7 @@ async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
       }
       return { title: null } as unknown as T;
     }
+    if (endpoint.startsWith('/feed')) return { requestId: 'local_fallback', strategy: 'v1', nextCursor: null, items: [] } as unknown as T;
     if (endpoint.startsWith('/titles')) return { titles: [], pagination: { page: 1, totalPages: 1 } } as unknown as T;
     throw error;
   }
@@ -479,6 +481,27 @@ export const api = {
   },
 
   getTitleBySlug: (slug: string) => fetcher<{ title: Title }>(`/titles/${slug}`),
+};
+
+export const feedApi = {
+  getFeed: (params?: { cursor?: string | null; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.cursor) q.set('cursor', params.cursor);
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString();
+    return fetcher<FeedResponse>(`/feed${qs ? `?${qs}` : ''}`);
+  },
+
+  getPlayback: (titleId: string) => {
+    return fetcher<{ titleId: string; streamUrl: string; streamType: string }>(`/playback/${titleId}`);
+  },
+
+  recordEvents: (requestId: string, events: any[]) => {
+    return fetcher<{ success: boolean; count: number }>('/feed/events', {
+      method: 'POST',
+      body: JSON.stringify({ requestId, events }),
+    });
+  },
 };
 
 export const getPersonInitials = (name: string): string => {
@@ -766,9 +789,11 @@ export const adminApi = {
       sortRank: payload.sortRank !== undefined ? Number(payload.sortRank) : 999,
       trailerUrl: payload.trailerUrl || null,
       videoUrl: payload.videoUrl || null,
+      verticalVideoUrl: payload.verticalVideoUrl || null,
       streamType: 'HLS',
       subtitles: [],
       audioTracks: [],
+      feedEligible: payload.feedEligible !== undefined ? Boolean(payload.feedEligible) : true,
       creatorName: payload.creatorName || 'Indie Studio',
       isFeatured: Boolean(payload.isFeatured),
       fundingEnabled: Boolean(payload.fundingEnabled),
@@ -946,6 +971,12 @@ export const adminApi = {
       },
     };
   },
+
+  refreshDuration: (titleId: string) =>
+    fetcher<{ titleId: string; durationSec: number; durationMin: number; method: string }>(
+      `/titles/admin/${titleId}/refresh-duration`,
+      { method: 'POST' }
+    ),
 };
 
 

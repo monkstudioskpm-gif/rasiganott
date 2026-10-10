@@ -3,6 +3,7 @@ import { Kind, Orientation, Status, CrewRole } from '@prisma/client';
 import { prisma } from '../db.js';
 import { toNameKey } from './people.js';
 import { getCreatorsRegistry } from './admin.js';
+import { resolveVideoDuration } from '../services/duration.js';
 
 const router = Router();
 
@@ -184,7 +185,7 @@ export function formatTitleResponse(title: any) {
 // POST /api/admin/validate-video-url
 router.post('/admin/validate-video-url', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { url } = req.body;
+    const { url, durationSec: clientSec } = req.body;
     if (!url || typeof url !== 'string' || !url.startsWith('http')) {
       res.status(400).json({
         isValid: false,
@@ -199,12 +200,17 @@ router.post('/admin/validate-video-url', async (req: Request, res: Response, nex
     const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
     const isVimeo = url.includes('vimeo.com');
 
+    // Resolve real duration
+    const durationRes = await resolveVideoDuration(url, clientSec);
+    const resolvedDurationSec = durationRes.durationSec || (isHls ? 6300 : 5400);
+
     if (!isHls && !isMp4 && !isYoutube && !isVimeo) {
       res.json({
         isValid: true,
         streamType: 'MP4',
         reachable: true,
-        durationSec: 5400,
+        durationSec: resolvedDurationSec,
+        durationSource: durationRes.source,
         qualities: ['720p', '1080p'],
         message: 'Reachable standard stream',
       });
@@ -223,12 +229,51 @@ router.post('/admin/validate-video-url', async (req: Request, res: Response, nex
       isValid: true,
       streamType: isHls ? 'HLS' : isMp4 ? 'MP4' : 'EMBED',
       reachable: true,
-      durationSec: isHls ? 6300 : 5400,
+      durationSec: resolvedDurationSec,
+      durationSource: durationRes.source,
       qualities: isHls ? ['240p', '360p', '480p', '720p', '1080p'] : ['720p', '1080p'],
       audioTracks: ['Tamil (Stereo)', 'English (Stereo)'],
       subtitles: ['English', 'Tamil'],
       message: '✓ Reachable · detected type: ' + detectedMsg,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/titles/admin/:id/refresh-duration
+router.post('/admin/:id/refresh-duration', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const titleId = (req.params as any).id as string;
+    const title = await prisma.title.findFirst({
+      where: { OR: [{ id: titleId }, { slug: titleId }] },
+    });
+
+    if (!title || !title.videoUrl) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Title or video URL not found' } });
+      return;
+    }
+
+    const durationRes = await resolveVideoDuration(title.videoUrl, req.body.durationSec);
+    if (durationRes.durationSec) {
+      const updated = await prisma.title.update({
+        where: { id: title.id },
+        data: {
+          durationSec: durationRes.durationSec,
+          durationMin: Math.round(durationRes.durationSec / 60),
+        },
+      });
+      res.json({
+        success: true,
+        durationSec: updated.durationSec,
+        durationMin: updated.durationMin,
+        source: durationRes.source,
+      });
+    } else {
+      res.status(422).json({
+        error: { code: 'DURATION_UNKNOWN', message: 'Could not automatically detect duration for this video stream' },
+      });
+    }
   } catch (err) {
     next(err);
   }
@@ -797,10 +842,13 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
           year: year !== undefined && year !== '' && !isNaN(parseInt(String(year), 10)) ? parseInt(String(year), 10) : existingDbTitle.year,
           ageRating: ageRating !== undefined ? (ageRating ? String(ageRating).trim() : null) : existingDbTitle.ageRating,
           durationMin: durationMin !== undefined && durationMin !== '' && !isNaN(parseInt(String(durationMin), 10)) ? parseInt(String(durationMin), 10) : existingDbTitle.durationMin,
+          durationSec: payload.durationSec !== undefined ? (payload.durationSec ? parseInt(String(payload.durationSec), 10) : null) : existingDbTitle.durationSec,
           editorRating: editorRating ? parseFloat(editorRating) : existingDbTitle.editorRating,
           isFeatured: isFeatured !== undefined ? Boolean(isFeatured) : existingDbTitle.isFeatured,
           fundingEnabled: fundingEnabled !== undefined ? Boolean(fundingEnabled) : existingDbTitle.fundingEnabled,
           fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : existingDbTitle.fundingGoal,
+          verticalVideoUrl: payload.verticalVideoUrl !== undefined ? (payload.verticalVideoUrl || null) : existingDbTitle.verticalVideoUrl,
+          feedEligible: payload.feedEligible !== undefined ? Boolean(payload.feedEligible) : existingDbTitle.feedEligible,
         },
       });
       res.json({ title: formatTitleResponse(updatedDbTitle) });
@@ -845,10 +893,13 @@ router.post('/admin', async (req: Request, res: Response, next: NextFunction) =>
           year: year !== undefined && year !== '' && !isNaN(parseInt(String(year), 10)) ? parseInt(String(year), 10) : null,
           ageRating: ageRating ? String(ageRating).trim() : null,
           durationMin: durationMin !== undefined && durationMin !== '' && !isNaN(parseInt(String(durationMin), 10)) ? parseInt(String(durationMin), 10) : null,
+          durationSec: payload.durationSec ? parseInt(String(payload.durationSec), 10) : (durationMin ? parseInt(String(durationMin), 10) * 60 : null),
           editorRating: editorRating ? parseFloat(editorRating) : null,
           isFeatured: Boolean(isFeatured),
           fundingEnabled: Boolean(fundingEnabled),
           fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : null,
+          verticalVideoUrl: payload.verticalVideoUrl || null,
+          feedEligible: payload.feedEligible !== undefined ? Boolean(payload.feedEligible) : true,
           publishedAt: status === 'PUBLISHED' ? new Date() : null,
         },
       });
@@ -1028,10 +1079,13 @@ router.put('/admin/:id', async (req: Request, res: Response, next: NextFunction)
           year: year !== undefined && year !== '' && !isNaN(parseInt(String(year), 10)) ? parseInt(String(year), 10) : (year === null ? null : existing.year),
           ageRating: ageRating !== undefined ? (ageRating ? String(ageRating).trim() : null) : existing.ageRating,
           durationMin: durationMin !== undefined && durationMin !== '' && !isNaN(parseInt(String(durationMin), 10)) ? parseInt(String(durationMin), 10) : (durationMin === null ? null : existing.durationMin),
+          durationSec: payload.durationSec !== undefined ? (payload.durationSec ? parseInt(String(payload.durationSec), 10) : null) : existing.durationSec,
           editorRating: editorRating ? parseFloat(editorRating) : existing.editorRating,
           isFeatured: isFeatured !== undefined ? Boolean(isFeatured) : existing.isFeatured,
           fundingEnabled: fundingEnabled !== undefined ? Boolean(fundingEnabled) : existing.fundingEnabled,
           fundingGoal: fundingGoal ? parseInt(fundingGoal, 10) : existing.fundingGoal,
+          verticalVideoUrl: payload.verticalVideoUrl !== undefined ? (payload.verticalVideoUrl || null) : existing.verticalVideoUrl,
+          feedEligible: payload.feedEligible !== undefined ? Boolean(payload.feedEligible) : existing.feedEligible,
           publishedAt: status === 'PUBLISHED' && !existing.publishedAt ? new Date() : existing.publishedAt,
         },
       });

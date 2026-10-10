@@ -18,6 +18,7 @@
     "db:push": "npm run db:push --workspace=apps/api",
     "db:seed": "npm run db:seed --workspace=apps/api",
     "db:studio": "npm run db:studio --workspace=apps/api",
+    "backfill:durations": "npm run backfill:durations --workspace=apps/api",
     "postinstall": "prisma generate --schema=apps/api/prisma/schema.prisma"
   },
   "dependencies": {

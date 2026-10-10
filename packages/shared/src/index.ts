@@ -175,17 +175,21 @@ export const TitleSchema = z.object({
   year: z.number().int().nullable().optional(),
   ageRating: z.string().nullable().optional(),
   durationMin: z.number().int().nullable().optional(),
+  durationSec: z.number().int().nullable().optional(),
   editorRating: z.number().nullable().optional(),
 
   posterUrl: z.string().url(),
   bannerUrl: z.string().url().nullable().optional(),
   verticalPosterUrl: z.string().url().nullable().optional(),
+  verticalVideoUrl: z.string().url().nullable().optional(),
   trailerUrl: z.string().url().nullable().optional(),
 
   videoUrl: z.string().url().nullable().optional(),
   streamType: StreamTypeEnum.nullable().optional(),
   subtitles: z.array(SubtitleTrackSchema).default([]),
   audioTracks: z.array(AudioTrackSchema).default([]),
+
+  feedEligible: z.boolean().default(true).optional(),
 
   creatorId: z.string().nullable().optional(),
   creatorName: z.string().nullable().optional(),
@@ -208,6 +212,40 @@ export const TitleSchema = z.object({
   seasons: z.array(SeasonSchema).optional(),
 });
 export type Title = z.infer<typeof TitleSchema>;
+
+// ==========================================
+// Vertical Feed (Shots) DTOs
+// ==========================================
+export interface FeedResponseItem {
+  titleId: string;
+  episodeId: string | null;
+  slug: string;
+  title: string;
+  kind: string;
+  orientation: string;
+  mode: 'CLIP' | 'FULL';
+  streamUrl: string;
+  clipStartSec: number | null;
+  clipEndSec: number | null;
+  durationSec: number;
+  posterUrl: string;
+  verticalPosterUrl: string | null;
+  bannerUrl: string | null;
+  genres: string[];
+  label: string | null;
+  userProgressSec: number;
+  fundingEnabled: boolean;
+  creatorName: string | null;
+  editorRating: number;
+  description: string;
+}
+
+export interface FeedResponse {
+  requestId: string;
+  strategy: string;
+  nextCursor: string | null;
+  items: FeedResponseItem[];
+}
 
 // ==========================================
 // User

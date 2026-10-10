@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
@@ -9,7 +9,7 @@ import { CreatorLayout } from '../components/CreatorLayout';
 import { HomePage } from '../pages/HomePage';
 import { TitleDetailPage } from '../pages/TitleDetailPage';
 import { WatchPage } from '../pages/WatchPage';
-import { ReelsPage } from '../pages/ReelsPage';
+import { ShotsPage } from '../pages/ShotsPage';
 import { BrowsePage } from '../pages/BrowsePage';
 import { CategoryPage } from '../pages/CategoryPage';
 import { SearchPage } from '../pages/SearchPage';
@@ -35,19 +35,21 @@ function AppContent() {
   const isWatch = location.pathname.startsWith('/watch');
   const isAdmin = location.pathname.startsWith('/admin') || location.pathname.startsWith('/people');
   const isCreator = location.pathname.startsWith('/creator');
+  const isShots = location.pathname.startsWith('/shots') || location.pathname.startsWith('/reels');
   const isCustomLayout = isWatch || isAdmin || isCreator;
 
   return (
     <div className="min-h-screen flex flex-col bg-dark-bg text-gray-100 font-sans">
       {!isCustomLayout && <Header />}
 
-      <main className={isCustomLayout ? 'flex-1 w-full' : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
+      <main className={isCustomLayout || isShots ? 'flex-1 w-full' : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/title/:slug" element={<TitleDetailPage />} />
           <Route path="/watch/:titleId" element={<WatchPage />} />
           <Route path="/watch/:titleId/:episodeId" element={<WatchPage />} />
-          <Route path="/reels" element={<ReelsPage />} />
+          <Route path="/shots" element={<ShotsPage />} />
+          <Route path="/reels" element={<Navigate to="/shots" replace />} />
           <Route path="/browse/:kind" element={<BrowsePage />} />
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path="/search" element={<SearchPage />} />

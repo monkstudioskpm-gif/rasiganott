@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, getPersonInitials } from '../../lib/api';
-import { Check, X, Plus, Trash2, Eye, Loader2, Tv, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Check, X, Plus, Trash2, Eye, Loader2, Tv, CheckCircle2, AlertTriangle, RefreshCw, Smartphone } from 'lucide-react';
 
 export function AdminContentFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +42,12 @@ export function AdminContentFormPage() {
   const [trailerValidation, setTrailerValidation] = useState<any>(null);
   const [isValidatingMovie, setIsValidatingMovie] = useState(false);
   const [isValidatingTrailer, setIsValidatingTrailer] = useState(false);
+
+  // Shots & Duration (SPEC_ADDENDUM_C)
+  const [verticalVideoUrl, setVerticalVideoUrl] = useState('');
+  const [durationSec, setDurationSec] = useState<number | null>(null);
+  const [feedEligible, setFeedEligible] = useState(true);
+  const [isRefreshingDuration, setIsRefreshingDuration] = useState(false);
 
   // Artwork & Details
   const [posterUrl, setPosterUrl] = useState('');
@@ -118,6 +124,9 @@ export function AdminContentFormPage() {
       setLanguage(t.language || 'Tamil');
       setAgeRating(t.ageRating || 'U/A');
       setDurationMin(t.durationMin?.toString() || '90');
+      setDurationSec(t.durationSec || (t.durationMin ? t.durationMin * 60 : null));
+      setVerticalVideoUrl(t.verticalVideoUrl || '');
+      setFeedEligible(t.feedEligible !== undefined ? Boolean(t.feedEligible) : true);
       setEditorRating(t.editorRating?.toString() || '9.0');
       setIsFeatured(Boolean(t.isFeatured));
       setFundingEnabled(Boolean(t.fundingEnabled));
@@ -217,12 +226,36 @@ export function AdminContentFormPage() {
       const res = await adminApi.validateVideoUrl(movieLink);
       setMovieValidation(res);
       if (res.durationSec) {
+        setDurationSec(res.durationSec);
         setDurationMin(Math.round(res.durationSec / 60).toString());
       }
     } catch (err: any) {
       setMovieValidation({ isValid: false, message: err.message || 'Validation failed' });
     } finally {
       setIsValidatingMovie(false);
+    }
+  };
+
+  const handleRefreshDuration = async () => {
+    setIsRefreshingDuration(true);
+    try {
+      if (isEdit && id) {
+        const res = await adminApi.refreshDuration(id);
+        if (res.durationSec) {
+          setDurationSec(res.durationSec);
+          setDurationMin(Math.round(res.durationSec / 60).toString());
+        }
+      } else if (movieLink) {
+        const res = await adminApi.validateVideoUrl(movieLink);
+        if (res.durationSec) {
+          setDurationSec(res.durationSec);
+          setDurationMin(Math.round(res.durationSec / 60).toString());
+        }
+      }
+    } catch (err: any) {
+      console.warn('Duration refresh error:', err);
+    } finally {
+      setIsRefreshingDuration(false);
     }
   };
 
@@ -277,6 +310,9 @@ export function AdminContentFormPage() {
         language,
         ageRating,
         durationMin,
+        durationSec: durationSec ? Number(durationSec) : (durationMin ? parseInt(durationMin, 10) * 60 : undefined),
+        verticalVideoUrl: verticalVideoUrl.trim() || null,
+        feedEligible,
         editorRating,
         tagline,
         isFeatured,
@@ -839,6 +875,46 @@ export function AdminContentFormPage() {
             )}
           </div>
 
+          {/* Section 10: Shots Vertical Video Link & Feed Eligibility (Addendum C) */}
+          <div className="glass-card p-6 rounded-3xl space-y-4 border border-sky-500/30 relative z-10 bg-sky-950/10">
+            <h3 className="text-base font-bold text-white flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-sky-400" />
+                10. Shots Vertical Cut Link (Optional)
+              </span>
+              <span className="text-[10px] text-sky-300 font-mono bg-sky-500/20 px-2 py-0.5 rounded border border-sky-500/30">9:16 Full Cut</span>
+            </h3>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              If an original 9:16 vertical cut of the video exists, enter its HLS/MP4 link below. The Shots feed will play this full vertical cut directly (<code className="text-sky-300">FULL</code> mode) instead of extracting 30–60 second highlight clips.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={verticalVideoUrl}
+                onChange={(e) => setVerticalVideoUrl(e.target.value)}
+                placeholder="https://... (9:16 vertical HLS or MP4 stream)"
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none focus:border-sky-400 font-mono"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={feedEligible}
+                    onChange={(e) => setFeedEligible(e.target.checked)}
+                    className="w-4 h-4 rounded text-sky-500 focus:ring-sky-400 focus:ring-offset-gray-900"
+                  />
+                  <span>Eligible for Shots Feed</span>
+                </label>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  When enabled, this title will be ranked and served in the vertical Shots algorithm feed.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Grouped Additional Sections: Artwork & Details */}
           <div className="glass-card p-6 rounded-3xl space-y-4 border border-white/10">
             <h3 className="text-base font-bold text-white">Artwork & Metadata</h3>
@@ -958,10 +1034,29 @@ export function AdminContentFormPage() {
                   min="1"
                   max="600"
                   value={durationMin}
-                  onChange={(e) => setDurationMin(e.target.value)}
+                  onChange={(e) => {
+                    setDurationMin(e.target.value);
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val)) setDurationSec(val * 60);
+                  }}
                   placeholder="e.g. 120"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-dark-card border border-white/15 text-white text-xs focus:outline-none font-mono"
                 />
+                <div className="flex items-center justify-between mt-1.5 text-[10px]">
+                  <span className="text-gray-400 font-mono">
+                    {durationSec ? `Detected: ${durationSec}s` : 'Calculated from minutes'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRefreshDuration}
+                    disabled={isRefreshingDuration || (!movieLink && !isEdit)}
+                    className="text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                    title="Probe Bunny Stream API or HLS playlist to detect exact video duration"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isRefreshingDuration ? 'animate-spin' : ''}`} />
+                    <span>Auto-detect Duration</span>
+                  </button>
+                </div>
               </div>
 
               <div>

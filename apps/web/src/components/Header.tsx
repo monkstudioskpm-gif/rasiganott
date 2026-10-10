@@ -24,7 +24,7 @@ export function Header() {
     { id: 'movies', name: 'Movies', path: '/?cat=movies' },
     { id: 'web-series', name: 'Web Series', path: '/?cat=web-series' },
     { id: 'short-films', name: 'Short Films', path: '/?cat=short-films' },
-    { id: 'vertical', name: 'Vertical', path: '/reels' },
+    { id: 'shots', name: 'Shots', path: '/shots' },
   ];
 
   return (
@@ -42,9 +42,9 @@ export function Header() {
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-1.5">
           {navItems.map((item) => {
-            const isReelsPage = location.pathname === '/reels' && item.id === 'vertical';
+            const isShotsPage = (location.pathname === '/shots' || location.pathname === '/reels') && item.id === 'shots';
             const isHomePage = location.pathname === '/';
-            const isActive = isReelsPage || (isHomePage && (currentCat === item.id || (item.id === 'all' && (currentCat === 'all' || !currentCat))));
+            const isActive = isShotsPage || (isHomePage && (currentCat === item.id || (item.id === 'all' && (currentCat === 'all' || !currentCat))));
 
             return (
               <Link

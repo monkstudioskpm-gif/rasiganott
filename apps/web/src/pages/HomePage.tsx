@@ -63,12 +63,12 @@ export function HomePage() {
     { id: 'movies', name: 'Movies' },
     { id: 'web-series', name: 'Web Series' },
     { id: 'short-films', name: 'Short Films' },
-    { id: 'vertical', name: 'Vertical' },
+    { id: 'shots', name: 'Shots' },
   ];
 
   const handleSelectCategory = (catId: string) => {
-    if (catId === 'vertical') {
-      navigate('/reels');
+    if (catId === 'shots' || catId === 'vertical') {
+      navigate('/shots');
       return;
     }
     setSearchParams({ cat: catId });
