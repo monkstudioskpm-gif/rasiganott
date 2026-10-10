@@ -63,7 +63,7 @@ export function ProtectedRoute({ children, requiredRole = 'ADMIN' }: ProtectedRo
               className="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-extrabold text-xs shadow-lg shadow-sky-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Sign In with Credentials</span>
+              <span>Sign In with Google</span>
             </Link>
 
             {/* Admin / Creator Quick Authorize Button for Vercel Deployment */}

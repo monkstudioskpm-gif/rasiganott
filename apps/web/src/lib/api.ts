@@ -914,3 +914,21 @@ export const fundingApi = {
   },
 };
 
+export const authApi = {
+  loginWithGoogle: async (credential: string): Promise<{ success: boolean; user: any; token: string }> => {
+    return fetcher<{ success: boolean; user: any; token: string }>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ credential }),
+    });
+  },
+  getMe: async (): Promise<{ user: any }> => {
+    return fetcher<{ user: any }>('/auth/me');
+  },
+  logout: async (): Promise<{ success: boolean }> => {
+    return fetcher<{ success: boolean }>('/auth/logout', {
+      method: 'POST',
+    });
+  },
+};
+
+

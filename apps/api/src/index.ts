@@ -10,6 +10,7 @@ import tagsRouter from './routes/tags.js';
 import creatorRouter from './routes/creator.js';
 import adminRouter from './routes/admin.js';
 import fundingRouter from './routes/funding.js';
+import authRouter from './routes/auth.js';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.use('/api/admin/people', peopleRouter);
 app.use('/api/admin/tags', tagsRouter);
 app.use('/api/creator', creatorRouter);
 app.use('/api/funding', fundingRouter);
+app.use('/api/auth', authRouter);
 
 // 404 Handler
 app.use('/api/*', (_req: Request, res: Response) => {
