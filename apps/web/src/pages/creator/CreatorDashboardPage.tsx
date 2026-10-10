@@ -101,29 +101,38 @@ export function CreatorDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {summary?.titles.map((t) => (
-                <tr key={t.titleId} className="hover:bg-white/5 transition-colors">
-                  <td className="py-3 px-4 flex items-center gap-3">
-                    <img src={t.posterUrl} alt={t.title} className="w-8 h-11 object-cover rounded-lg flex-none" />
-                    <span className="font-extrabold text-white text-sm">{t.title}</span>
-                  </td>
-                  <td className="py-3 px-4 text-gray-300 font-mono font-bold">{t.viewsCount.toLocaleString()} plays</td>
-                  <td className="py-3 px-4 text-gray-300 font-mono font-bold">{t.watchTimeMinutes.toLocaleString()} mins</td>
-                  <td className="py-3 px-4 text-gray-300 font-mono font-bold">{t.supportersCount} backers</td>
-                  <td className="py-3 px-4 text-right font-black text-emerald-400 text-sm">
-                    ₹{t.earningsInr.toLocaleString('en-IN')}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => openAnalytics(t.titleId)}
-                      className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-colors"
-                      title="View YouTube Studio Analytics & Payment Captures"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                    </button>
+              {!summary?.titles || summary.titles.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-gray-400">
+                    <p className="font-bold text-sm text-gray-300">No titles assigned to your studio yet</p>
+                    <p className="text-xs text-gray-500 mt-1">When an administrator assigns catalog titles to your studio or email, your watch time, backer stats, and earnings will appear here.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                summary.titles.map((t) => (
+                  <tr key={t.titleId} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3 px-4 flex items-center gap-3">
+                      <img src={t.posterUrl} alt={t.title} className="w-8 h-11 object-cover rounded-lg flex-none" />
+                      <span className="font-extrabold text-white text-sm">{t.title}</span>
+                    </td>
+                    <td className="py-3 px-4 text-gray-300 font-mono font-bold">{t.viewsCount.toLocaleString()} plays</td>
+                    <td className="py-3 px-4 text-gray-300 font-mono font-bold">{t.watchTimeMinutes.toLocaleString()} mins</td>
+                    <td className="py-3 px-4 text-gray-300 font-mono font-bold">{t.supportersCount} backers</td>
+                    <td className="py-3 px-4 text-right font-black text-emerald-400 text-sm">
+                      ₹{t.earningsInr.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => openAnalytics(t.titleId)}
+                        className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-colors"
+                        title="View YouTube Studio Analytics & Payment Captures"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -133,26 +142,32 @@ export function CreatorDashboardPage() {
         <h3 className="text-lg font-bold text-white tracking-tight">Payout Statements & Bank Reference UTR</h3>
 
         <div className="space-y-3">
-          {statements.map((s) => (
-            <div key={s.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-sky-400" />
-                  <h4 className="font-bold text-sm text-white">{s.cycle}</h4>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${s.status === 'PAID' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
-                    {s.status}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400">{s.period}</p>
-                {s.referenceUtr && <p className="text-[11px] font-mono text-purple-300 font-bold">Bank UTR Ref: {s.referenceUtr}</p>}
-              </div>
-
-              <div className="text-right space-y-0.5">
-                <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Net Payable</span>
-                <p className="text-xl font-black text-emerald-400">₹{s.netPayableInr.toLocaleString('en-IN')}</p>
-              </div>
+          {statements.length === 0 ? (
+            <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 text-center text-gray-400 text-xs">
+              No payout statements generated yet for this period.
             </div>
-          ))}
+          ) : (
+            statements.map((s) => (
+              <div key={s.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-sky-400" />
+                    <h4 className="font-bold text-sm text-white">{s.cycle}</h4>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${s.status === 'PAID' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                      {s.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">{s.period}</p>
+                  {s.referenceUtr && <p className="text-[11px] font-mono text-purple-300 font-bold">Bank UTR Ref: {s.referenceUtr}</p>}
+                </div>
+
+                <div className="text-right space-y-0.5">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Net Payable</span>
+                  <p className="text-xl font-black text-emerald-400">₹{s.netPayableInr.toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -160,16 +175,22 @@ export function CreatorDashboardPage() {
         <h3 className="text-lg font-bold text-white tracking-tight">Recent Supporters & Cheer Notes</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {supporters.map((sup: any) => (
-            <div key={sup.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-xs text-white">{sup.supporterName}</span>
-                <span className="text-[10px] text-gray-500">{new Date(sup.date).toLocaleDateString()}</span>
-              </div>
-              <p className="text-xs text-amber-300 font-extrabold">Supported "{sup.title}"</p>
-              {sup.message && <p className="text-xs text-gray-300 bg-white/5 p-2.5 rounded-xl border border-white/5 font-normal">"{sup.message}"</p>}
+          {supporters.length === 0 ? (
+            <div className="col-span-2 p-6 rounded-2xl bg-white/[0.02] border border-white/5 text-center text-gray-400 text-xs">
+              No supporters yet. When fans back your content, their cheer messages will appear here.
             </div>
-          ))}
+          ) : (
+            supporters.map((sup: any) => (
+              <div key={sup.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-xs text-white">{sup.supporterName}</span>
+                  <span className="text-[10px] text-gray-500">{new Date(sup.date).toLocaleDateString()}</span>
+                </div>
+                <p className="text-xs text-amber-300 font-extrabold">Supported "{sup.title}"</p>
+                {sup.message && <p className="text-xs text-gray-300 bg-white/5 p-2.5 rounded-xl border border-white/5 font-normal">"{sup.message}"</p>}
+              </div>
+            ))
+          )}
         </div>
       </div>
 

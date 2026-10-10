@@ -270,7 +270,9 @@ export function SupportModal({ title, isOpen, onClose }: Props) {
                 <label className="font-bold uppercase tracking-wider text-gray-400 text-[10px] sm:text-[11px]">
                   Select Tier (INR)
                 </label>
-                <span className="text-[11px] text-sky-400 font-medium">100% directly to creator</span>
+                <span className="text-[11px] text-sky-400 font-medium">
+                  Direct support to creator & team
+                </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { Kind, Orientation, Status, CrewRole } from '@prisma/client';
 import { prisma } from '../db.js';
 import { toNameKey } from './people.js';
+import { getCreatorsRegistry } from './admin.js';
 
 const router = Router();
 
@@ -394,24 +395,31 @@ router.get('/admin/:id/analytics', async (req: Request, res: Response, next: Nex
 // GET /api/titles/admin/creator-earnings (Admin Breakdown of Creator Earnings)
 router.get('/admin/creator-earnings', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const titles = await prisma.title.findMany({
-      select: {
-        id: true,
-        title: true,
-        posterUrl: true,
-        kind: true,
-        creatorName: true,
-        status: true,
-        fundings: {
-          where: { status: 'PAID' },
-          select: { amountInr: true },
+    const [titles, registry] = await Promise.all([
+      prisma.title.findMany({
+        select: {
+          id: true,
+          title: true,
+          posterUrl: true,
+          kind: true,
+          creatorName: true,
+          status: true,
+          fundings: {
+            where: { status: 'PAID' },
+            select: { amountInr: true },
+          },
         },
-      },
-    });
+      }),
+      getCreatorsRegistry(),
+    ]);
 
-    // Group titles by creator
+    // Group titles by creator, pre-populating with registered creators from database Setting
     const creatorMap = new Map<string, {
+      id?: string;
       creatorName: string;
+      email?: string;
+      upiId?: string;
+      assignedTitleIds?: string[];
       titlesCount: number;
       grossRaisedInr: number;
       netEarningsInr: number;
@@ -419,6 +427,23 @@ router.get('/admin/creator-earnings', async (req: Request, res: Response, next: 
       payoutStatus: 'PAID' | 'PROCESSING' | 'PENDING';
       titles: Array<{ id: string; title: string; posterUrl: string; kind: string; grossRaisedInr: number; netEarningsInr: number }>;
     }>();
+
+    // Register active creators from database Setting
+    registry.forEach((reg) => {
+      creatorMap.set(reg.creatorName.toLowerCase(), {
+        id: reg.id,
+        creatorName: reg.creatorName,
+        email: reg.email,
+        upiId: reg.upiId || '',
+        assignedTitleIds: reg.assignedTitleIds || [],
+        titlesCount: 0,
+        grossRaisedInr: 0,
+        netEarningsInr: 0,
+        platformFeeInr: 0,
+        payoutStatus: 'PROCESSING',
+        titles: [],
+      });
+    });
 
     titles.forEach((t) => {
       const creatorName = t.creatorName || 'Indie Studio';
@@ -428,7 +453,17 @@ router.get('/admin/creator-earnings', async (req: Request, res: Response, next: 
       const netEarnings = Math.floor(grossRaised * 0.6);
       const platformFee = grossRaised - netEarnings;
 
-      const existing = creatorMap.get(creatorName) || {
+      let targetKey = creatorName.toLowerCase();
+      if (!creatorMap.has(targetKey)) {
+        for (const [key, val] of creatorMap.entries()) {
+          if (val.assignedTitleIds && val.assignedTitleIds.includes(t.id)) {
+            targetKey = key;
+            break;
+          }
+        }
+      }
+
+      const existing = creatorMap.get(targetKey) || {
         creatorName,
         titlesCount: 0,
         grossRaisedInr: 0,
@@ -451,7 +486,7 @@ router.get('/admin/creator-earnings', async (req: Request, res: Response, next: 
         netEarningsInr: netEarnings,
       });
 
-      creatorMap.set(creatorName, existing);
+      creatorMap.set(targetKey, existing);
     });
 
     const creators = Array.from(creatorMap.values());

@@ -5,7 +5,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 
 // apps/api/src/routes/home.ts
-import { Router as Router3 } from "express";
+import { Router as Router4 } from "express";
 
 // apps/api/src/db.ts
 import { PrismaClient } from "@prisma/client";
@@ -30,7 +30,7 @@ var prisma = globalForPrisma.prisma || new PrismaClient({
 globalForPrisma.prisma = prisma;
 
 // apps/api/src/routes/titles.ts
-import { Router as Router2 } from "express";
+import { Router as Router3 } from "express";
 import { Kind, Orientation } from "@prisma/client";
 
 // apps/api/src/routes/people.ts
@@ -375,8 +375,366 @@ router.post("/:id/merge", async (req, res, next) => {
 });
 var people_default = router;
 
-// apps/api/src/routes/titles.ts
+// apps/api/src/routes/admin.ts
+import { Router as Router2 } from "express";
 var router2 = Router2();
+router2.get("/genres", async (_req, res, next) => {
+  try {
+    const genres = await prisma.genre.findMany({
+      orderBy: { sortOrder: "asc" }
+    });
+    res.json({ genres });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.post("/genres", async (req, res, next) => {
+  try {
+    const { name, sortOrder } = req.body;
+    if (!name || !name.trim()) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Genre name is required" } });
+      return;
+    }
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const genre = await prisma.genre.upsert({
+      where: { slug },
+      update: {
+        name: name.trim(),
+        sortOrder: sortOrder !== void 0 ? parseInt(sortOrder, 10) : 0,
+        isActive: true
+      },
+      create: {
+        name: name.trim(),
+        slug,
+        sortOrder: sortOrder !== void 0 ? parseInt(sortOrder, 10) : 0,
+        isActive: true
+      }
+    });
+    res.status(201).json({ genre });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.put("/genres/:id", async (req, res, next) => {
+  try {
+    const genreId = req.params.id;
+    const { name, sortOrder, isActive } = req.body;
+    const updateData = {};
+    if (name && name.trim()) {
+      updateData.name = name.trim();
+      updateData.slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
+    if (sortOrder !== void 0) updateData.sortOrder = parseInt(sortOrder, 10);
+    if (isActive !== void 0) updateData.isActive = Boolean(isActive);
+    const genre = await prisma.genre.update({
+      where: { id: genreId },
+      data: updateData
+    });
+    res.json({ genre });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.delete("/genres/:id", async (req, res, next) => {
+  try {
+    const genreId = req.params.id;
+    await prisma.genre.delete({ where: { id: genreId } });
+    res.json({ success: true, id: genreId });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.get("/payouts", async (_req, res, next) => {
+  try {
+    const payouts = await prisma.creatorPayout.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ statements: payouts });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.post("/payouts/:id/complete", async (req, res, next) => {
+  try {
+    const statementId = req.params.id;
+    const { amountInr, paymentUtrNumber, paidAt } = req.body;
+    if (!paymentUtrNumber || !paymentUtrNumber.trim()) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Bank payment UTR number is required" } });
+      return;
+    }
+    const updated = await prisma.creatorPayout.update({
+      where: { id: statementId },
+      data: {
+        status: "COMPLETED",
+        netPayableInr: amountInr !== void 0 ? parseInt(amountInr, 10) : void 0,
+        paymentUtrNumber: paymentUtrNumber.trim(),
+        paidAt: paidAt ? paidAt.trim() : (/* @__PURE__ */ new Date()).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+      }
+    });
+    res.json({ success: true, statement: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.get("/settings", async (_req, res, next) => {
+  try {
+    const settingsList = await prisma.setting.findMany();
+    const settingsMap = {};
+    settingsList.forEach((s) => {
+      settingsMap[s.key] = s.value;
+    });
+    res.json({ settings: settingsMap });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.put("/settings", async (req, res, next) => {
+  try {
+    const { settings } = req.body;
+    if (!settings || typeof settings !== "object") {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Invalid settings payload" } });
+      return;
+    }
+    const upsertPromises = Object.entries(settings).map(
+      ([key, value]) => prisma.setting.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) }
+      })
+    );
+    await Promise.all(upsertPromises);
+    const updatedList = await prisma.setting.findMany();
+    const updatedMap = {};
+    updatedList.forEach((s) => {
+      updatedMap[s.key] = s.value;
+    });
+    res.json({ success: true, settings: updatedMap });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.get("/users/search", async (req, res, next) => {
+  try {
+    const q = (req.query.q || "").trim();
+    const users = await prisma.user.findMany({
+      where: q ? {
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } }
+        ]
+      } : {},
+      take: 20,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatarUrl: true,
+        role: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ users });
+  } catch (err) {
+    next(err);
+  }
+});
+async function getCreatorsRegistry() {
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "CREATOR_REGISTRY" } });
+    if (setting?.value) {
+      return JSON.parse(setting.value);
+    }
+  } catch {
+  }
+  return [
+    {
+      id: "c_cupice",
+      creatorName: "Cupice productions",
+      email: "cupice@rasigan.com",
+      status: "ACTIVE",
+      assignedTitleIds: [],
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    }
+  ];
+}
+async function saveCreatorsRegistry(list) {
+  const jsonStr = JSON.stringify(list);
+  await prisma.setting.upsert({
+    where: { key: "CREATOR_REGISTRY" },
+    update: { value: jsonStr },
+    create: { key: "CREATOR_REGISTRY", value: jsonStr }
+  });
+  const emails = list.map((c) => c.email.toLowerCase().trim()).filter(Boolean);
+  await prisma.setting.upsert({
+    where: { key: "CREATOR_EMAILS" },
+    update: { value: emails.join(",") },
+    create: { key: "CREATOR_EMAILS", value: emails.join(",") }
+  });
+}
+router2.get("/creators", async (_req, res, next) => {
+  try {
+    const registry = await getCreatorsRegistry();
+    const titles = await prisma.title.findMany({
+      select: { id: true, title: true, creatorName: true, posterUrl: true }
+    });
+    const payouts = await prisma.creatorPayout.findMany();
+    const creatorsWithStats = registry.map((c) => {
+      const matchingTitles = titles.filter(
+        (t) => t.creatorName && t.creatorName.toLowerCase() === c.creatorName.toLowerCase() || c.assignedTitleIds && c.assignedTitleIds.includes(t.id)
+      );
+      const matchingPayouts = payouts.filter(
+        (p) => p.creatorName.toLowerCase() === c.creatorName.toLowerCase()
+      );
+      const netPayable = matchingPayouts.reduce((sum, p) => sum + p.netPayableInr, 0);
+      return {
+        id: c.id,
+        creatorName: c.creatorName,
+        email: c.email,
+        userId: c.userId,
+        upiId: c.upiId || "",
+        status: c.status || "ACTIVE",
+        titlesCount: matchingTitles.length,
+        netEarningsInr: netPayable > 0 ? netPayable : matchingTitles.length * 11250,
+        grossRaisedInr: matchingTitles.length * 18750,
+        assignedTitleIds: c.assignedTitleIds && c.assignedTitleIds.length > 0 ? c.assignedTitleIds : matchingTitles.map((t) => t.id)
+      };
+    });
+    res.json({ creators: creatorsWithStats });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.post("/creators", async (req, res, next) => {
+  try {
+    const { creatorName, email, userId, upiId, assignedTitleIds } = req.body;
+    if (!creatorName || !creatorName.trim()) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Creator/Studio name is required" } });
+      return;
+    }
+    if (!email || !email.trim()) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Creator email is required" } });
+      return;
+    }
+    const cleanName = creatorName.trim();
+    const cleanEmail = email.toLowerCase().trim();
+    const registry = await getCreatorsRegistry();
+    const newCreator = {
+      id: `c_${Date.now()}`,
+      creatorName: cleanName,
+      email: cleanEmail,
+      userId,
+      upiId: upiId?.trim() || "",
+      status: "ACTIVE",
+      assignedTitleIds: Array.isArray(assignedTitleIds) ? assignedTitleIds : [],
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const existingIdx = registry.findIndex(
+      (c) => c.email.toLowerCase() === cleanEmail || c.creatorName.toLowerCase() === cleanName.toLowerCase()
+    );
+    if (existingIdx !== -1) {
+      registry[existingIdx] = { ...registry[existingIdx], ...newCreator, id: registry[existingIdx].id };
+    } else {
+      registry.push(newCreator);
+    }
+    await saveCreatorsRegistry(registry);
+    if (Array.isArray(assignedTitleIds) && assignedTitleIds.length > 0) {
+      await prisma.title.updateMany({
+        where: { id: { in: assignedTitleIds } },
+        data: { creatorName: cleanName, creatorId: cleanEmail }
+      });
+    }
+    const existingPayout = await prisma.creatorPayout.findFirst({
+      where: { creatorName: { equals: cleanName, mode: "insensitive" } }
+    });
+    if (!existingPayout) {
+      const statementNumber = `STMT-${(/* @__PURE__ */ new Date()).getFullYear()}-${String(Date.now()).slice(-4)}`;
+      await prisma.creatorPayout.create({
+        data: {
+          creatorName: cleanName,
+          statementNumber,
+          cycle: `${(/* @__PURE__ */ new Date()).toLocaleString("en-US", { month: "long" })} ${(/* @__PURE__ */ new Date()).getFullYear()}`,
+          period: `01 ${(/* @__PURE__ */ new Date()).toLocaleString("en-US", { month: "short" })} - 30 ${(/* @__PURE__ */ new Date()).toLocaleString("en-US", { month: "short" })} ${(/* @__PURE__ */ new Date()).getFullYear()}`,
+          grossEarningsInr: 0,
+          platformFeeInr: 0,
+          netPayableInr: 0,
+          status: "PROCESSING"
+        }
+      });
+    }
+    res.status(201).json({ success: true, creator: newCreator });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.put("/creators/:id", async (req, res, next) => {
+  try {
+    const rawId = req.params.id;
+    const id = decodeURIComponent(rawId);
+    const { creatorName, email, upiId, status, assignedTitleIds } = req.body;
+    const registry = await getCreatorsRegistry();
+    const idx = registry.findIndex(
+      (c) => c.id === id || c.creatorName.toLowerCase() === id.toLowerCase() || c.email.toLowerCase() === id.toLowerCase()
+    );
+    if (idx === -1) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Creator not found" } });
+      return;
+    }
+    const prevName = registry[idx].creatorName;
+    const updatedName = creatorName && creatorName.trim() ? creatorName.trim() : prevName;
+    const updatedEmail = email && email.trim() ? email.toLowerCase().trim() : registry[idx].email;
+    registry[idx] = {
+      ...registry[idx],
+      creatorName: updatedName,
+      email: updatedEmail,
+      upiId: upiId !== void 0 ? upiId.trim() : registry[idx].upiId,
+      status: status || registry[idx].status || "ACTIVE",
+      assignedTitleIds: Array.isArray(assignedTitleIds) ? assignedTitleIds : registry[idx].assignedTitleIds,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await saveCreatorsRegistry(registry);
+    await prisma.creatorPayout.updateMany({
+      where: { creatorName: { equals: prevName, mode: "insensitive" } },
+      data: { creatorName: updatedName }
+    });
+    if (Array.isArray(assignedTitleIds)) {
+      if (assignedTitleIds.length > 0) {
+        await prisma.title.updateMany({
+          where: { id: { in: assignedTitleIds } },
+          data: { creatorName: updatedName, creatorId: updatedEmail }
+        });
+      }
+    } else if (updatedName !== prevName) {
+      await prisma.title.updateMany({
+        where: { creatorName: { equals: prevName, mode: "insensitive" } },
+        data: { creatorName: updatedName }
+      });
+    }
+    res.json({ success: true, creator: registry[idx] });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.delete("/creators/:id", async (req, res, next) => {
+  try {
+    const rawId = req.params.id;
+    const id = decodeURIComponent(rawId);
+    const registry = await getCreatorsRegistry();
+    const filtered = registry.filter(
+      (c) => c.id !== id && c.creatorName.toLowerCase() !== id.toLowerCase() && c.email.toLowerCase() !== id.toLowerCase()
+    );
+    await saveCreatorsRegistry(filtered);
+    res.json({ success: true, id });
+  } catch (err) {
+    next(err);
+  }
+});
+var admin_default = router2;
+
+// apps/api/src/routes/titles.ts
+var router3 = Router3();
 function formatTitleResponse(title) {
   if (!title) return title;
   const genres = title.genres ? title.genres.map((tg) => tg.genre || tg) : [];
@@ -427,7 +785,7 @@ function formatTitleResponse(title) {
     })) : []
   };
 }
-router2.post("/admin/validate-video-url", async (req, res, next) => {
+router3.post("/admin/validate-video-url", async (req, res, next) => {
   try {
     const { url } = req.body;
     if (!url || typeof url !== "string" || !url.startsWith("http")) {
@@ -468,7 +826,7 @@ router2.post("/admin/validate-video-url", async (req, res, next) => {
     next(err);
   }
 });
-router2.post("/admin/clear-all-content", async (_req, res, next) => {
+router3.post("/admin/clear-all-content", async (_req, res, next) => {
   try {
     await prisma.titleCast.deleteMany({});
     await prisma.titleCrew.deleteMany({});
@@ -487,7 +845,7 @@ router2.post("/admin/clear-all-content", async (_req, res, next) => {
     next(err);
   }
 });
-router2.get("/", async (req, res, next) => {
+router3.get("/", async (req, res, next) => {
   try {
     const { kind, orientation, genre, category, tag, q, sort = "newest", page = "1", limit = "20" } = req.query;
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -578,7 +936,7 @@ router2.get("/", async (req, res, next) => {
     next(err);
   }
 });
-router2.get("/:slug", async (req, res, next) => {
+router3.get("/:slug", async (req, res, next) => {
   try {
     const slug = req.params.slug;
     const title = await prisma.title.findFirst({
@@ -611,7 +969,7 @@ router2.get("/:slug", async (req, res, next) => {
     next(err);
   }
 });
-router2.get("/admin/stats", async (req, res, next) => {
+router3.get("/admin/stats", async (req, res, next) => {
   try {
     const [totalTitles, publishedTitles, draftTitles, totalPeople, totalGenres, totalTags, fundings] = await Promise.all([
       prisma.title.count(),
@@ -640,7 +998,7 @@ router2.get("/admin/stats", async (req, res, next) => {
     next(err);
   }
 });
-router2.get("/admin/:id/analytics", async (req, res, next) => {
+router3.get("/admin/:id/analytics", async (req, res, next) => {
   try {
     const titleId = req.params.id;
     const title = await prisma.title.findFirst({
@@ -700,30 +1058,57 @@ router2.get("/admin/:id/analytics", async (req, res, next) => {
     next(err);
   }
 });
-router2.get("/admin/creator-earnings", async (req, res, next) => {
+router3.get("/admin/creator-earnings", async (req, res, next) => {
   try {
-    const titles = await prisma.title.findMany({
-      select: {
-        id: true,
-        title: true,
-        posterUrl: true,
-        kind: true,
-        creatorName: true,
-        status: true,
-        fundings: {
-          where: { status: "PAID" },
-          select: { amountInr: true }
+    const [titles, registry] = await Promise.all([
+      prisma.title.findMany({
+        select: {
+          id: true,
+          title: true,
+          posterUrl: true,
+          kind: true,
+          creatorName: true,
+          status: true,
+          fundings: {
+            where: { status: "PAID" },
+            select: { amountInr: true }
+          }
         }
-      }
-    });
+      }),
+      getCreatorsRegistry()
+    ]);
     const creatorMap = /* @__PURE__ */ new Map();
+    registry.forEach((reg) => {
+      creatorMap.set(reg.creatorName.toLowerCase(), {
+        id: reg.id,
+        creatorName: reg.creatorName,
+        email: reg.email,
+        upiId: reg.upiId || "",
+        assignedTitleIds: reg.assignedTitleIds || [],
+        titlesCount: 0,
+        grossRaisedInr: 0,
+        netEarningsInr: 0,
+        platformFeeInr: 0,
+        payoutStatus: "PROCESSING",
+        titles: []
+      });
+    });
     titles.forEach((t) => {
       const creatorName = t.creatorName || "Indie Studio";
       const titleRaised = t.fundings.reduce((sum, f) => sum + f.amountInr, 0);
       const grossRaised = titleRaised > 0 ? titleRaised : 25e3;
       const netEarnings = Math.floor(grossRaised * 0.6);
       const platformFee = grossRaised - netEarnings;
-      const existing = creatorMap.get(creatorName) || {
+      let targetKey = creatorName.toLowerCase();
+      if (!creatorMap.has(targetKey)) {
+        for (const [key, val] of creatorMap.entries()) {
+          if (val.assignedTitleIds && val.assignedTitleIds.includes(t.id)) {
+            targetKey = key;
+            break;
+          }
+        }
+      }
+      const existing = creatorMap.get(targetKey) || {
         creatorName,
         titlesCount: 0,
         grossRaisedInr: 0,
@@ -744,7 +1129,7 @@ router2.get("/admin/creator-earnings", async (req, res, next) => {
         grossRaisedInr: grossRaised,
         netEarningsInr: netEarnings
       });
-      creatorMap.set(creatorName, existing);
+      creatorMap.set(targetKey, existing);
     });
     const creators = Array.from(creatorMap.values());
     const totalGross = creators.reduce((acc, c) => acc + c.grossRaisedInr, 0);
@@ -763,7 +1148,7 @@ router2.get("/admin/creator-earnings", async (req, res, next) => {
     next(err);
   }
 });
-router2.get("/admin/list", async (req, res, next) => {
+router3.get("/admin/list", async (req, res, next) => {
   try {
     const { status, kind, orientation, q } = req.query;
     const where = {};
@@ -795,7 +1180,7 @@ router2.get("/admin/list", async (req, res, next) => {
     next(err);
   }
 });
-router2.post("/admin/:id/toggle-publish", async (req, res, next) => {
+router3.post("/admin/:id/toggle-publish", async (req, res, next) => {
   try {
     const rawId = req.params.id;
     const titleId = decodeURIComponent(rawId);
@@ -824,7 +1209,7 @@ router2.post("/admin/:id/toggle-publish", async (req, res, next) => {
     next(err);
   }
 });
-router2.get("/admin/:id", async (req, res, next) => {
+router3.get("/admin/:id", async (req, res, next) => {
   try {
     const titleId = req.params.id;
     const title = await prisma.title.findFirst({
@@ -855,7 +1240,7 @@ router2.get("/admin/:id", async (req, res, next) => {
     next(err);
   }
 });
-router2.post("/admin", async (req, res, next) => {
+router3.post("/admin", async (req, res, next) => {
   try {
     const payload = req.body;
     const {
@@ -1044,7 +1429,7 @@ router2.post("/admin", async (req, res, next) => {
     next(err);
   }
 });
-router2.put("/admin/:id", async (req, res, next) => {
+router3.put("/admin/:id", async (req, res, next) => {
   try {
     const rawId = req.params.id;
     const titleId = decodeURIComponent(rawId);
@@ -1228,7 +1613,7 @@ router2.put("/admin/:id", async (req, res, next) => {
     next(err);
   }
 });
-router2.delete("/admin/:id", async (req, res, next) => {
+router3.delete("/admin/:id", async (req, res, next) => {
   try {
     const rawId = req.params.id;
     const titleId = decodeURIComponent(rawId);
@@ -1275,11 +1660,11 @@ router2.delete("/admin/:id", async (req, res, next) => {
     next(err);
   }
 });
-var titles_default = router2;
+var titles_default = router3;
 
 // apps/api/src/routes/home.ts
-var router3 = Router3();
-router3.get("/", async (_req, res, next) => {
+var router4 = Router4();
+router4.get("/", async (_req, res, next) => {
   try {
     res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     const [publishedTitles, activeGenres] = await Promise.all([
@@ -1325,12 +1710,12 @@ router3.get("/", async (_req, res, next) => {
     next(err);
   }
 });
-var home_default = router3;
+var home_default = router4;
 
 // apps/api/src/routes/genres.ts
-import { Router as Router4 } from "express";
-var router4 = Router4();
-router4.get("/", async (_req, res, next) => {
+import { Router as Router5 } from "express";
+var router5 = Router5();
+router5.get("/", async (_req, res, next) => {
   try {
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     const genres = await prisma.genre.findMany({
@@ -1342,7 +1727,7 @@ router4.get("/", async (_req, res, next) => {
     next(err);
   }
 });
-router4.get("/admin", async (_req, res, next) => {
+router5.get("/admin", async (_req, res, next) => {
   try {
     const genres = await prisma.genre.findMany({
       orderBy: { sortOrder: "asc" }
@@ -1352,7 +1737,7 @@ router4.get("/admin", async (_req, res, next) => {
     next(err);
   }
 });
-router4.post("/", async (req, res, next) => {
+router5.post("/", async (req, res, next) => {
   try {
     const { name, sortOrder } = req.body;
     if (!name || !name.trim()) {
@@ -1375,7 +1760,7 @@ router4.post("/", async (req, res, next) => {
     next(err);
   }
 });
-router4.put("/:id", async (req, res, next) => {
+router5.put("/:id", async (req, res, next) => {
   try {
     const genreId = req.params.id;
     const { name, sortOrder, isActive } = req.body;
@@ -1395,7 +1780,7 @@ router4.put("/:id", async (req, res, next) => {
     next(err);
   }
 });
-router4.delete("/:id", async (req, res, next) => {
+router5.delete("/:id", async (req, res, next) => {
   try {
     const genreId = req.params.id;
     await prisma.genre.delete({ where: { id: genreId } });
@@ -1404,12 +1789,12 @@ router4.delete("/:id", async (req, res, next) => {
     next(err);
   }
 });
-var genres_default = router4;
+var genres_default = router5;
 
 // apps/api/src/routes/tags.ts
-import { Router as Router5 } from "express";
-var router5 = Router5();
-router5.get("/suggest", async (req, res, next) => {
+import { Router as Router6 } from "express";
+var router6 = Router6();
+router6.get("/suggest", async (req, res, next) => {
   try {
     const q = (req.query.q || "").trim().toLowerCase();
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || "15", 10)));
@@ -1423,15 +1808,66 @@ router5.get("/suggest", async (req, res, next) => {
     next(err);
   }
 });
-var tags_default = router5;
+var tags_default = router6;
 
 // apps/api/src/routes/creator.ts
-import { Router as Router6 } from "express";
-var router6 = Router6();
-router6.get("/earnings", async (_req, res, next) => {
+import { Router as Router7 } from "express";
+var router7 = Router7();
+async function getRequestCreator(req) {
+  const authHeader = req.headers.authorization;
+  const cookieHeader = req.headers.cookie;
+  const headerEmail = req.headers["x-user-email"] || req.query.email;
+  const headerName = req.headers["x-user-name"] || req.query.creatorName;
+  let userEmail = headerEmail ? headerEmail.toLowerCase().trim() : "";
+  let userName = headerName ? headerName.trim() : "";
+  let token = null;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7).trim();
+  } else if (cookieHeader) {
+    const match = cookieHeader.split(";").map((c) => c.trim()).find((c) => c.startsWith("rasigan_token="));
+    if (match) token = decodeURIComponent(match.split("=")[1]);
+  }
+  if (token) {
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+        if (payload.email) userEmail = payload.email.toLowerCase().trim();
+        if (payload.name) userName = payload.name.trim();
+      }
+    } catch {
+    }
+  }
+  let registry = [];
   try {
+    const setting = await prisma.setting.findUnique({ where: { key: "CREATOR_REGISTRY" } });
+    if (setting?.value) registry = JSON.parse(setting.value);
+  } catch {
+  }
+  const matched = registry.find(
+    (c) => userEmail && c.email && c.email.toLowerCase() === userEmail || userName && c.creatorName && c.creatorName.toLowerCase() === userName.toLowerCase()
+  );
+  return {
+    email: userEmail,
+    name: userName,
+    creatorName: matched?.creatorName || userName || "Indie Studio",
+    matchedCreator: matched
+  };
+}
+router7.get("/earnings", async (req, res, next) => {
+  try {
+    const creatorInfo = await getRequestCreator(req);
+    const orConditions = [
+      { creatorName: { equals: creatorInfo.creatorName, mode: "insensitive" } }
+    ];
+    if (creatorInfo.email) {
+      orConditions.push({ creatorId: creatorInfo.email });
+    }
+    if (creatorInfo.matchedCreator?.assignedTitleIds?.length) {
+      orConditions.push({ id: { in: creatorInfo.matchedCreator.assignedTitleIds } });
+    }
     const titles = await prisma.title.findMany({
-      take: 10,
+      where: { OR: orConditions },
       select: {
         id: true,
         title: true,
@@ -1441,8 +1877,8 @@ router6.get("/earnings", async (_req, res, next) => {
     });
     const titleEarnings = titles.map((t, index) => {
       const supportersCount = t._count.fundings;
-      const mockTotalRaised = supportersCount > 0 ? supportersCount * 500 : (index + 1) * 2500;
-      const earningsInr = Math.floor(mockTotalRaised * 0.6);
+      const totalRaised = supportersCount > 0 ? supportersCount * 500 : (index + 1) * 2500;
+      const earningsInr = Math.floor(totalRaised * 0.6);
       return {
         titleId: t.id,
         title: t.title,
@@ -1465,9 +1901,13 @@ router6.get("/earnings", async (_req, res, next) => {
     next(err);
   }
 });
-router6.get("/payouts", async (_req, res, next) => {
+router7.get("/payouts", async (req, res, next) => {
   try {
+    const creatorInfo = await getRequestCreator(req);
     const rawPayouts = await prisma.creatorPayout.findMany({
+      where: {
+        creatorName: { equals: creatorInfo.creatorName, mode: "insensitive" }
+      },
       orderBy: { createdAt: "desc" }
     });
     const statements = rawPayouts.map((p) => ({
@@ -1486,10 +1926,20 @@ router6.get("/payouts", async (_req, res, next) => {
     next(err);
   }
 });
-router6.get("/supporters", async (_req, res, next) => {
+router7.get("/supporters", async (req, res, next) => {
   try {
+    const creatorInfo = await getRequestCreator(req);
     const fundings = await prisma.funding.findMany({
-      where: { status: "PAID" },
+      where: {
+        status: "PAID",
+        title: {
+          OR: [
+            { creatorName: { equals: creatorInfo.creatorName, mode: "insensitive" } },
+            ...creatorInfo.email ? [{ creatorId: creatorInfo.email }] : [],
+            ...creatorInfo.matchedCreator?.assignedTitleIds?.length ? [{ id: { in: creatorInfo.matchedCreator.assignedTitleIds } }] : []
+          ]
+        }
+      },
       take: 20,
       orderBy: { createdAt: "desc" },
       include: {
@@ -1510,262 +1960,7 @@ router6.get("/supporters", async (_req, res, next) => {
     next(err);
   }
 });
-var creator_default = router6;
-
-// apps/api/src/routes/admin.ts
-import { Router as Router7 } from "express";
-var router7 = Router7();
-router7.get("/genres", async (_req, res, next) => {
-  try {
-    const genres = await prisma.genre.findMany({
-      orderBy: { sortOrder: "asc" }
-    });
-    res.json({ genres });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.post("/genres", async (req, res, next) => {
-  try {
-    const { name, sortOrder } = req.body;
-    if (!name || !name.trim()) {
-      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Genre name is required" } });
-      return;
-    }
-    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const genre = await prisma.genre.upsert({
-      where: { slug },
-      update: {
-        name: name.trim(),
-        sortOrder: sortOrder !== void 0 ? parseInt(sortOrder, 10) : 0,
-        isActive: true
-      },
-      create: {
-        name: name.trim(),
-        slug,
-        sortOrder: sortOrder !== void 0 ? parseInt(sortOrder, 10) : 0,
-        isActive: true
-      }
-    });
-    res.status(201).json({ genre });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.put("/genres/:id", async (req, res, next) => {
-  try {
-    const genreId = req.params.id;
-    const { name, sortOrder, isActive } = req.body;
-    const updateData = {};
-    if (name && name.trim()) {
-      updateData.name = name.trim();
-      updateData.slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    }
-    if (sortOrder !== void 0) updateData.sortOrder = parseInt(sortOrder, 10);
-    if (isActive !== void 0) updateData.isActive = Boolean(isActive);
-    const genre = await prisma.genre.update({
-      where: { id: genreId },
-      data: updateData
-    });
-    res.json({ genre });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.delete("/genres/:id", async (req, res, next) => {
-  try {
-    const genreId = req.params.id;
-    await prisma.genre.delete({ where: { id: genreId } });
-    res.json({ success: true, id: genreId });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.get("/payouts", async (_req, res, next) => {
-  try {
-    const payouts = await prisma.creatorPayout.findMany({
-      orderBy: { createdAt: "desc" }
-    });
-    res.json({ statements: payouts });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.post("/payouts/:id/complete", async (req, res, next) => {
-  try {
-    const statementId = req.params.id;
-    const { amountInr, paymentUtrNumber, paidAt } = req.body;
-    if (!paymentUtrNumber || !paymentUtrNumber.trim()) {
-      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Bank payment UTR number is required" } });
-      return;
-    }
-    const updated = await prisma.creatorPayout.update({
-      where: { id: statementId },
-      data: {
-        status: "COMPLETED",
-        netPayableInr: amountInr !== void 0 ? parseInt(amountInr, 10) : void 0,
-        paymentUtrNumber: paymentUtrNumber.trim(),
-        paidAt: paidAt ? paidAt.trim() : (/* @__PURE__ */ new Date()).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-      }
-    });
-    res.json({ success: true, statement: updated });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.get("/settings", async (_req, res, next) => {
-  try {
-    const settingsList = await prisma.setting.findMany();
-    const settingsMap = {};
-    settingsList.forEach((s) => {
-      settingsMap[s.key] = s.value;
-    });
-    res.json({ settings: settingsMap });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.put("/settings", async (req, res, next) => {
-  try {
-    const { settings } = req.body;
-    if (!settings || typeof settings !== "object") {
-      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Invalid settings payload" } });
-      return;
-    }
-    const upsertPromises = Object.entries(settings).map(
-      ([key, value]) => prisma.setting.upsert({
-        where: { key },
-        update: { value: String(value) },
-        create: { key, value: String(value) }
-      })
-    );
-    await Promise.all(upsertPromises);
-    const updatedList = await prisma.setting.findMany();
-    const updatedMap = {};
-    updatedList.forEach((s) => {
-      updatedMap[s.key] = s.value;
-    });
-    res.json({ success: true, settings: updatedMap });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.get("/users/search", async (req, res, next) => {
-  try {
-    const q = (req.query.q || "").trim();
-    const users = await prisma.user.findMany({
-      where: q ? {
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { email: { contains: q, mode: "insensitive" } }
-        ]
-      } : {},
-      take: 20,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatarUrl: true,
-        role: true,
-        createdAt: true
-      },
-      orderBy: { createdAt: "desc" }
-    });
-    res.json({ users });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.get("/creators", async (_req, res, next) => {
-  try {
-    const payouts = await prisma.creatorPayout.findMany({
-      select: { id: true, creatorName: true },
-      orderBy: { createdAt: "desc" }
-    });
-    const titles = await prisma.title.findMany({
-      where: { creatorName: { not: null } },
-      select: { creatorName: true },
-      distinct: ["creatorName"]
-    });
-    const set = /* @__PURE__ */ new Set();
-    payouts.forEach((p) => {
-      if (p.creatorName && p.creatorName.trim()) set.add(p.creatorName.trim());
-    });
-    titles.forEach((t) => {
-      if (t.creatorName && t.creatorName.trim()) set.add(t.creatorName.trim());
-    });
-    const creators = Array.from(set).map((name) => ({ creatorName: name }));
-    res.json({ creators });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.post("/creators", async (req, res, next) => {
-  try {
-    const { creatorName, email } = req.body;
-    if (!creatorName || !creatorName.trim()) {
-      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Creator/Studio name is required" } });
-      return;
-    }
-    const statementNumber = `STMT-${(/* @__PURE__ */ new Date()).getFullYear()}-${String(Date.now()).slice(-4)}`;
-    const newPayout = await prisma.creatorPayout.create({
-      data: {
-        creatorName: creatorName.trim(),
-        statementNumber,
-        cycle: `${(/* @__PURE__ */ new Date()).toLocaleString("en-US", { month: "long" })} ${(/* @__PURE__ */ new Date()).getFullYear()} (New)`,
-        period: `01 ${(/* @__PURE__ */ new Date()).toLocaleString("en-US", { month: "short" })} ${(/* @__PURE__ */ new Date()).getFullYear()} - 30 ${(/* @__PURE__ */ new Date()).toLocaleString("en-US", { month: "short" })} ${(/* @__PURE__ */ new Date()).getFullYear()}`,
-        grossEarningsInr: 0,
-        platformFeeInr: 0,
-        netPayableInr: 0,
-        status: "PROCESSING"
-      }
-    });
-    res.status(201).json({ success: true, creator: { creatorName: creatorName.trim(), email: email || "creator@rasigan.com", id: newPayout.id } });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.put("/creators/:id", async (req, res, next) => {
-  try {
-    const rawId = req.params.id;
-    const id = decodeURIComponent(rawId);
-    const { creatorName } = req.body;
-    if (!creatorName || !creatorName.trim()) {
-      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Creator name is required" } });
-      return;
-    }
-    const updated = await prisma.creatorPayout.updateMany({
-      where: {
-        OR: [
-          { id },
-          { creatorName: id }
-        ]
-      },
-      data: { creatorName: creatorName.trim() }
-    });
-    res.json({ success: true, updatedCount: updated.count, creatorName: creatorName.trim() });
-  } catch (err) {
-    next(err);
-  }
-});
-router7.delete("/creators/:id", async (req, res, next) => {
-  try {
-    const rawId = req.params.id;
-    const id = decodeURIComponent(rawId);
-    await prisma.creatorPayout.deleteMany({
-      where: {
-        OR: [
-          { id },
-          { creatorName: id }
-        ]
-      }
-    });
-    res.json({ success: true, id });
-  } catch (err) {
-    next(err);
-  }
-});
-var admin_default = router7;
+var creator_default = router7;
 
 // apps/api/src/routes/funding.ts
 import { Router as Router8 } from "express";
@@ -2127,14 +2322,21 @@ import { Router as Router9 } from "express";
 import crypto2 from "crypto";
 var router9 = Router9();
 var JWT_SECRET = process.env.JWT_SECRET || "dev-rasigan-secret-key-change-in-prod-123456789";
-var GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "102651788040-f80qjr6hok5b2i1nt8pcke7bnnr035j8.apps.googleusercontent.com";
 function getAdminEmails() {
   const envAdmins = process.env.ADMIN_EMAILS || "sambavangalmedia@gmail.com,monkstudioskpm@gmail.com,admin@rasigan.com";
   return envAdmins.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 }
-function getCreatorEmails() {
-  const envCreators = process.env.CREATOR_EMAILS || "creator@rasigan.com,cupice@rasigan.com";
-  return envCreators.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+async function getCreatorEmails() {
+  const envCreators = (process.env.CREATOR_EMAILS || "creator@rasigan.com,cupice@rasigan.com").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "CREATOR_EMAILS" } });
+    if (setting?.value) {
+      const dbEmails = setting.value.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+      return Array.from(/* @__PURE__ */ new Set([...envCreators, ...dbEmails]));
+    }
+  } catch {
+  }
+  return envCreators;
 }
 function signJwt(payload, secret, expiresInDays = 7) {
   const header = { alg: "HS256", typ: "JWT" };
@@ -2216,7 +2418,7 @@ router9.post("/google", async (req, res, next) => {
     const avatarUrl = tokenData.picture || null;
     const googleId = tokenData.sub;
     const adminEmails = getAdminEmails();
-    const creatorEmails = getCreatorEmails();
+    const creatorEmails = await getCreatorEmails();
     let detectedRole = "USER";
     if (adminEmails.includes(email)) {
       detectedRole = "ADMIN";
@@ -2282,7 +2484,7 @@ router9.post("/google", async (req, res, next) => {
       httpOnly: true,
       secure: isProd,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1e3
+      maxAge: 7 * 24 * 60 * 1e3
       // 7 days
     });
     res.json({
@@ -2318,12 +2520,19 @@ router9.get("/me", async (req, res, next) => {
       const dbUser = await prisma.user.findUnique({
         where: { id: payload.id }
       });
+      const creatorEmails = await getCreatorEmails();
+      const isCreator = payload.email && creatorEmails.includes(payload.email.toLowerCase().trim());
       if (dbUser) {
         freshUser = {
           ...payload,
           name: dbUser.name,
           avatarUrl: dbUser.avatarUrl,
-          role: dbUser.role === "ADMIN" ? "ADMIN" : payload.role
+          role: dbUser.role === "ADMIN" ? "ADMIN" : isCreator ? "CREATOR" : payload.role
+        };
+      } else if (isCreator) {
+        freshUser = {
+          ...payload,
+          role: "CREATOR"
         };
       }
     } catch {

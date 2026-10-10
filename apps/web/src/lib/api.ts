@@ -67,9 +67,22 @@ export const FALLBACK_PAYOUT_STATEMENTS = {
 
 async function fetcher<T>(endpoint: string, options?: RequestInit): Promise<T> {
   try {
+    const authHeaders: Record<string, string> = {};
+    try {
+      const stored = localStorage.getItem('rasigan_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.email) authHeaders['x-user-email'] = u.email;
+        if (u.name) authHeaders['x-user-name'] = u.name;
+        if (u.id) authHeaders['x-user-id'] = u.id;
+      }
+    } catch {}
+
     const response = await fetch(`${API_BASE}${endpoint}`, {
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options?.headers,
       },
       ...options,
@@ -516,13 +529,6 @@ export const adminApi = {
   // Title & Earnings Management
   getStats: () =>
     fetcher<{ stats: { totalTitles: number; publishedTitles: number; draftTitles: number; totalPeople: number; totalGenres: number; totalTags: number; totalFundingRaised: number } }>('/titles/admin/stats'),
-  getCreators: async () => {
-    try {
-      const res = await fetcher<{ creators: Array<{ id?: string; creatorName: string }> }>('/admin/creators');
-      if (res?.creators) return res;
-    } catch {}
-    return { creators: [] };
-  },
   getCreatorEarningsBreakdown: () =>
     fetcher<{
       summary: { totalCreatorsCount: number; totalGrossRaisedInr: number; totalNetEarningsInr: number; totalPlatformFeeInr: number };
@@ -764,44 +770,25 @@ export const adminApi = {
       : mockUsers;
     return { users: filtered };
   },
-  addCreator: async (data: { creatorName: string; email?: string; userId?: string }) => {
-    try {
-      const res = await fetcher<{ success: boolean; creator: any }>('/admin/creators', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      return res;
-    } catch {
-      return {
-        success: true,
-        creator: {
-          creatorName: data.creatorName,
-          email: data.email || 'creator@rasigan.com',
-          id: `c_${Date.now()}`,
-        },
-      };
-    }
+  getCreators: async () => {
+    return fetcher<{ creators: any[] }>('/admin/creators');
   },
-  updateCreator: async (id: string, creatorName: string) => {
-    try {
-      const res = await fetcher<{ success: boolean; creatorName: string }>(`/admin/creators/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify({ creatorName }),
-      });
-      return res;
-    } catch {
-      return { success: true, creatorName };
-    }
+  addCreator: async (data: { creatorName: string; email: string; userId?: string; upiId?: string; assignedTitleIds?: string[] }) => {
+    return fetcher<{ success: boolean; creator: any }>('/admin/creators', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  updateCreator: async (id: string, data: { creatorName?: string; email?: string; upiId?: string; status?: string; assignedTitleIds?: string[] }) => {
+    return fetcher<{ success: boolean; creator: any }>(`/admin/creators/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
   deleteCreator: async (id: string) => {
-    try {
-      const res = await fetcher<{ success: boolean }>(`/admin/creators/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      });
-      return res;
-    } catch {
-      return { success: true };
-    }
+    return fetcher<{ success: boolean; id: string }>(`/admin/creators/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   },
   getTitleAnalytics: async (id: string) => {
     try {

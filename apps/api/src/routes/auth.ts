@@ -5,7 +5,6 @@ import { prisma } from '../db.js';
 const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-rasigan-secret-key-change-in-prod-123456789';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '102651788040-f80qjr6hok5b2i1nt8pcke7bnnr035j8.apps.googleusercontent.com';
 
 function getAdminEmails(): string[] {
   const envAdmins = process.env.ADMIN_EMAILS || 'sambavangalmedia@gmail.com,monkstudioskpm@gmail.com,admin@rasigan.com';
@@ -15,12 +14,24 @@ function getAdminEmails(): string[] {
     .filter(Boolean);
 }
 
-function getCreatorEmails(): string[] {
-  const envCreators = process.env.CREATOR_EMAILS || 'creator@rasigan.com,cupice@rasigan.com';
-  return envCreators
+async function getCreatorEmails(): Promise<string[]> {
+  const envCreators = (process.env.CREATOR_EMAILS || 'creator@rasigan.com,cupice@rasigan.com')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
+
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: 'CREATOR_EMAILS' } });
+    if (setting?.value) {
+      const dbEmails = setting.value
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      return Array.from(new Set([...envCreators, ...dbEmails]));
+    }
+  } catch {}
+
+  return envCreators;
 }
 
 // Minimal, zero-dependency signed JWT functions
@@ -148,7 +159,7 @@ router.post('/google', async (req: Request, res: Response, next: NextFunction) =
 
     // 2. Automatic Role Detection
     const adminEmails = getAdminEmails();
-    const creatorEmails = getCreatorEmails();
+    const creatorEmails = await getCreatorEmails();
 
     let detectedRole: 'ADMIN' | 'CREATOR' | 'USER' = 'USER';
 
@@ -224,7 +235,7 @@ router.post('/google', async (req: Request, res: Response, next: NextFunction) =
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 1000, // 7 days
     });
 
     res.json({
@@ -262,18 +273,26 @@ router.get('/me', async (req: Request, res: Response, next: NextFunction) => {
       return;
     }
 
-    // If user exists in DB, refresh name & avatar
+    // If user exists in DB, refresh name & avatar & role
     let freshUser = payload;
     try {
       const dbUser = await prisma.user.findUnique({
         where: { id: payload.id },
       });
+      const creatorEmails = await getCreatorEmails();
+      const isCreator = payload.email && creatorEmails.includes(payload.email.toLowerCase().trim());
+
       if (dbUser) {
         freshUser = {
           ...payload,
           name: dbUser.name,
           avatarUrl: dbUser.avatarUrl,
-          role: dbUser.role === 'ADMIN' ? 'ADMIN' : payload.role,
+          role: dbUser.role === 'ADMIN' ? 'ADMIN' : isCreator ? 'CREATOR' : payload.role,
+        };
+      } else if (isCreator) {
+        freshUser = {
+          ...payload,
+          role: 'CREATOR',
         };
       }
     } catch {}

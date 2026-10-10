@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   BarChart3,
   Star,
+  Mail,
 } from 'lucide-react';
 import {
   adminApi,
@@ -44,7 +45,11 @@ import {
 import { Title } from '@rasigan/shared';
 
 interface CreatorBreakdownItem {
+  id?: string;
   creatorName: string;
+  email?: string;
+  upiId?: string;
+  assignedTitleIds?: string[];
   titlesCount: number;
   grossRaisedInr: number;
   netEarningsInr: number;
@@ -172,8 +177,20 @@ export function AdminDashboardPage() {
   const [foundUsers, setFoundUsers] = useState<UserItem[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
   const [creatorStudioName, setCreatorStudioName] = useState('');
+  const [newCreatorEmail, setNewCreatorEmail] = useState('');
+  const [newCreatorUpi, setNewCreatorUpi] = useState('');
+  const [newCreatorAssignedTitleIds, setNewCreatorAssignedTitleIds] = useState<string[]>([]);
   const [isSubmittingCreator, setIsSubmittingCreator] = useState(false);
   const [creatorSuccessMsg, setCreatorSuccessMsg] = useState<string | null>(null);
+
+  // Edit Creator Modal State
+  const [editingCreator, setEditingCreator] = useState<CreatorBreakdownItem | null>(null);
+  const [editCreatorName, setEditCreatorName] = useState('');
+  const [editCreatorEmail, setEditCreatorEmail] = useState('');
+  const [editCreatorUpi, setEditCreatorUpi] = useState('');
+  const [editAssignedTitleIds, setEditAssignedTitleIds] = useState<string[]>([]);
+  const [isSavingEditCreator, setIsSavingEditCreator] = useState(false);
+  const [editSuccessMsg, setEditSuccessMsg] = useState<string | null>(null);
 
   // YouTube Studio Style Title Analytics State
   const [selectedAnalytics, setSelectedAnalytics] = useState<TitleAnalytics | null>(null);
@@ -279,47 +296,103 @@ export function AdminDashboardPage() {
       alert('Please enter a Creator / Studio Name');
       return;
     }
+    const emailToUse = (selectedUser?.email || newCreatorEmail.trim()).toLowerCase();
+    if (!emailToUse) {
+      alert('Please select a registered database user or enter a creator email address');
+      return;
+    }
     try {
       setIsSubmittingCreator(true);
       const res = await adminApi.addCreator({
         creatorName: creatorStudioName.trim(),
-        email: selectedUser?.email || 'creator@rasigan.com',
+        email: emailToUse,
         userId: selectedUser?.id,
+        upiId: newCreatorUpi.trim() || undefined,
+        assignedTitleIds: newCreatorAssignedTitleIds,
       });
 
       if (res?.success) {
-        const newCreatorItem: CreatorBreakdownItem = {
-          creatorName: creatorStudioName.trim(),
-          titlesCount: 0,
-          grossRaisedInr: 0,
-          netEarningsInr: 0,
-          platformFeeInr: 0,
-          payoutStatus: 'PROCESSING',
-          titles: [],
-        };
-
-        setCreatorsData((prev) => ({
-          summary: {
-            ...prev.summary,
-            totalCreatorsCount: prev.summary.totalCreatorsCount + 1,
-          },
-          creators: [newCreatorItem, ...prev.creators],
-        }));
-
-        setCreatorSuccessMsg(`Successfully assigned "${creatorStudioName.trim()}" as active Creator!`);
+        await fetchDashboardData();
+        setCreatorSuccessMsg(`Successfully registered "${creatorStudioName.trim()}" in database!`);
         setTimeout(() => {
           setCreatorSuccessMsg(null);
           setIsAddCreatorOpen(false);
           setSelectedUser(null);
           setCreatorStudioName('');
+          setNewCreatorEmail('');
+          setNewCreatorUpi('');
+          setNewCreatorAssignedTitleIds([]);
           setUserSearchQuery('');
-        }, 1600);
+        }, 1200);
       }
     } catch (err) {
       console.error('Failed to add creator:', err);
       alert('Failed to register creator');
     } finally {
       setIsSubmittingCreator(false);
+    }
+  };
+
+  const handleOpenEditCreator = (c: CreatorBreakdownItem) => {
+    setEditingCreator(c);
+    setEditCreatorName(c.creatorName);
+    setEditCreatorEmail(c.email || '');
+    setEditCreatorUpi(c.upiId || '');
+    const currentAssigned = c.assignedTitleIds && c.assignedTitleIds.length > 0
+      ? c.assignedTitleIds
+      : (c.titles ? c.titles.map((t) => t.id) : []);
+    setEditAssignedTitleIds(currentAssigned);
+    setEditSuccessMsg(null);
+  };
+
+  const handleSaveEditCreator = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCreator) return;
+    if (!editCreatorName.trim()) {
+      alert('Please enter a Creator / Studio Name');
+      return;
+    }
+    if (!editCreatorEmail.trim()) {
+      alert('Please enter a valid creator email address');
+      return;
+    }
+
+    try {
+      setIsSavingEditCreator(true);
+      await adminApi.updateCreator(editingCreator.id || editingCreator.creatorName, {
+        creatorName: editCreatorName.trim(),
+        email: editCreatorEmail.trim().toLowerCase(),
+        upiId: editCreatorUpi.trim(),
+        assignedTitleIds: editAssignedTitleIds,
+      });
+
+      setEditSuccessMsg(`Successfully saved "${editCreatorName.trim()}" to database!`);
+      await fetchDashboardData();
+      setTimeout(() => {
+        setEditSuccessMsg(null);
+        setEditingCreator(null);
+      }, 1200);
+    } catch (err) {
+      console.error('Failed to update creator:', err);
+      alert('Failed to update creator');
+    } finally {
+      setIsSavingEditCreator(false);
+    }
+  };
+
+  const handleDeleteCreator = async (c: CreatorBreakdownItem) => {
+    if (!window.confirm(`Are you sure you want to remove Creator Studio "${c.creatorName}"?`)) {
+      return;
+    }
+    try {
+      await adminApi.deleteCreator(c.id || c.creatorName);
+      await fetchDashboardData();
+      if (editingCreator?.creatorName === c.creatorName) {
+        setEditingCreator(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete creator:', err);
+      alert('Failed to delete creator');
     }
   };
 
@@ -913,31 +986,67 @@ export function AdminDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {creatorsData.creators.map((c, i) => (
               <div
-                key={i}
-                className="p-5 rounded-2xl bg-white/[0.03] border border-amber-500/20 flex items-center justify-between gap-4 hover:border-amber-400/40 transition-all shadow-md"
+                key={c.id || i}
+                className="p-5 rounded-2xl bg-white/[0.03] border border-amber-500/20 flex flex-col justify-between gap-4 hover:border-amber-400/40 transition-all shadow-md group"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white font-black text-lg shadow-lg">
-                    {c.creatorName.charAt(0)}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white font-black text-lg shadow-lg flex-shrink-0">
+                      {c.creatorName.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+                        <span>{c.creatorName}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                          {c.titlesCount} {c.titlesCount === 1 ? 'Title' : 'Titles'}
+                        </span>
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Verified Creator Studio</span>
+                      </div>
+                      {c.email && (
+                        <div className="text-[11px] font-mono text-cyan-300 mt-1 flex items-center gap-1.5">
+                          <Mail className="w-3 h-3 text-cyan-400" />
+                          <span>{c.email}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-extrabold text-white text-base flex items-center gap-2">
-                      <span>{c.creatorName}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
-                        {c.titlesCount} {c.titlesCount === 1 ? 'Title' : 'Titles'}
-                      </span>
-                    </h3>
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                      <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Verified Creator Studio</span>
+
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-[10px] uppercase font-bold text-gray-400">Net Payable</div>
+                    <div className="text-base font-black text-emerald-400">
+                      ₹{c.netEarningsInr.toLocaleString('en-IN')}
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="text-[10px] uppercase font-bold text-gray-400">Net Payable</div>
-                  <div className="text-base font-black text-emerald-400">
-                    ₹{c.netEarningsInr.toLocaleString('en-IN')}
+                <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-3">
+                  <div className="text-[11px] text-gray-400 truncate">
+                    {c.upiId ? (
+                      <span className="font-mono text-amber-300/90">UPI: {c.upiId}</span>
+                    ) : (
+                      <span className="text-gray-500 text-[10px]">No UPI ID configured</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditCreator(c)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all active:scale-95"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Studio</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCreator(c)}
+                      className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all active:scale-95"
+                      title="Remove Creator Studio"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1702,16 +1811,16 @@ export function AdminDashboardPage() {
               </div>
             )}
 
-            <form onSubmit={handleCreateCreator} className="space-y-5">
+            <form onSubmit={handleCreateCreator} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-extrabold text-gray-300 block">
-                  1. Search Registered Database Users
+                  1. Select Registered User OR Enter Email <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Type name or email to search users..."
+                    placeholder="Search users by name or email..."
                     value={userSearchQuery}
                     onChange={(e) => handleSearchUsers(e.target.value)}
                     className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-amber-500 transition-colors"
@@ -1721,51 +1830,67 @@ export function AdminDashboardPage() {
                   )}
                 </div>
 
-                {foundUsers.length > 0 && (
-                  <div className="max-h-44 overflow-y-auto rounded-2xl bg-slate-900 border border-white/10 divide-y divide-white/5">
+                {foundUsers.length > 0 && !selectedUser && (
+                  <div className="max-h-36 overflow-y-auto rounded-2xl bg-slate-900 border border-white/10 divide-y divide-white/5">
                     {foundUsers.map((u) => (
                       <div
                         key={u.id}
                         onClick={() => {
                           setSelectedUser(u);
+                          setNewCreatorEmail(u.email);
                           if (!creatorStudioName) {
                             setCreatorStudioName(`${u.name}'s Studio`);
                           }
                         }}
-                        className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
-                          selectedUser?.id === u.id ? 'bg-amber-500/20 border-l-4 border-amber-400' : 'hover:bg-white/5'
-                        }`}
+                        className="p-2.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/5 transition-colors"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5">
                           <img
                             src={u.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'}
                             alt={u.name}
-                            className="w-8 h-8 rounded-full object-cover bg-slate-800"
+                            className="w-7 h-7 rounded-full object-cover bg-slate-800"
                           />
                           <div>
                             <div className="font-extrabold text-white text-xs">{u.name}</div>
                             <div className="text-[10px] text-gray-400">{u.email}</div>
                           </div>
                         </div>
-                        {selectedUser?.id === u.id && (
-                          <CheckCircle className="w-4 h-4 text-amber-400" />
-                        )}
+                        <span className="text-[10px] text-amber-400 font-bold">Select</span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {selectedUser && (
+              {selectedUser ? (
                 <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs">
                   <span className="text-gray-300">Selected User: <strong className="text-amber-300">{selectedUser.name}</strong> ({selectedUser.email})</span>
                   <button
                     type="button"
-                    onClick={() => setSelectedUser(null)}
+                    onClick={() => {
+                      setSelectedUser(null);
+                      setNewCreatorEmail('');
+                    }}
                     className="text-[10px] text-rose-400 font-bold hover:underline"
                   >
                     Change
                   </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-400 block">
+                    Or Enter Creator Email Manually:
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="email"
+                      placeholder="e.g. creator@example.com"
+                      value={newCreatorEmail}
+                      onChange={(e) => setNewCreatorEmail(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1786,6 +1911,60 @@ export function AdminDashboardPage() {
                 </div>
               </div>
 
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-gray-300 block">
+                  3. Settlement UPI ID (Optional)
+                </label>
+                <div className="relative">
+                  <CreditCard className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. creator@okhdfcbank"
+                    value={newCreatorUpi}
+                    onChange={(e) => setNewCreatorUpi(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-gray-300 block">
+                  4. Assign Catalog Titles (Optional)
+                </label>
+                <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl bg-white/5 border border-white/10 p-2">
+                  {titles.length === 0 ? (
+                    <p className="text-xs text-gray-500 p-2">No catalog titles available.</p>
+                  ) : (
+                    titles.map((t) => {
+                      const isChecked = newCreatorAssignedTitleIds.includes(t.id);
+                      return (
+                        <label
+                          key={t.id}
+                          className={`flex items-center gap-2.5 p-1.5 rounded-lg cursor-pointer transition-colors ${
+                            isChecked ? 'bg-amber-500/15 border border-amber-500/30' : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewCreatorAssignedTitleIds([...newCreatorAssignedTitleIds, t.id]);
+                              } else {
+                                setNewCreatorAssignedTitleIds(newCreatorAssignedTitleIds.filter((id) => id !== t.id));
+                              }
+                            }}
+                            className="rounded border-white/20 text-amber-500 focus:ring-0"
+                          />
+                          <img src={t.posterUrl || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=80&auto=format&fit=crop&q=80'} alt={t.title} className="w-6 h-8 object-cover rounded" />
+                          <span className="text-white font-bold text-xs truncate">{t.title}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
                 <button
                   type="button"
@@ -1802,6 +1981,165 @@ export function AdminDashboardPage() {
                 >
                   <UserPlus className="w-4 h-4" />
                   <span>{isSubmittingCreator ? 'Saving...' : 'Assign & Save Creator'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Creator Modal Dialog */}
+      {editingCreator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#0F172A] border border-amber-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setEditingCreator(null)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                <Edit3 className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight">
+                Edit Creator Studio & Scope
+              </h2>
+              <p className="text-xs text-gray-400">
+                Update studio name, email, UPI ID, and assigned titles in the database.
+              </p>
+            </div>
+
+            {editSuccessMsg && (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>{editSuccessMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditCreator} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-gray-300 block">
+                  Creator / Studio Name <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    value={editCreatorName}
+                    onChange={(e) => setEditCreatorName(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-extrabold text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-gray-300 block">
+                  Creator Email Address <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="creator@example.com"
+                    value={editCreatorEmail}
+                    onChange={(e) => setEditCreatorEmail(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400">
+                  When this user logs in with this email, their role is set to CREATOR and their dashboard will only display content assigned to this studio.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-gray-300 block">
+                  Settlement UPI ID (Optional)
+                </label>
+                <div className="relative">
+                  <CreditCard className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. creator@okhdfcbank"
+                    value={editCreatorUpi}
+                    onChange={(e) => setEditCreatorUpi(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-gray-300 block">
+                    Assigned Catalog Content & Titles ({editAssignedTitleIds.length} Selected)
+                  </label>
+                  <span className="text-[10px] text-amber-400 font-bold">Scoped to Creator</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1 rounded-xl bg-white/5 border border-white/10 p-2.5">
+                  {titles.length === 0 ? (
+                    <p className="text-xs text-gray-400 p-2">No titles available in catalog.</p>
+                  ) : (
+                    titles.map((t) => {
+                      const isChecked = editAssignedTitleIds.includes(t.id);
+                      return (
+                        <label
+                          key={t.id}
+                          className={`flex items-center justify-between gap-3 p-2 rounded-xl cursor-pointer transition-colors ${
+                            isChecked ? 'bg-amber-500/15 border border-amber-500/30' : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setEditAssignedTitleIds([...editAssignedTitleIds, t.id]);
+                                } else {
+                                  setEditAssignedTitleIds(editAssignedTitleIds.filter((id) => id !== t.id));
+                                }
+                              }}
+                              className="rounded border-white/20 text-amber-500 focus:ring-0"
+                            />
+                            <img
+                              src={t.posterUrl || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=80&auto=format&fit=crop&q=80'}
+                              alt={t.title}
+                              className="w-7 h-10 object-cover rounded-lg flex-shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="text-xs font-extrabold text-white truncate">{t.title}</div>
+                              <div className="text-[10px] text-gray-400">{t.kind} • {t.creatorName || 'Unassigned'}</div>
+                            </div>
+                          </div>
+                          {isChecked && (
+                            <CheckCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                          )}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingCreator(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSavingEditCreator}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs shadow-lg shadow-amber-500/30 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{isSavingEditCreator ? 'Saving...' : 'Save to Database'}</span>
                 </button>
               </div>
             </form>

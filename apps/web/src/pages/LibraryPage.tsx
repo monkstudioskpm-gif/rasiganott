@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bookmark, Clock, Heart, Award, Play, Trash2, IndianRupee, Shield, Sparkles, LogOut, CheckCircle2, User as UserIcon, Loader2, ArrowRight } from 'lucide-react';
+import { Bookmark, Clock, Heart, Award, Play, Trash2, IndianRupee, Shield, Sparkles, LogOut, CheckCircle2, User as UserIcon, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fundingApi, authApi } from '../lib/api';
 
