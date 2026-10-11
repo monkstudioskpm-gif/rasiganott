@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVideoEngine } from './useVideoEngine';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Settings, ArrowLeft, Gauge, IndianRupee, Heart, Tv, X } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Settings, ArrowLeft, Gauge, IndianRupee, Heart, Tv, X, MessageSquare } from 'lucide-react';
 import { SupportModal } from '../../components/SupportModal';
 import { Title } from '@rasigan/shared';
-import { progressApi } from '../../lib/api';
+import { progressApi, commentsApi } from '../../lib/api';
+import { CommentsPanel } from '../comments/CommentsPanel';
 
 interface Props {
   videoUrl: string;
@@ -12,11 +13,12 @@ interface Props {
   titleName: string;
   subtitleLabel?: string;
   titleObj?: Title | null;
+  episodeId?: string | null;
   startPositionSec?: number;
   onBack?: () => void;
 }
 
-export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subtitleLabel, titleObj, startPositionSec = 0, onBack }: Props) {
+export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subtitleLabel, titleObj, episodeId, startPositionSec = 0, onBack }: Props) {
   const navigate = useNavigate();
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
   const [showControls, setShowControls] = useState(true);
@@ -25,6 +27,10 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [dismissSupportPopup, setDismissSupportPopup] = useState(false);
   const [activeTab, setActiveTab] = useState<'quality' | 'speed'>('quality');
+  const [showComments, setShowComments] = useState(false);
+  const [isCommentInputFocused, setIsCommentInputFocused] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+  const [commentsCount, setCommentsCount] = useState<number>(0);
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lastSavedTimeRef = useRef<number>(0);
@@ -190,8 +196,43 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
     }
   };
 
+  // Window resize listener to track desktop viewport
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Fetch comments count for badge
+  useEffect(() => {
+    if (!titleObj?.id) return;
+    commentsApi
+      .getComments({
+        titleId: titleObj.id,
+        episodeId: episodeId || undefined,
+        limit: 1,
+      })
+      .then((res) => {
+        setCommentsCount(res.totalCount);
+      })
+      .catch(() => {});
+  }, [titleObj?.id, episodeId]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const tagName = activeEl?.tagName;
+      if (
+        tagName === 'INPUT' ||
+        tagName === 'TEXTAREA' ||
+        (activeEl as HTMLElement)?.isContentEditable ||
+        isCommentInputFocused
+      ) {
+        return;
+      }
+
       if (e.code === 'Space' || e.key === 'k') {
         e.preventDefault();
         togglePlay();
@@ -208,7 +249,7 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, skip, toggleMute]);
+  }, [togglePlay, skip, toggleMute, isCommentInputFocused]);
 
   const handleBackClick = () => {
     if (onBack) {
@@ -224,12 +265,14 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
     <div
       ref={playerContainerRef}
       onMouseMove={handleMouseMove}
-      className="relative w-full h-full min-h-[70vh] md:min-h-[85vh] bg-black overflow-hidden flex items-center justify-center select-none group"
+      className="relative w-full h-full min-h-[70vh] md:min-h-[85vh] bg-black overflow-hidden flex select-none group"
     >
-      {/* Support Creator Razorpay Modal */}
-      {titleObj && (
-        <SupportModal title={titleObj} isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} />
-      )}
+      {/* Video Content Flex Column (shrinks when side comments panel is open) */}
+      <div className="relative flex-1 h-full min-w-0 flex items-center justify-center bg-black overflow-hidden">
+        {/* Support Creator Razorpay Modal */}
+        {titleObj && (
+          <SupportModal title={titleObj} isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} />
+        )}
 
       {/* Video Element */}
       <video
@@ -399,6 +442,27 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
                 </button>
               )}
 
+              {/* Comments Button with Badge */}
+              {titleObj?.id && (
+                <button
+                  onClick={() => setShowComments(!showComments)}
+                  className={`px-2.5 py-1 rounded-xl border transition-all flex items-center gap-1.5 text-[11px] font-bold ${
+                    showComments
+                      ? 'bg-sky-500 text-white border-sky-400 shadow-sm shadow-sky-500/30'
+                      : 'bg-black/40 hover:bg-black/60 border-white/20 text-gray-200 hover:text-white backdrop-blur-md'
+                  }`}
+                  title="Toggle Comments"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Comments</span>
+                  {commentsCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-mono">
+                      {commentsCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
               <button onClick={toggleMute} className="p-1.5 text-gray-300 hover:text-white transition-colors" title="Mute/Unmute">
                 {isMuted ? <VolumeX className="w-4 h-4 text-sky-400" /> : <Volume2 className="w-4 h-4" />}
               </button>
@@ -535,6 +599,33 @@ export function LandscapePlayer({ videoUrl, streamType = 'HLS', titleName, subti
             ))}
           </div>
         </div>
+      )}
+      </div>
+
+      {/* Desktop Side Panel Comments */}
+      {showComments && isDesktop && titleObj?.id && (
+        <CommentsPanel
+          titleId={titleObj.id}
+          episodeId={episodeId}
+          titleObj={titleObj}
+          layout="side"
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+          onInputFocusChange={setIsCommentInputFocused}
+        />
+      )}
+
+      {/* Mobile Bottom Sheet Comments */}
+      {showComments && !isDesktop && titleObj?.id && (
+        <CommentsPanel
+          titleId={titleObj.id}
+          episodeId={episodeId}
+          titleObj={titleObj}
+          layout="sheet"
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+          onInputFocusChange={setIsCommentInputFocused}
+        />
       )}
     </div>
   );

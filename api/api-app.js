@@ -83,6 +83,34 @@ async function ensureSchemaUpgrades() {
       `);
     } catch {
     }
+    try {
+      await prisma.$executeRawUnsafe(`DO $$ BEGIN CREATE TYPE "CommentStatus" AS ENUM ('VISIBLE', 'HIDDEN', 'DELETED'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Comment" (
+          "id" TEXT PRIMARY KEY,
+          "titleId" TEXT NOT NULL REFERENCES "Title"("id") ON DELETE CASCADE,
+          "episodeId" TEXT,
+          "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+          "body" TEXT NOT NULL,
+          "status" "CommentStatus" NOT NULL DEFAULT 'VISIBLE',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Comment_titleId_episodeId_createdAt_idx" ON "Comment"("titleId", "episodeId", "createdAt");
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "CommentReport" (
+          "id" TEXT PRIMARY KEY,
+          "commentId" TEXT NOT NULL REFERENCES "Comment"("id") ON DELETE CASCADE,
+          "userId" TEXT NOT NULL,
+          "reason" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "CommentReport_commentId_userId_key" UNIQUE ("commentId", "userId")
+        );
+      `);
+    } catch {
+    }
     migrationDone = true;
     console.log("[Schema] Auto schema upgrades applied successfully.");
   } catch (err) {
@@ -438,6 +466,85 @@ var people_default = router;
 
 // apps/api/src/routes/admin.ts
 import { Router as Router2 } from "express";
+
+// apps/api/src/services/commentBus.ts
+import { EventEmitter } from "events";
+function formatCommentChannel(titleId, episodeId) {
+  if (episodeId && episodeId.trim().length > 0) {
+    return `title:${titleId}:ep:${episodeId}`;
+  }
+  return `title:${titleId}`;
+}
+var InMemoryCommentBus = class {
+  emitter = new EventEmitter();
+  // Keep ring buffer of last 150 events per channel for reconnection playback
+  history = /* @__PURE__ */ new Map();
+  counter = 0;
+  constructor() {
+    this.emitter.setMaxListeners(500);
+  }
+  nextEventId() {
+    this.counter += 1;
+    return `evt_${Date.now()}_${this.counter}`;
+  }
+  appendHistory(channel, event) {
+    let list = this.history.get(channel);
+    if (!list) {
+      list = [];
+      this.history.set(channel, list);
+    }
+    list.push(event);
+    if (list.length > 150) {
+      list.shift();
+    }
+  }
+  emitCreated(titleId, episodeId, comment) {
+    const channel = formatCommentChannel(titleId, episodeId);
+    const event = {
+      id: this.nextEventId(),
+      channel,
+      type: "comment.created",
+      data: comment,
+      timestamp: Date.now()
+    };
+    this.appendHistory(channel, event);
+    this.emitter.emit(channel, event);
+    return event;
+  }
+  emitDeleted(titleId, episodeId, commentId) {
+    const channel = formatCommentChannel(titleId, episodeId);
+    const event = {
+      id: this.nextEventId(),
+      channel,
+      type: "comment.deleted",
+      data: { id: commentId },
+      timestamp: Date.now()
+    };
+    this.appendHistory(channel, event);
+    this.emitter.emit(channel, event);
+    return event;
+  }
+  subscribe(titleId, episodeId, listener) {
+    const channel = formatCommentChannel(titleId, episodeId);
+    this.emitter.on(channel, listener);
+    return () => {
+      this.emitter.off(channel, listener);
+    };
+  }
+  getMissedEvents(titleId, episodeId, lastEventId) {
+    const channel = formatCommentChannel(titleId, episodeId);
+    const list = this.history.get(channel);
+    if (!list || list.length === 0 || !lastEventId) return [];
+    const index = list.findIndex((e) => e.id === lastEventId);
+    if (index === -1) {
+      return [...list];
+    }
+    return list.slice(index + 1);
+  }
+};
+var commentBus = new InMemoryCommentBus();
+
+// apps/api/src/routes/admin.ts
 var router2 = Router2();
 router2.get("/genres", async (_req, res, next) => {
   try {
@@ -802,6 +909,143 @@ router2.delete("/creators/:id", async (req, res, next) => {
     );
     await saveCreatorsRegistry(filtered);
     res.json({ success: true, id });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.get("/comments", async (req, res, next) => {
+  try {
+    const q = req.query.q || "";
+    const status = req.query.status || "ALL";
+    const reportedOnly = req.query.reportedOnly === "true";
+    const titleId = req.query.titleId || "";
+    const from = req.query.from;
+    const to = req.query.to;
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || "25", 10)));
+    const skip = (page - 1) * limit;
+    const where = {};
+    if (status !== "ALL") {
+      where.status = status;
+    }
+    if (titleId) {
+      where.titleId = titleId;
+    }
+    if (q && q.trim()) {
+      where.OR = [
+        { body: { contains: q.trim(), mode: "insensitive" } },
+        { user: { name: { contains: q.trim(), mode: "insensitive" } } }
+      ];
+    }
+    if (reportedOnly) {
+      where.reports = { some: {} };
+    }
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from);
+      if (to) where.createdAt.lte = new Date(to);
+    }
+    const [comments, total] = await Promise.all([
+      prisma.comment.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, avatarUrl: true }
+          },
+          title: {
+            select: { id: true, title: true, slug: true, posterUrl: true }
+          },
+          reports: {
+            select: { id: true, userId: true, reason: true, createdAt: true }
+          }
+        }
+      }),
+      prisma.comment.count({ where })
+    ]);
+    const formatted = comments.map((c) => ({
+      id: c.id,
+      titleId: c.titleId,
+      episodeId: c.episodeId,
+      userId: c.userId,
+      body: c.body,
+      status: c.status,
+      createdAt: c.createdAt.toISOString(),
+      user: c.user,
+      title: c.title,
+      reportCount: c.reports.length,
+      reports: c.reports
+    }));
+    res.json({
+      comments: formatted,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit) || 1
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.patch("/comments/:id/status", async (req, res, next) => {
+  try {
+    const commentId = String(req.params.id);
+    const { status } = req.body;
+    if (!["VISIBLE", "HIDDEN", "DELETED"].includes(status)) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Invalid comment status" } });
+      return;
+    }
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } }
+      }
+    });
+    if (!comment) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Comment not found" } });
+      return;
+    }
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data: { status },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } }
+      }
+    });
+    if (status === "HIDDEN" || status === "DELETED") {
+      commentBus.emitDeleted(comment.titleId, comment.episodeId, comment.id);
+    } else if (status === "VISIBLE") {
+      commentBus.emitCreated(comment.titleId, comment.episodeId, {
+        id: updated.id,
+        titleId: updated.titleId,
+        episodeId: updated.episodeId,
+        userId: updated.userId,
+        body: updated.body,
+        status: updated.status,
+        createdAt: updated.createdAt.toISOString(),
+        user: updated.user
+      });
+    }
+    res.json({ success: true, comment: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+router2.delete("/comments/:id", async (req, res, next) => {
+  try {
+    const commentId = String(req.params.id);
+    const comment = await prisma.comment.findUnique({ where: { id: commentId } });
+    if (!comment) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Comment not found" } });
+      return;
+    }
+    await prisma.comment.update({
+      where: { id: commentId },
+      data: { status: "DELETED" }
+    });
+    commentBus.emitDeleted(comment.titleId, comment.episodeId, comment.id);
+    res.json({ success: true, id: commentId });
   } catch (err) {
     next(err);
   }
@@ -2883,6 +3127,18 @@ function signJwt(payload, secret, expiresInDays = 7) {
   const signature = crypto2.createHmac("sha256", secret).update(`${b64Header}.${b64Payload}`).digest("base64url");
   return `${b64Header}.${b64Payload}.${signature}`;
 }
+function extractToken(req) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+  const cookies = req.headers.cookie;
+  if (cookies) {
+    const match = cookies.match(/(?:^|;\s*)rasigan_token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
 function verifyJwt(token, secret) {
   try {
     const parts = token.split(".");
@@ -2899,16 +3155,55 @@ function verifyJwt(token, secret) {
     return null;
   }
 }
-function extractToken(req) {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.substring(7).trim();
+async function authenticateUser(req) {
+  const token = extractToken(req);
+  if (token) {
+    const payload = verifyJwt(token, JWT_SECRET);
+    if (payload && payload.id) {
+      try {
+        const dbUser = await prisma.user.findUnique({ where: { id: payload.id } });
+        if (dbUser) {
+          return {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name,
+            avatarUrl: dbUser.avatarUrl,
+            role: dbUser.role
+          };
+        }
+      } catch {
+      }
+      return {
+        id: payload.id,
+        email: payload.email || "",
+        name: payload.name || "User",
+        avatarUrl: payload.avatarUrl || null,
+        role: payload.role || "USER"
+      };
+    }
   }
-  const cookieHeader = req.headers.cookie;
-  if (cookieHeader) {
-    const match = cookieHeader.split(";").map((c) => c.trim()).find((c) => c.startsWith("rasigan_token="));
-    if (match) {
-      return decodeURIComponent(match.split("=")[1]);
+  const headerUserId = req.headers["x-user-id"];
+  const headerUserEmail = req.headers["x-user-email"];
+  if (headerUserId || headerUserEmail) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            ...headerUserId ? [{ id: headerUserId }] : [],
+            ...headerUserEmail ? [{ email: headerUserEmail }] : []
+          ]
+        }
+      });
+      if (user) {
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+          role: user.role
+        };
+      }
+    } catch {
     }
   }
   return null;
@@ -3772,6 +4067,287 @@ router11.post("/events", async (req, res, next) => {
 });
 var feed_default = router11;
 
+// apps/api/src/routes/comments.ts
+import { Router as Router12 } from "express";
+var router12 = Router12();
+var userCommentTimestamps = /* @__PURE__ */ new Map();
+function checkRateLimit(userId) {
+  const now = Date.now();
+  const windowMs = 60 * 1e3;
+  let timestamps = userCommentTimestamps.get(userId);
+  if (!timestamps) {
+    timestamps = [];
+    userCommentTimestamps.set(userId, timestamps);
+  }
+  const recent = timestamps.filter((t) => now - t < windowMs);
+  userCommentTimestamps.set(userId, recent);
+  if (recent.length >= 5) {
+    return false;
+  }
+  recent.push(now);
+  return true;
+}
+router12.get("/stream", async (req, res) => {
+  const titleId = req.query.titleId;
+  const episodeId = req.query.episodeId || null;
+  if (!titleId || typeof titleId !== "string") {
+    res.status(400).json({ error: { code: "BAD_REQUEST", message: "titleId query parameter is required" } });
+    return;
+  }
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  res.write(`event: connected
+data: ${JSON.stringify({ titleId, episodeId, time: Date.now() })}
+
+`);
+  const lastEventId = req.headers["last-event-id"] || req.query.lastEventId;
+  if (lastEventId) {
+    const missed = commentBus.getMissedEvents(titleId, episodeId, lastEventId);
+    for (const evt of missed) {
+      res.write(`id: ${evt.id}
+event: ${evt.type}
+data: ${JSON.stringify(evt.data)}
+
+`);
+    }
+  }
+  const unsubscribe = commentBus.subscribe(titleId, episodeId, (evt) => {
+    res.write(`id: ${evt.id}
+event: ${evt.type}
+data: ${JSON.stringify(evt.data)}
+
+`);
+  });
+  const heartbeat = setInterval(() => {
+    res.write(`: ping ${Date.now()}
+
+`);
+  }, 25e3);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
+});
+router12.get("/", async (req, res, next) => {
+  try {
+    const titleId = req.query.titleId;
+    const episodeId = req.query.episodeId || null;
+    const cursor = req.query.cursor || void 0;
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || "20", 10)));
+    if (!titleId || typeof titleId !== "string") {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "titleId is required" } });
+      return;
+    }
+    const whereClause = {
+      titleId,
+      status: "VISIBLE",
+      episodeId: episodeId && episodeId.trim().length > 0 ? episodeId : null
+    };
+    const [comments, totalCount] = await Promise.all([
+      prisma.comment.findMany({
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+        take: limit + 1,
+        ...cursor ? { cursor: { id: cursor }, skip: 1 } : {},
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true
+            }
+          }
+        }
+      }),
+      prisma.comment.count({
+        where: whereClause
+      })
+    ]);
+    let nextCursor = null;
+    let items = comments;
+    if (comments.length > limit) {
+      const nextItem = comments[limit];
+      nextCursor = nextItem.id;
+      items = comments.slice(0, limit);
+    }
+    const formattedComments = items.map((c) => ({
+      id: c.id,
+      titleId: c.titleId,
+      episodeId: c.episodeId,
+      userId: c.userId,
+      body: c.body,
+      status: c.status,
+      createdAt: c.createdAt.toISOString(),
+      user: c.user
+    }));
+    res.json({
+      comments: formattedComments,
+      nextCursor,
+      totalCount
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router12.post("/", async (req, res, next) => {
+  try {
+    const user = await authenticateUser(req);
+    if (!user) {
+      res.status(401).json({
+        error: { code: "UNAUTHORIZED", message: "You must be signed in to post a comment" }
+      });
+      return;
+    }
+    if (user.role === "SUSPENDED") {
+      res.status(403).json({
+        error: { code: "FORBIDDEN", message: "Your account is suspended from commenting" }
+      });
+      return;
+    }
+    const { titleId, episodeId, body } = req.body || {};
+    if (!titleId || typeof titleId !== "string") {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "titleId is required" } });
+      return;
+    }
+    const rawBody = String(body || "");
+    const cleanBody = rawBody.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim();
+    if (cleanBody.length < 1 || cleanBody.length > 500) {
+      res.status(400).json({
+        error: {
+          code: "BAD_REQUEST",
+          message: "Comment must be between 1 and 500 characters after trimming"
+        }
+      });
+      return;
+    }
+    if (!checkRateLimit(user.id)) {
+      res.status(429).json({
+        error: {
+          code: "TOO_MANY_REQUESTS",
+          message: "You're commenting too fast. Please wait a moment before posting again."
+        }
+      });
+      return;
+    }
+    const title = await prisma.title.findUnique({
+      where: { id: titleId },
+      select: { id: true, status: true }
+    });
+    if (!title || title.status !== "PUBLISHED") {
+      res.status(404).json({
+        error: { code: "NOT_FOUND", message: "Title not found or not published" }
+      });
+      return;
+    }
+    const targetEpisodeId = episodeId && typeof episodeId === "string" && episodeId.trim().length > 0 ? episodeId.trim() : null;
+    if (targetEpisodeId) {
+      const ep = await prisma.episode.findUnique({
+        where: { id: targetEpisodeId },
+        select: { id: true, status: true }
+      });
+      if (!ep || ep.status !== "PUBLISHED") {
+        res.status(404).json({
+          error: { code: "NOT_FOUND", message: "Episode not found or not published" }
+        });
+        return;
+      }
+    }
+    const created = await prisma.comment.create({
+      data: {
+        titleId,
+        episodeId: targetEpisodeId,
+        userId: user.id,
+        body: cleanBody,
+        status: "VISIBLE"
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true
+          }
+        }
+      }
+    });
+    const commentDto = {
+      id: created.id,
+      titleId: created.titleId,
+      episodeId: created.episodeId,
+      userId: created.userId,
+      body: created.body,
+      status: created.status,
+      createdAt: created.createdAt.toISOString(),
+      user: created.user
+    };
+    commentBus.emitCreated(titleId, targetEpisodeId, commentDto);
+    res.status(201).json({ comment: commentDto });
+  } catch (err) {
+    next(err);
+  }
+});
+router12.delete("/:id", async (req, res, next) => {
+  try {
+    const user = await authenticateUser(req);
+    if (!user) {
+      res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required" } });
+      return;
+    }
+    const commentId = String(req.params.id);
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId }
+    });
+    if (!comment || comment.status === "DELETED") {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Comment not found" } });
+      return;
+    }
+    if (comment.userId !== user.id && user.role !== "ADMIN") {
+      res.status(403).json({
+        error: { code: "FORBIDDEN", message: "You can only delete your own comments" }
+      });
+      return;
+    }
+    await prisma.comment.update({
+      where: { id: commentId },
+      data: { status: "DELETED" }
+    });
+    commentBus.emitDeleted(comment.titleId, comment.episodeId, comment.id);
+    res.json({ success: true, id: comment.id });
+  } catch (err) {
+    next(err);
+  }
+});
+router12.post("/:id/report", async (req, res, next) => {
+  try {
+    const user = await authenticateUser(req);
+    if (!user) {
+      res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required to report" } });
+      return;
+    }
+    const commentId = String(req.params.id);
+    const reason = req.body?.reason ? String(req.body.reason).slice(0, 200) : null;
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId }
+    });
+    if (!comment) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Comment not found" } });
+      return;
+    }
+    await prisma.commentReport.upsert({
+      where: { commentId_userId: { commentId, userId: user.id } },
+      update: { reason },
+      create: { commentId, userId: user.id, reason }
+    });
+    res.json({ success: true, message: "Comment reported successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+var comments_default = router12;
+
 // apps/api/src/index.ts
 dotenv.config();
 var app = express();
@@ -3808,6 +4384,7 @@ app.use("/api/funding", funding_default);
 app.use("/api/auth", auth_default);
 app.use("/api/progress", progress_default);
 app.use("/api/feed", feed_default);
+app.use("/api/comments", comments_default);
 app.use("/api/*", (_req, res) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Endpoint not found" } });
 });

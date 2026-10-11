@@ -372,3 +372,47 @@ export interface VerifyFundingPaymentResponseDto {
   paidAt?: string;
 }
 
+// ==========================================
+// Comments
+// ==========================================
+export const CommentStatusEnum = z.enum(['VISIBLE', 'HIDDEN', 'DELETED']);
+export type CommentStatus = z.infer<typeof CommentStatusEnum>;
+
+export const CommentUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatarUrl: z.string().nullable().optional(),
+});
+export type CommentUser = z.infer<typeof CommentUserSchema>;
+
+export const CommentSchema = z.object({
+  id: z.string(),
+  titleId: z.string(),
+  episodeId: z.string().nullable().optional(),
+  userId: z.string(),
+  body: z.string(),
+  status: CommentStatusEnum,
+  createdAt: z.string(),
+  user: CommentUserSchema,
+  reportCount: z.number().int().optional(),
+});
+export type Comment = z.infer<typeof CommentSchema>;
+
+export const CreateCommentSchema = z.object({
+  titleId: z.string().min(1),
+  episodeId: z.string().nullable().optional(),
+  body: z.string().trim().min(1).max(500),
+});
+export type CreateCommentInput = z.infer<typeof CreateCommentSchema>;
+
+export const ReportCommentSchema = z.object({
+  reason: z.string().max(200).optional(),
+});
+export type ReportCommentInput = z.infer<typeof ReportCommentSchema>;
+
+export interface CommentsListResponse {
+  comments: Comment[];
+  nextCursor: string | null;
+  totalCount: number;
+}
+

@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../db.js';
+import { commentBus } from '../services/commentBus.js';
 
 const router = Router();
 
@@ -451,6 +452,173 @@ router.delete('/creators/:id', async (req: Request, res: Response, next: NextFun
     await saveCreatorsRegistry(filtered);
 
     res.json({ success: true, id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ==========================================
+// Admin Comments Moderation Endpoints
+// ==========================================
+
+// GET /api/admin/comments
+router.get('/comments', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const q = (req.query.q as string) || '';
+    const status = (req.query.status as string) || 'ALL';
+    const reportedOnly = req.query.reportedOnly === 'true';
+    const titleId = (req.query.titleId as string) || '';
+    const from = req.query.from as string;
+    const to = req.query.to as string;
+    const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '25', 10)));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (status !== 'ALL') {
+      where.status = status;
+    }
+
+    if (titleId) {
+      where.titleId = titleId;
+    }
+
+    if (q && q.trim()) {
+      where.OR = [
+        { body: { contains: q.trim(), mode: 'insensitive' } },
+        { user: { name: { contains: q.trim(), mode: 'insensitive' } } },
+      ];
+    }
+
+    if (reportedOnly) {
+      where.reports = { some: {} };
+    }
+
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from);
+      if (to) where.createdAt.lte = new Date(to);
+    }
+
+    const [comments, total] = await Promise.all([
+      prisma.comment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+          title: {
+            select: { id: true, title: true, slug: true, posterUrl: true },
+          },
+          reports: {
+            select: { id: true, userId: true, reason: true, createdAt: true },
+          },
+        },
+      }),
+      prisma.comment.count({ where }),
+    ]);
+
+    const formatted = comments.map((c) => ({
+      id: c.id,
+      titleId: c.titleId,
+      episodeId: c.episodeId,
+      userId: c.userId,
+      body: c.body,
+      status: c.status,
+      createdAt: c.createdAt.toISOString(),
+      user: c.user,
+      title: c.title,
+      reportCount: c.reports.length,
+      reports: c.reports,
+    }));
+
+    res.json({
+      comments: formatted,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit) || 1,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/admin/comments/:id/status
+router.patch('/comments/:id/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const commentId = String(req.params.id);
+    const { status } = req.body;
+
+    if (!['VISIBLE', 'HIDDEN', 'DELETED'].includes(status)) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid comment status' } });
+      return;
+    }
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    });
+
+    if (!comment) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Comment not found' } });
+      return;
+    }
+
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data: { status },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } },
+      },
+    });
+
+    // Propagate live to viewers
+    if (status === 'HIDDEN' || status === 'DELETED') {
+      commentBus.emitDeleted(comment.titleId, comment.episodeId, comment.id);
+    } else if (status === 'VISIBLE') {
+      commentBus.emitCreated(comment.titleId, comment.episodeId, {
+        id: updated.id,
+        titleId: updated.titleId,
+        episodeId: updated.episodeId,
+        userId: updated.userId,
+        body: updated.body,
+        status: updated.status,
+        createdAt: updated.createdAt.toISOString(),
+        user: updated.user,
+      });
+    }
+
+    res.json({ success: true, comment: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/admin/comments/:id
+router.delete('/comments/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const commentId = String(req.params.id);
+    const comment = await prisma.comment.findUnique({ where: { id: commentId } });
+
+    if (!comment) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Comment not found' } });
+      return;
+    }
+
+    await prisma.comment.update({
+      where: { id: commentId },
+      data: { status: 'DELETED' },
+    });
+
+    commentBus.emitDeleted(comment.titleId, comment.episodeId, comment.id);
+
+    res.json({ success: true, id: commentId });
   } catch (err) {
     next(err);
   }

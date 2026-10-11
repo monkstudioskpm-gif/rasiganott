@@ -8,6 +8,8 @@ import {
   VerifyFundingPaymentDto,
   VerifyFundingPaymentResponseDto,
   FeedResponse,
+  Comment,
+  CommentsListResponse,
 } from '@rasigan/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -998,6 +1000,45 @@ export const adminApi = {
       `/titles/admin/${titleId}/refresh-duration`,
       { method: 'POST' }
     ),
+
+  // Comments Moderation
+  getComments: (params?: {
+    status?: string;
+    titleId?: string;
+    q?: string;
+    reportedOnly?: boolean;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.titleId) query.set('titleId', params.titleId);
+    if (params?.q) query.set('q', params.q);
+    if (params?.reportedOnly) query.set('reportedOnly', 'true');
+    if (params?.from) query.set('from', params.from);
+    if (params?.to) query.set('to', params.to);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    return fetcher<{
+      comments: Array<Comment & { title?: { id: string; title: string; slug: string; posterUrl: string | null }; reportCount: number; reports: Array<{ id: string; userId: string; reason: string | null; createdAt: string }> }>;
+      total: number;
+      page: number;
+      totalPages: number;
+    }>(`/admin/comments${query.toString() ? `?${query.toString()}` : ''}`);
+  },
+
+  updateCommentStatus: (id: string, status: 'VISIBLE' | 'HIDDEN' | 'DELETED') =>
+    fetcher<{ success: boolean; comment: Comment }>(`/admin/comments/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
+  deleteComment: (id: string) =>
+    fetcher<{ success: boolean; id: string }>(`/admin/comments/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
 };
 
 
@@ -1101,6 +1142,46 @@ export const progressApi = {
     } catch {
       return { list: [] };
     }
+  },
+};
+
+export const commentsApi = {
+  getComments: async (params: {
+    titleId: string;
+    episodeId?: string | null;
+    cursor?: string;
+    limit?: number;
+  }): Promise<CommentsListResponse> => {
+    const query = new URLSearchParams();
+    query.set('titleId', params.titleId);
+    if (params.episodeId) query.set('episodeId', params.episodeId);
+    if (params.cursor) query.set('cursor', params.cursor);
+    if (params.limit) query.set('limit', String(params.limit));
+    return fetcher<CommentsListResponse>(`/comments?${query.toString()}`);
+  },
+
+  postComment: async (data: {
+    titleId: string;
+    episodeId?: string | null;
+    body: string;
+  }): Promise<{ comment: Comment }> => {
+    return fetcher<{ comment: Comment }>('/comments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteComment: async (id: string): Promise<{ success: boolean; id: string }> => {
+    return fetcher<{ success: boolean; id: string }>(`/comments/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  reportComment: async (id: string, reason?: string): Promise<{ success: boolean; message: string }> => {
+    return fetcher<{ success: boolean; message: string }>(`/comments/${encodeURIComponent(id)}/report`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
   },
 };
 

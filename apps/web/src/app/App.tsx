@@ -19,6 +19,7 @@ import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage';
 import { AdminPeoplePage } from '../pages/admin/AdminPeoplePage';
 import { AdminGenresPage } from '../pages/admin/AdminGenresPage';
 import { AdminContentFormPage } from '../pages/admin/AdminContentFormPage';
+import { AdminCommentsPage } from '../pages/admin/AdminCommentsPage';
 import { CreatorDashboardPage } from '../pages/creator/CreatorDashboardPage';
 
 const queryClient = new QueryClient({
@@ -132,6 +133,16 @@ function AppContent() {
               <ProtectedRoute requiredRole="ADMIN">
                 <AdminLayout>
                   <AdminContentFormPage />
+                </AdminLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/comments"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminLayout>
+                  <AdminCommentsPage />
                 </AdminLayout>
               </ProtectedRoute>
             }

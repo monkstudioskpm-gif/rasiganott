@@ -325,6 +325,7 @@ export function WatchPage() {
         titleName={title.title}
         subtitleLabel={subtitleLabel}
         titleObj={title}
+        episodeId={episodeId}
         startPositionSec={startPositionSec}
         onBack={() => navigate(-1)}
       />

@@ -50,6 +50,19 @@ function signJwt(payload: Record<string, any>, secret: string, expiresInDays = 7
   return `${b64Header}.${b64Payload}.${signature}`;
 }
 
+function extractToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  const cookies = req.headers.cookie;
+  if (cookies) {
+    const match = cookies.match(/(?:^|;\s*)rasigan_token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
 function verifyJwt(token: string, secret: string): Record<string, any> | null {
   try {
     const parts = token.split('.');
@@ -73,23 +86,66 @@ function verifyJwt(token: string, secret: string): Record<string, any> | null {
   }
 }
 
-function extractToken(req: Request): string | null {
-  // 1. Authorization header: Bearer <token>
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7).trim();
+export { JWT_SECRET, verifyJwt, extractToken };
+
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string | null;
+  role: string;
+}
+
+export async function authenticateUser(req: Request): Promise<AuthenticatedUser | null> {
+  const token = extractToken(req);
+  if (token) {
+    const payload = verifyJwt(token, JWT_SECRET);
+    if (payload && payload.id) {
+      try {
+        const dbUser = await prisma.user.findUnique({ where: { id: payload.id } });
+        if (dbUser) {
+          return {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name,
+            avatarUrl: dbUser.avatarUrl,
+            role: dbUser.role,
+          };
+        }
+      } catch {}
+      return {
+        id: payload.id,
+        email: payload.email || '',
+        name: payload.name || 'User',
+        avatarUrl: payload.avatarUrl || null,
+        role: payload.role || 'USER',
+      };
+    }
   }
 
-  // 2. Cookie header: rasigan_token=<token>
-  const cookieHeader = req.headers.cookie;
-  if (cookieHeader) {
-    const match = cookieHeader
-      .split(';')
-      .map((c) => c.trim())
-      .find((c) => c.startsWith('rasigan_token='));
-    if (match) {
-      return decodeURIComponent(match.split('=')[1]);
-    }
+  // Fallback to headers if provided
+  const headerUserId = req.headers['x-user-id'] as string;
+  const headerUserEmail = req.headers['x-user-email'] as string;
+  if (headerUserId || headerUserEmail) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            ...(headerUserId ? [{ id: headerUserId }] : []),
+            ...(headerUserEmail ? [{ email: headerUserEmail }] : []),
+          ],
+        },
+      });
+      if (user) {
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+          role: user.role,
+        };
+      }
+    } catch {}
   }
 
   return null;

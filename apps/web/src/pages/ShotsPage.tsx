@@ -16,9 +16,12 @@ import {
   Scissors,
   Flame,
   ChevronDown,
+  MessageSquare,
 } from 'lucide-react';
 import { FeedResponseItem, Title } from '@rasigan/shared';
 import { SupportModal } from '../components/SupportModal';
+import { CommentsPanel } from '../features/comments/CommentsPanel';
+import { commentsApi } from '../lib/api';
 import { useVideoEngine } from '../features/player/useVideoEngine';
 import { ShotsFeedSkeleton } from '../components/Skeleton';
 
@@ -31,6 +34,7 @@ export function ShotsPage() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [supportTarget, setSupportTarget] = useState<Title | null>(null);
+  const [commentsTarget, setCommentsTarget] = useState<FeedResponseItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [isFeedMuted, setIsFeedMuted] = useState(true);
@@ -221,6 +225,18 @@ export function ShotsPage() {
         onClose={() => setSupportTarget(null)}
       />
 
+      {/* Shots Instagram-style Bottom Sheet Comments */}
+      {commentsTarget && (
+        <CommentsPanel
+          titleId={commentsTarget.titleId}
+          episodeId={commentsTarget.episodeId}
+          titleObj={commentsTarget as unknown as Title}
+          layout="sheet"
+          isOpen={!!commentsTarget}
+          onClose={() => setCommentsTarget(null)}
+        />
+      )}
+
       {/* Floating Status Toast */}
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-black/90 border border-sky-400/40 text-sky-300 text-xs font-bold shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
@@ -246,6 +262,7 @@ export function ShotsPage() {
             onToggleMute={() => setIsFeedMuted((m) => !m)}
             onToggleLike={() => toggleLike(item.titleId)}
             onOpenSupport={() => openSupportModal(item)}
+            onOpenComments={() => setCommentsTarget(item)}
             onSkipNext={handleSkipNext}
             onShowToast={showToast}
             eventsBufferRef={eventsBufferRef}
@@ -272,6 +289,7 @@ interface ShotItemProps {
   onToggleMute: () => void;
   onToggleLike: () => void;
   onOpenSupport: () => void;
+  onOpenComments: () => void;
   onSkipNext: () => void;
   onShowToast: (msg: string) => void;
   eventsBufferRef: React.MutableRefObject<Record<string, unknown>[]>;
@@ -364,6 +382,7 @@ function ShotItem({
   onToggleMute,
   onToggleLike,
   onOpenSupport,
+  onOpenComments,
   onSkipNext,
   onShowToast,
   eventsBufferRef,
@@ -375,6 +394,19 @@ function ShotItem({
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentDisplaySec, setCurrentDisplaySec] = useState(0);
   const [clipTotalSec, setClipTotalSec] = useState(0);
+  const [commentCount, setCommentCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!item.titleId) return;
+    commentsApi
+      .getComments({
+        titleId: item.titleId,
+        episodeId: item.episodeId || undefined,
+        limit: 1,
+      })
+      .then((res) => setCommentCount(res.totalCount))
+      .catch(() => {});
+  }, [item.titleId, item.episodeId]);
 
   const activeTimeRef = useRef(item.clipStartSec || 0);
   const toggleMuteRef = useRef<(() => void) | null>(null);
@@ -625,6 +657,23 @@ function ShotItem({
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-current text-white scale-110' : 'text-white'} transition-transform`} />
           </div>
           <span className="text-[8px] font-bold">{isLiked ? 'Liked' : 'Like'}</span>
+        </button>
+
+        {/* Comments Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenComments();
+          }}
+          className="flex flex-col items-center gap-0.5 group cursor-pointer"
+          title="Comments"
+        >
+          <div className="w-9 h-9 rounded-full bg-black/60 border border-white/20 text-white hover:bg-black/80 backdrop-blur-md transition-all flex items-center justify-center group-active:scale-90 shadow-md">
+            <MessageSquare className="w-4 h-4 text-white" />
+          </div>
+          <span className="text-[8px] font-bold">
+            {commentCount > 0 ? (commentCount > 999 ? `${(commentCount / 1000).toFixed(1)}k` : commentCount) : 'Comments'}
+          </span>
         </button>
 
         {/* Support Creator (₹) */}

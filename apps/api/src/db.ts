@@ -85,6 +85,34 @@ export async function ensureSchemaUpgrades(): Promise<void> {
       `);
     } catch {}
 
+    try {
+      await prisma.$executeRawUnsafe(`DO $$ BEGIN CREATE TYPE "CommentStatus" AS ENUM ('VISIBLE', 'HIDDEN', 'DELETED'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Comment" (
+          "id" TEXT PRIMARY KEY,
+          "titleId" TEXT NOT NULL REFERENCES "Title"("id") ON DELETE CASCADE,
+          "episodeId" TEXT,
+          "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+          "body" TEXT NOT NULL,
+          "status" "CommentStatus" NOT NULL DEFAULT 'VISIBLE',
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Comment_titleId_episodeId_createdAt_idx" ON "Comment"("titleId", "episodeId", "createdAt");
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "CommentReport" (
+          "id" TEXT PRIMARY KEY,
+          "commentId" TEXT NOT NULL REFERENCES "Comment"("id") ON DELETE CASCADE,
+          "userId" TEXT NOT NULL,
+          "reason" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "CommentReport_commentId_userId_key" UNIQUE ("commentId", "userId")
+        );
+      `);
+    } catch {}
+
     migrationDone = true;
     console.log('[Schema] Auto schema upgrades applied successfully.');
   } catch (err) {

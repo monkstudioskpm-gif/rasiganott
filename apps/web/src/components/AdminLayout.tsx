@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Grid,
+  MessageSquare,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -133,6 +134,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         },
       ],
     },
+    {
+      groupTitle: 'Community & Moderation',
+      items: [
+        {
+          label: 'Comments Moderation',
+          path: '/admin/comments',
+          icon: MessageSquare,
+        },
+      ],
+    },
   ];
 
   // Calculate Breadcrumb text
@@ -142,6 +153,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     if (location.pathname.includes('/edit')) return 'Series & Episodes / Edit Content Title';
     if (location.pathname === '/admin/people') return 'Cast & Crew / Artists Management';
     if (location.pathname === '/admin/genres') return 'Series & Episodes / Manage Series Genre';
+    if (location.pathname === '/admin/comments') return 'Community & Moderation / Comments Moderation';
     if (search.includes('tab=appearance')) return 'Appearance & Storefront / Ranking & Sections';
     if (search.includes('tab=creators')) return 'Registration Management / Creators Directory';
     if (search.includes('tab=payouts')) return 'Playout Management / Payout Statements & UTR';

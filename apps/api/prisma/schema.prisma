@@ -69,6 +69,7 @@ model User {
   fundings        Funding[]
   feedImpressions FeedImpression[]
   viewEvents      ViewEvent[]
+  comments        Comment[]
 }
 
 enum CrewRole {
@@ -203,6 +204,7 @@ model Title {
   fundings        Funding[]
   feedImpressions FeedImpression[]
   viewEvents      ViewEvent[]
+  comments        Comment[]
 
   @@index([kind, orientation, status])
 }
@@ -361,5 +363,37 @@ model FeedImpression {
   @@index([titleId, shownAt])
   @@index([userId, shownAt])
   @@index([requestId])
+}
+
+enum CommentStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+model Comment {
+  id        String        @id @default(cuid())
+  titleId   String
+  episodeId String?
+  userId    String
+  body      String        // 1-500 chars, trimmed
+  status    CommentStatus @default(VISIBLE)
+  createdAt DateTime      @default(now())
+  title     Title         @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports   CommentReport[]
+
+  @@index([titleId, episodeId, createdAt])
+}
+
+model CommentReport {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  reason    String?
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
 }
 
